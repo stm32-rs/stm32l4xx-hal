@@ -7,7 +7,7 @@ use core::marker::PhantomData;
 
 use hal::prelude::*;
 
-// use stm32l4::stm32l4x2::rcc::APB1ENR1;
+use rcc::APB2;
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {

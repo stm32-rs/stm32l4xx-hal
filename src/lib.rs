@@ -1,5 +1,4 @@
 #![no_std]
-
 #![feature(unsize)]
 #![feature(never_type)]
 
@@ -14,7 +13,7 @@ mod dma;
 // mod serial;
 mod time;
 mod rcc;
-mod gpio;
+// mod gpio;
 
 
 #[cfg(test)]

@@ -16,7 +16,7 @@ pub trait RccExt {
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
-            ahb: AHB { _0: () },
+            // ahb: AHB { _0: () },
             apb1: APB1 { _0: () },
             apb2: APB2 { _0: () },
             cfgr: CFGR {
@@ -32,7 +32,7 @@ impl RccExt for RCC {
 /// Constrained RCC peripheral
 pub struct Rcc {
     /// AMBA High-performance Bus (AHB) registers
-    pub ahb: AHB,
+    // pub ahb: AHB,
     /// Advanced Peripheral Bus 1 (APB1) registers
     pub apb1: APB1,
     /// Advanced Peripheral Bus 2 (APB2) registers
@@ -40,15 +40,27 @@ pub struct Rcc {
     pub cfgr: CFGR,
 }
 
-/// AMBA High-performance Bus (AHB) registers
-pub struct AHB {
+// AMBA High-performance Bus (AHB1) registers
+pub struct AHB1 {
     _0: (),
 }
 
-impl AHB {
-    pub(crate) fn enr(&mut self) -> &rcc::AHBENR {
+impl AHB1 {
+    pub(crate) fn enr(&mut self) -> &rcc::AHB1ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahbenr }
+        unsafe { &(*RCC::ptr()).ahb1enr }
+    }
+}
+
+// AMBA High-performance Bus (AHB2) registers
+pub struct AHB2 {
+    _0: (),
+}
+
+impl AHB2 {
+    pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb2enr }
     }
 }
 
@@ -58,14 +70,14 @@ pub struct APB1 {
 }
 
 impl APB1 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR {
+    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR1 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr }
+        unsafe { &(*RCC::ptr()).apb1enr1 }
     }
 
-    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR {
+    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR1 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr }
+        unsafe { &(*RCC::ptr()).apb1rstr1 }
     }
 }
 
@@ -207,40 +219,41 @@ impl CFGR {
         //     })
         // }
 
-        let rcc = unsafe { &*RCC::ptr() };
-        if let Some(pllmul_bits) = pllmul_bits {
-            // use PLL as source
+        // TODO FIX
+        // let rcc = unsafe { &*RCC::ptr() };
+        // if let Some(pllmul_bits) = pllmul_bits {
+        //     // use PLL as source
 
-            rcc.cfgr.write(|w| unsafe { w.pllmul().bits(pllmul_bits) });
+        //     rcc.cfgr.write(|w| unsafe { w.pllmul().bits(pllmul_bits) });
 
-            rcc.cr.write(|w| w.pllon().enabled());
+        //     rcc.cr.write(|w| w.pllon().enabled());
 
-            while rcc.cr.read().pllrdy().is_unlocked() {}
+        //     while rcc.cr.read().pllrdy().is_unlocked() {}
 
-            rcc.cfgr.modify(|_, w| unsafe {
-                w.ppre2()
-                    .bits(ppre2_bits)
-                    .ppre1()
-                    .bits(ppre1_bits)
-                    .hpre()
-                    .bits(hpre_bits)
-                    .sw()
-                    .pll()
-            });
-        } else {
-            // use HSI as source
+        //     rcc.cfgr.modify(|_, w| unsafe {
+        //         w.ppre2()
+        //             .bits(ppre2_bits)
+        //             .ppre1()
+        //             .bits(ppre1_bits)
+        //             .hpre()
+        //             .bits(hpre_bits)
+        //             .sw()
+        //             .pll()
+        //     });
+        // } else {
+        //     // use HSI as source
 
-            rcc.cfgr.write(|w| unsafe {
-                w.ppre2()
-                    .bits(ppre2_bits)
-                    .ppre1()
-                    .bits(ppre1_bits)
-                    .hpre()
-                    .bits(hpre_bits)
-                    .sw()
-                    .hsi()
-            });
-        }
+        //     rcc.cfgr.write(|w| unsafe {
+        //         w.ppre2()
+        //             .bits(ppre2_bits)
+        //             .ppre1()
+        //             .bits(ppre1_bits)
+        //             .hpre()
+        //             .bits(hpre_bits)
+        //             .sw()
+        //             .hsi()
+        //     });
+        // }
 
         Clocks {
             hclk: Hertz(hclk),
