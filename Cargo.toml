@@ -1,0 +1,13 @@
+[package]
+name = "stm32l4kc-hal"
+version = "0.1.0"
+authors = ["Scott <MabezDev@gmail.com>"]
+
+[dependencies]
+embedded-hal = "0.2.1"
+cortex-m = "0.5.2"
+nb = "0.1.1"
+
+[dependencies.stm32l4]
+version = "0.2.1"
+features = ["stm32l4x2", "rt"]
