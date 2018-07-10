@@ -250,18 +250,18 @@ impl CFGR {
             //         .pll()
             // });
         } else {
-            // use HSI as source
+            //use HSI16 as source
 
-            // rcc.cfgr.write(|w| unsafe {
-            //     w.ppre2()
-            //         .bits(ppre2_bits)
-            //         .ppre1()
-            //         .bits(ppre1_bits)
-            //         .hpre()
-            //         .bits(hpre_bits)
-            //         .sw()
-            //         .hsi()
-            // });
+            rcc.cfgr.write(|w| unsafe {
+                w.ppre2()
+                    .bits(ppre2_bits)
+                    .ppre1()
+                    .bits(ppre1_bits)
+                    .hpre()
+                    .bits(hpre_bits)
+                    .sw()
+                    .hsi()
+            });
         }
 
         Clocks {
