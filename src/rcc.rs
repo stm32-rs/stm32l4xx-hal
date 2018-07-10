@@ -229,40 +229,40 @@ impl CFGR {
         }
 
         // TODO FIX
-        // let rcc = unsafe { &*RCC::ptr() };
-        // if let Some(pllmul_bits) = pllmul_bits {
-        //     // use PLL as source
+        let rcc = unsafe { &*RCC::ptr() };
+        if let Some(pllmul_bits) = pllmul_bits {
+            // use PLL as source
 
-        //     rcc.cfgr.write(|w| unsafe { w.pllmul().bits(pllmul_bits) });
+            // rcc.cfgr.write(|w| unsafe { w.pllmul().bits(pllmul_bits) });
 
-        //     rcc.cr.write(|w| w.pllon().enabled());
+            // rcc.cr.write(|w| w.pllon().enabled());
 
-        //     while rcc.cr.read().pllrdy().is_unlocked() {}
+            // while rcc.cr.read().pllrdy().is_unlocked() {}
 
-        //     rcc.cfgr.modify(|_, w| unsafe {
-        //         w.ppre2()
-        //             .bits(ppre2_bits)
-        //             .ppre1()
-        //             .bits(ppre1_bits)
-        //             .hpre()
-        //             .bits(hpre_bits)
-        //             .sw()
-        //             .pll()
-        //     });
-        // } else {
-        //     // use HSI as source
+            // rcc.cfgr.modify(|_, w| unsafe {
+            //     w.ppre2()
+            //         .bits(ppre2_bits)
+            //         .ppre1()
+            //         .bits(ppre1_bits)
+            //         .hpre()
+            //         .bits(hpre_bits)
+            //         .sw()
+            //         .pll()
+            // });
+        } else {
+            // use HSI as source
 
-        //     rcc.cfgr.write(|w| unsafe {
-        //         w.ppre2()
-        //             .bits(ppre2_bits)
-        //             .ppre1()
-        //             .bits(ppre1_bits)
-        //             .hpre()
-        //             .bits(hpre_bits)
-        //             .sw()
-        //             .hsi()
-        //     });
-        // }
+            // rcc.cfgr.write(|w| unsafe {
+            //     w.ppre2()
+            //         .bits(ppre2_bits)
+            //         .ppre1()
+            //         .bits(ppre1_bits)
+            //         .hpre()
+            //         .bits(hpre_bits)
+            //         .sw()
+            //         .hsi()
+            // });
+        }
 
         Clocks {
             hclk: Hertz(hclk),
