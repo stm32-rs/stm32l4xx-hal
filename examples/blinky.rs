@@ -8,6 +8,7 @@
 extern crate cortex_m;
 #[macro_use]
 extern crate cortex_m_rt as rt;
+extern crate cortex_m_semihosting as sh;
 extern crate panic_semihosting;
 extern crate stm32l432xx_hal as hal;
 // #[macro_use(block)]
@@ -21,9 +22,17 @@ use hal::rcc::*;
 // use hal::timer::Timer;
 use rt::ExceptionFrame;
 
+use core::fmt::Write;
+use sh::hio;
+
 entry!(main);
 
 fn main() -> ! {
+
+    let mut hstdout = hio::hstdout().unwrap();
+
+    writeln!(hstdout, "Hello, world!").unwrap();
+
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = stm32l4x2::Peripherals::take().unwrap();
 
@@ -48,6 +57,7 @@ fn main() -> ! {
     //     block!(timer.wait()).unwrap();
     //     led.set_low();
     // }
+    writeln!(hstdout, "Good bye!").unwrap();
     loop {}
 }
 
