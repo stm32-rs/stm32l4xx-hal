@@ -233,11 +233,28 @@ impl CFGR {
         if let Some(pllmul_bits) = pllmul_bits {
             // use PLL as source
 
-            // rcc.cfgr.write(|w| unsafe { w.pllmul().bits(pllmul_bits) });
+            // rcc.pllcfgr.write(|w| unsafe { w.plln().bits(pllmul_bits) });
 
-            // rcc.cr.write(|w| w.pllon().enabled());
+            // // turn on pll
+            // rcc.cr.write(|w| { 
+            //     w.pllon();
+            // });
+            // // wait till ready
+            // while rcc.cr.read().pllrdy().bit_is_set() {}
 
-            // while rcc.cr.read().pllrdy().is_unlocked() {}
+            // /* 
+            // Bits 3:2SWS[1:0]: System clock switch status
+            // Set and cleared by hardware to indicate which clock source is used as system clock.
+            // 00: MSI oscillator used as system clock
+            // 01: HSI16 oscillator used as system clock10: HSE used as system clock
+            // 11: PLL used as system clock
+            // Bits 1:0
+            // SW[1:0]: System clock switchSet and cleared by software to select system clock source (SYSCLK).
+            // Configured by HW to force MSI oscillator selection when exiting Standby or Shutdown mode. 
+            // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in case of failure of the HSE oscillator, depending on STOPWUCK value.00: MSI selected as system clock01: HSI16 selected as system clock10: HSE selected as system clock11: PLL selected as system clock
+            //  */
+
+            // let pll_switch_bits = 0b00000011;
 
             // rcc.cfgr.modify(|_, w| unsafe {
             //     w.ppre2()
@@ -246,12 +263,15 @@ impl CFGR {
             //         .bits(ppre1_bits)
             //         .hpre()
             //         .bits(hpre_bits)
-            //         .sw()
-            //         .pll()
+            //         .sw() // finally switch to pll clock source
+            //         .bits(pll_switch_bits)
             // });
+
+            // // assert the pll bits are now set in the status register
+            // assert!(rcc.cfgr.read().sws().bits() == pll_switch_bits);
         } else {
             //use HSI16 as source
-
+            let hsi_switch_bits = 0b00000001;
             rcc.cfgr.write(|w| unsafe {
                 w.ppre2()
                     .bits(ppre2_bits)
@@ -260,8 +280,10 @@ impl CFGR {
                     .hpre()
                     .bits(hpre_bits)
                     .sw()
-                    .hsi()
+                    .bits(hsi_switch_bits)
             });
+
+            assert!(rcc.cfgr.read().sws().bits() == hsi_switch_bits);
         }
 
         Clocks {
