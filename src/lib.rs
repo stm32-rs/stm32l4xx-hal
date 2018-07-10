@@ -9,11 +9,12 @@ extern crate nb;
 pub extern crate stm32l4;
 
 
-mod dma;
+pub mod dma;
 // mod serial;
-mod time;
-mod rcc;
-// mod gpio;
+pub mod time;
+pub mod rcc;
+pub mod flash;
+// pub mod gpio;
 
 
 #[cfg(test)]

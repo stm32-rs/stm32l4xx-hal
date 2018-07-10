@@ -7,7 +7,7 @@ use core::marker::PhantomData;
 
 use hal::prelude::*;
 
-use rcc::APB2;
+use rcc::AHB2;
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
@@ -15,7 +15,7 @@ pub trait GpioExt {
     type Parts;
 
     /// Splits the GPIO block into independent pins and registers
-    fn split(self, apb2: &mut APB2) -> Self::Parts;
+    fn split(self, apb2: &mut AHB2) -> Self::Parts;
 }
 
 /// Input mode (type state)
@@ -56,7 +56,7 @@ macro_rules! gpio {
             use hal::digital::{InputPin, OutputPin, StatefulOutputPin, toggleable};
             use stm32l4::stm32l4x2::{$gpioy, $GPIOX};
 
-            use rcc::APB2;
+            use rcc::AHB2;
             use super::{
                 Alternate, Floating, GpioExt, Input,
                 // OpenDrain,
@@ -80,10 +80,10 @@ macro_rules! gpio {
             impl GpioExt for $GPIOX {
                 type Parts = Parts;
 
-                fn split(self, apb2: &mut APB2) -> Parts {
-                    apb2.enr().modify(|_, w| w.$iopxenr().enabled());
-                    apb2.rstr().modify(|_, w| w.$iopxrst().set_bit());
-                    apb2.rstr().modify(|_, w| w.$iopxrst().clear_bit());
+                fn split(self, ahb2: &mut AHB2) -> Parts {
+                    ahb2.enr().modify(|_, w| w.$iopxenr().enabled());
+                    ahb2.rstr().modify(|_, w| w.$iopxrst().set_bit());
+                    ahb2.rstr().modify(|_, w| w.$iopxrst().clear_bit());
 
                     Parts {
                         crl: CRL { _0: () },
@@ -94,30 +94,30 @@ macro_rules! gpio {
                     }
                 }
             }
-
+            // NOT PRESENT ON CHIP
             /// Opaque CRL register
-            pub struct CRL {
-                _0: (),
-            }
+            // pub struct CRL {
+            //     _0: (),
+            // }
 
-            impl CRL {
-                // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
-                #[allow(dead_code)]
-                pub(crate) fn cr(&mut self) -> &$gpioy::CRL {
-                    unsafe { &(*$GPIOX::ptr()).crl }
-                }
-            }
+            // impl CRL {
+            //     // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
+            //     #[allow(dead_code)]
+            //     pub(crate) fn cr(&mut self) -> &$gpioy::CRL {
+            //         unsafe { &(*$GPIOX::ptr()).crl }
+            //     }
+            // }
 
-            /// Opaque CRH register
-            pub struct CRH {
-                _0: (),
-            }
+            // /// Opaque CRH register
+            // pub struct CRH {
+            //     _0: (),
+            // }
 
-            impl CRH {
-                pub(crate) fn cr(&mut self) -> &$gpioy::CRH {
-                    unsafe { &(*$GPIOX::ptr()).crh }
-                }
-            }
+            // impl CRH {
+            //     pub(crate) fn cr(&mut self) -> &$gpioy::CRH {
+            //         unsafe { &(*$GPIOX::ptr()).crh }
+            //     }
+            // }
 
             /// Partially erased pin
             pub struct $PXx<MODE> {

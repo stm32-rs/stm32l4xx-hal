@@ -3,8 +3,7 @@ use core::cmp;
 use cast::u32;
 use stm32l4::stm32l4x2::{rcc, RCC};
 
-// TODO flash
-// use flash::ACR;
+use flash::ACR;
 use time::Hertz;
 
 /// Extension trait that constrains the `RCC` peripheral
@@ -50,6 +49,11 @@ impl AHB1 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb1enr }
     }
+
+    pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb1rstr }
+    }
 }
 
 // AMBA High-performance Bus (AHB2) registers
@@ -61,6 +65,11 @@ impl AHB2 {
     pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb2enr }
+    }
+
+    pub(crate) fn rstr(&mut self) -> &rcc::AHB2RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb2rstr }
     }
 }
 
@@ -139,8 +148,8 @@ impl CFGR {
         self.sysclk = Some(freq.into().0);
         self
     }
-    // , acr: &mut ACR // TODO FLASH
-    pub fn freeze(self) -> Clocks {
+
+    pub fn freeze(self, acr: &mut ACR) -> Clocks {
         // TODO ADC & USB clocks
 
         let pllmul = (4 * self.sysclk.unwrap_or(HSI) + HSI) / HSI / 2;
@@ -206,18 +215,18 @@ impl CFGR {
 
         assert!(pclk2 < 72_000_000);
 
-        // adjust flash wait states //TODO FLASH
-        // unsafe {
-        //     acr.acr().write(|w| {
-        //         w.latency().bits(if sysclk <= 24_000_000 {
-        //             0b000
-        //         } else if sysclk <= 48_000_000 {
-        //             0b001
-        //         } else {
-        //             0b010
-        //         })
-        //     })
-        // }
+        // adjust flash wait states
+        unsafe {
+            acr.acr().write(|w| {
+                w.latency().bits(if sysclk <= 24_000_000 {
+                    0b000
+                } else if sysclk <= 48_000_000 {
+                    0b001
+                } else {
+                    0b010
+                })
+            })
+        }
 
         // TODO FIX
         // let rcc = unsafe { &*RCC::ptr() };
