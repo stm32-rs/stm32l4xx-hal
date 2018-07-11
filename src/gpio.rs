@@ -55,6 +55,7 @@ macro_rules! gpio {
 
             use hal::digital::{InputPin, OutputPin, StatefulOutputPin, toggleable};
             use stm32l4::stm32l4x2::{$gpioy, $GPIOX};
+            // use stm32l4::stm32l4x2::{gpioa, GPIOA};
 
             use rcc::AHB2;
             use super::{
@@ -68,6 +69,7 @@ macro_rules! gpio {
             /// GPIO parts
             pub struct Parts {
                 /// Opaque CRL register
+                /// TODO AFRL & AFRH ??? - mod.rs:100497
                 pub crl: CRL,
                 /// Opaque CRH register
                 pub crh: CRH,
@@ -95,29 +97,30 @@ macro_rules! gpio {
                 }
             }
             // NOT PRESENT ON CHIP
-            /// Opaque CRL register
-            // pub struct CRL {
-            //     _0: (),
-            // }
+            // Opaque CRL register
+            pub struct CRL {
+                _0: (),
+            }
 
-            // impl CRL {
-            //     // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
-            //     #[allow(dead_code)]
-            //     pub(crate) fn cr(&mut self) -> &$gpioy::CRL {
-            //         unsafe { &(*$GPIOX::ptr()).crl }
-            //     }
-            // }
+            impl CRL {
+                // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
+                #[allow(dead_code)]
+                pub(crate) fn cr(&mut self) -> &$gpioy::CRL {
+                    unsafe { &(*$GPIOX::ptr()).crl }
+                    // lckr??
+                }
+            }
 
-            // /// Opaque CRH register
-            // pub struct CRH {
-            //     _0: (),
-            // }
+            /// Opaque CRH register
+            pub struct CRH {
+                _0: (),
+            }
 
-            // impl CRH {
-            //     pub(crate) fn cr(&mut self) -> &$gpioy::CRH {
-            //         unsafe { &(*$GPIOX::ptr()).crh }
-            //     }
-            // }
+            impl CRH {
+                pub(crate) fn cr(&mut self) -> &$gpioy::CRH {
+                    unsafe { &(*$GPIOX::ptr()).crh }
+                }
+            }
 
             /// Partially erased pin
             pub struct $PXx<MODE> {
