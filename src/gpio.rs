@@ -55,9 +55,9 @@ macro_rules! gpio {
 
             use hal::digital::{InputPin, OutputPin, StatefulOutputPin, toggleable};
             use stm32l4::stm32l4x2::{$gpioy, $GPIOX};
-            // use stm32l4::stm32l4x2::{gpioa, GPIOA};
 
             use rcc::AHB2;
+
             use super::{
                 Alternate, Floating, GpioExt, Input,
                 // OpenDrain,
@@ -68,10 +68,9 @@ macro_rules! gpio {
 
             /// GPIO parts
             pub struct Parts {
-                /// Opaque CRL register
-                /// TODO AFRL & AFRH ??? - mod.rs:100497
+                /// Opaque AFRL register
                 pub afrl: AFRL,
-                /// Opaque CRH register
+                /// Opaque AFRH register
                 pub afrh: AFRH,
                 $(
                     /// Pin
@@ -96,7 +95,7 @@ macro_rules! gpio {
                     }
                 }
             }
-            // NOT PRESENT ON CHIP
+            
             // Opaque CRL register
             pub struct AFRL {
                 _0: (),

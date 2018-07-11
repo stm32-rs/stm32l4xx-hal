@@ -34,9 +34,9 @@ impl RccExt for RCC {
 pub struct Rcc {
     /// AMBA High-performance Bus (AHB1) registers
     pub ahb1: AHB1,
-    /// AMBA High-performance Bus (AHB1) registers
+    /// AMBA High-performance Bus (AHB2) registers
     pub ahb2: AHB2,
-    /// AMBA High-performance Bus (AHB1) registers
+    /// AMBA High-performance Bus (AHB3) registers
     pub ahb3: AHB3,
     /// Advanced Peripheral Bus 1 (APB1) registers
     pub apb1: APB1,
