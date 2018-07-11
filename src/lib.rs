@@ -1,5 +1,6 @@
 #![no_std]
 
+// currently these are the only 2 unstable features, never_typoe can replaced with void, nto sure what unsize can be repalced with
 #![feature(unsize)]
 #![feature(never_type)]
 
@@ -10,11 +11,13 @@ extern crate nb;
 pub extern crate stm32l4;
 
 
-mod dma;
+pub mod dma;
+pub mod prelude;
 // mod serial;
-mod time;
-mod rcc;
-mod gpio;
+pub mod time;
+pub mod rcc;
+pub mod flash;
+// pub mod gpio;
 
 
 #[cfg(test)]
