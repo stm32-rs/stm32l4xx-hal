@@ -283,7 +283,7 @@ impl CFGR {
                     .bits(hsi_switch_bits)
             });
 
-            assert!(rcc.cfgr.read().sws().bits() == hsi_switch_bits);
+            // assert!(rcc.cfgr.read().sws().bits() == hsi_switch_bits);
         }
 
         Clocks {

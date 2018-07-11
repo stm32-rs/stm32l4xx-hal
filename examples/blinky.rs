@@ -14,11 +14,9 @@ extern crate stm32l432xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-// use hal::prelude::*;
+use hal::prelude::*;
 use hal::stm32l4::stm32l4x2;
-// TODO crate prelude that pull in all traits from our HAL
-use hal::flash::*;
-use hal::rcc::*;
+
 // use hal::timer::Timer;
 use rt::ExceptionFrame;
 

@@ -17,5 +17,7 @@ monitor arm semihosting enable
 # # enable ITM port 0
 # monitor itm port 0 on
 
+file ./target/thumbv7em-none-eabi/debug/examples/blinky
+
 load
 step

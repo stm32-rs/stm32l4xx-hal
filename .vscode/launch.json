@@ -1,0 +1,16 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "gdb",
+            "request": "launch",
+            "name": "STM32F1",
+            "gdbpath" : "/home/mabez/programs/gcc-arm-none-eabi-5_4-2016q3/bin/arm-none-eabi-gdb",
+            "target": "./target/thumbv7em-none-eabi/debug/examples/blinky",
+            "cwd": "${workspaceRoot}",
+        },
+    ]
+}

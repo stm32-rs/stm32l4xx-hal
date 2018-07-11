@@ -12,6 +12,7 @@ pub extern crate stm32l4;
 
 
 pub mod dma;
+pub mod prelude;
 // mod serial;
 pub mod time;
 pub mod rcc;
