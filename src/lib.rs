@@ -17,7 +17,7 @@ pub mod prelude;
 pub mod time;
 pub mod rcc;
 pub mod flash;
-pub mod gpio;
+// pub mod gpio;
 
 
 #[cfg(test)]
