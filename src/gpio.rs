@@ -70,9 +70,9 @@ macro_rules! gpio {
             pub struct Parts {
                 /// Opaque CRL register
                 /// TODO AFRL & AFRH ??? - mod.rs:100497
-                pub crl: CRL,
+                pub afrl: AFRL,
                 /// Opaque CRH register
-                pub crh: CRH,
+                pub afrh: AFRH,
                 $(
                     /// Pin
                     pub $pxi: $PXi<$MODE>,
@@ -83,13 +83,13 @@ macro_rules! gpio {
                 type Parts = Parts;
 
                 fn split(self, ahb2: &mut AHB2) -> Parts {
-                    ahb2.enr().modify(|_, w| w.$iopxenr().enabled());
+                    ahb2.enr().modify(|_, w| w.$iopxenr().set_bit());
                     ahb2.rstr().modify(|_, w| w.$iopxrst().set_bit());
                     ahb2.rstr().modify(|_, w| w.$iopxrst().clear_bit());
 
                     Parts {
-                        crl: CRL { _0: () },
-                        crh: CRH { _0: () },
+                        afrl: AFRL { _0: () },
+                        afrh: AFRH { _0: () },
                         $(
                             $pxi: $PXi { _mode: PhantomData },
                         )+
@@ -98,27 +98,26 @@ macro_rules! gpio {
             }
             // NOT PRESENT ON CHIP
             // Opaque CRL register
-            pub struct CRL {
+            pub struct AFRL {
                 _0: (),
             }
 
-            impl CRL {
+            impl AFRL {
                 // NOTE(allow) we get a warning on GPIOC because it only has 3 high pins
                 #[allow(dead_code)]
-                pub(crate) fn cr(&mut self) -> &$gpioy::CRL {
-                    unsafe { &(*$GPIOX::ptr()).crl }
-                    // lckr??
+                pub(crate) fn cr(&mut self) -> &$gpioy::AFRL {
+                    unsafe { &(*$GPIOX::ptr()).afrl }
                 }
             }
 
             /// Opaque CRH register
-            pub struct CRH {
+            pub struct AFRH {
                 _0: (),
             }
 
-            impl CRH {
-                pub(crate) fn cr(&mut self) -> &$gpioy::CRH {
-                    unsafe { &(*$GPIOX::ptr()).crh }
+            impl AFRH {
+                pub(crate) fn cr(&mut self) -> &$gpioy::AFRH {
+                    unsafe { &(*$GPIOX::ptr()).afrh }
                 }
             }
 
@@ -343,46 +342,46 @@ macro_rules! gpio {
     }
 }
 
-gpio!(GPIOA, gpioa, gpioa, iopaen, ioparst, PAx, [
-    PA0: (pa0, 0, Input<Floating>, CRL),
-    PA1: (pa1, 1, Input<Floating>, CRL),
-    PA2: (pa2, 2, Input<Floating>, CRL),
-    PA3: (pa3, 3, Input<Floating>, CRL),
-    PA4: (pa4, 4, Input<Floating>, CRL),
-    PA5: (pa5, 5, Input<Floating>, CRL),
-    PA6: (pa6, 6, Input<Floating>, CRL),
-    PA7: (pa7, 7, Input<Floating>, CRL),
-    PA8: (pa8, 8, Input<Floating>, CRH),
-    PA9: (pa9, 9, Input<Floating>, CRH),
-    PA10: (pa10, 10, Input<Floating>, CRH),
-    PA11: (pa11, 11, Input<Floating>, CRH),
-    PA12: (pa12, 12, Input<Floating>, CRH),
-    PA13: (pa13, 13, Input<Floating>, CRH),
-    PA14: (pa14, 14, Input<Floating>, CRH),
-    PA15: (pa15, 15, Input<Floating>, CRH),
+gpio!(GPIOA, gpioa, gpioa, gpioaen, gpioarst, PAx, [
+    PA0: (pa0, 0, Input<Floating>, AFRL),
+    PA1: (pa1, 1, Input<Floating>, AFRL),
+    PA2: (pa2, 2, Input<Floating>, AFRL),
+    PA3: (pa3, 3, Input<Floating>, AFRL),
+    PA4: (pa4, 4, Input<Floating>, AFRL),
+    PA5: (pa5, 5, Input<Floating>, AFRL),
+    PA6: (pa6, 6, Input<Floating>, AFRL),
+    PA7: (pa7, 7, Input<Floating>, AFRL),
+    PA8: (pa8, 8, Input<Floating>, AFRH),
+    PA9: (pa9, 9, Input<Floating>, AFRH),
+    PA10: (pa10, 10, Input<Floating>, AFRH),
+    PA11: (pa11, 11, Input<Floating>, AFRH),
+    PA12: (pa12, 12, Input<Floating>, AFRH),
+    PA13: (pa13, 13, Input<Floating>, AFRH),
+    PA14: (pa14, 14, Input<Floating>, AFRH),
+    PA15: (pa15, 15, Input<Floating>, AFRH),
 ]);
 
-gpio!(GPIOB, gpiob, gpioa, iopben, iopbrst, PBx, [
-    PB0: (pb0, 0, Input<Floating>, CRL),
-    PB1: (pb1, 1, Input<Floating>, CRL),
-    PB2: (pb2, 2, Input<Floating>, CRL),
-    PB3: (pb3, 3, Input<Floating>, CRL),
-    PB4: (pb4, 4, Input<Floating>, CRL),
-    PB5: (pb5, 5, Input<Floating>, CRL),
-    PB6: (pb6, 6, Input<Floating>, CRL),
-    PB7: (pb7, 7, Input<Floating>, CRL),
-    PB8: (pb8, 8, Input<Floating>, CRH),
-    PB9: (pb9, 9, Input<Floating>, CRH),
-    PB10: (pb10, 10, Input<Floating>, CRH),
-    PB11: (pb11, 11, Input<Floating>, CRH),
-    PB12: (pb12, 12, Input<Floating>, CRH),
-    PB13: (pb13, 13, Input<Floating>, CRH),
-    PB14: (pb14, 14, Input<Floating>, CRH),
-    PB15: (pb15, 15, Input<Floating>, CRH),
+gpio!(GPIOB, gpiob, gpiob, gpioben, gpiobrst, PBx, [
+    PB0: (pb0, 0, Input<Floating>, AFRL),
+    PB1: (pb1, 1, Input<Floating>, AFRL),
+    PB2: (pb2, 2, Input<Floating>, AFRL),
+    PB3: (pb3, 3, Input<Floating>, AFRL),
+    PB4: (pb4, 4, Input<Floating>, AFRL),
+    PB5: (pb5, 5, Input<Floating>, AFRL),
+    PB6: (pb6, 6, Input<Floating>, AFRL),
+    PB7: (pb7, 7, Input<Floating>, AFRL),
+    PB8: (pb8, 8, Input<Floating>, AFRH),
+    PB9: (pb9, 9, Input<Floating>, AFRH),
+    PB10: (pb10, 10, Input<Floating>, AFRH),
+    PB11: (pb11, 11, Input<Floating>, AFRH),
+    PB12: (pb12, 12, Input<Floating>, AFRH),
+    PB13: (pb13, 13, Input<Floating>, AFRH),
+    PB14: (pb14, 14, Input<Floating>, AFRH),
+    PB15: (pb15, 15, Input<Floating>, AFRH),
 ]);
 
-gpio!(GPIOC, gpioc, gpioa, iopcen, iopcrst, PCx, [
-    PC13: (pc13, 13, Input<Floating>, CRH),
-    PC14: (pc14, 14, Input<Floating>, CRH),
-    PC15: (pc15, 15, Input<Floating>, CRH),
+gpio!(GPIOC, gpioc, gpioc, gpiocen, gpiocrst, PCx, [
+    PC13: (pc13, 13, Input<Floating>, AFRH),
+    PC14: (pc14, 14, Input<Floating>, AFRH),
+    PC15: (pc15, 15, Input<Floating>, AFRH),
 ]);

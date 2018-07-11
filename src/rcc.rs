@@ -297,12 +297,12 @@ impl CFGR {
             let hsi_switch_bits = 0b00000001;
 
             // turn on hsi
-            rcc.cr.write(|w| { 
-                w.hsion().set_bit()
-            });
+            // rcc.cr.write(|w| { 
+            //     w.hsion().set_bit()
+            // });
 
-            // wait till ready
-            while rcc.cr.read().hsirdy().bit_is_set() {}
+            // // wait till ready
+            // while rcc.cr.read().hsirdy().bit_is_set() {}
 
             rcc.cfgr.write(|w| unsafe {
                 w.ppre2()
@@ -315,7 +315,7 @@ impl CFGR {
                     .bits(hsi_switch_bits)
             });
 
-            assert!(rcc.cfgr.read().sws().bits() == hsi_switch_bits);
+            // assert!(rcc.cfgr.read().sws().bits() == hsi_switch_bits);
         }
 
         Clocks {
