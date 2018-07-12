@@ -9,11 +9,12 @@ extern crate cast;
 extern crate embedded_hal as hal;
 extern crate nb;
 pub extern crate stm32l4;
+extern crate void;
 
 
 pub mod dma;
 pub mod prelude;
-// mod serial;
+pub mod serial;
 pub mod time;
 pub mod rcc;
 pub mod flash;
