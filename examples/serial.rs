@@ -30,8 +30,8 @@ fn main() -> ! {
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
-    // let mut gpioa = p.GPIOA.split(&mut rcc.ahb);
-    let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
+    let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
+    // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
@@ -40,15 +40,15 @@ fn main() -> ! {
 
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
-    // let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
+    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
-    // let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
+    // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart1(p.USART1, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb2);
-    let (mut tx, mut _rx) = serial.split();
+    let (mut tx, mut rx) = serial.split();
 
     let sent = b'X';
 
@@ -56,9 +56,9 @@ fn main() -> ! {
     // NOTE the error type is `!`
     block!(tx.write(sent)).ok();
 
-    // let received = block!(rx.read()).unwrap();
+    let received = block!(rx.read()).unwrap();
 
-    // assert_eq!(received, sent);
+    assert_eq!(received, sent);
 
     // if all goes well you should reach this breakpoint
     asm::bkpt();

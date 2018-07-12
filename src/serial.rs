@@ -11,7 +11,7 @@ use void::Void;
 use gpio::gpioa::{PA10, PA2, PA3, PA9};
 use gpio::gpiob::{PB6, PB7};
 use gpio::AF7;
-use rcc::{APB1, APB2, Clocks};
+use rcc::{APB1R1, APB2, Clocks};
 use time::Bps;
 
 /// Interrupt event
@@ -221,5 +221,5 @@ macro_rules! hal {
 
 hal! {
     USART1: (usart1, APB2, usart1en, usart1rst, pclk2),
-    USART2: (usart2, APB1, usart2en, usart2rst, pclk1),
+    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1),
 }
