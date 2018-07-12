@@ -48,7 +48,7 @@ fn main() -> ! {
     // let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.afrh);
 
     let mut gpiob = dp.GPIOB.split(&mut rcc.ahb2);
-    let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.afrl);
+    let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
     led.set_high();
 
     // // Try a different timer (even SYST)

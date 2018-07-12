@@ -185,7 +185,7 @@ impl CFGR {
 
         let sysclk = pllmul * HSI / 2;
 
-        assert!(sysclk < 72_000_000);
+        assert!(sysclk < 80_000_000);
 
         let hpre_bits = self.hclk
             .map(|hclk| match sysclk / hclk {
@@ -204,7 +204,7 @@ impl CFGR {
 
         let hclk = sysclk / (1 << (hpre_bits - 0b0111));
 
-        assert!(hclk < 72_000_000);
+        assert!(hclk < 80_000_000);
 
         let ppre1_bits = self.pclk1
             .map(|pclk1| match hclk / pclk1 {
