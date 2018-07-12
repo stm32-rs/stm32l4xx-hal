@@ -46,32 +46,15 @@ pub unsafe trait RxPin<USART> {}
 
 unsafe impl TxPin<USART1> for PA9<AF7> {}
 unsafe impl TxPin<USART1> for PB6<AF7> {}
-unsafe impl TxPin<USART1> for PC4<AF7> {}
-unsafe impl TxPin<USART1> for PE0<AF7> {}
 
 unsafe impl RxPin<USART1> for PA10<AF7> {}
 unsafe impl RxPin<USART1> for PB7<AF7> {}
-unsafe impl RxPin<USART1> for PC5<AF7> {}
-unsafe impl RxPin<USART1> for PE1<AF7> {}
+
 
 unsafe impl TxPin<USART2> for PA2<AF7> {}
-// unsafe impl TxPin<USART2> for PA14<AF7> {}
-// unsafe impl TxPin<USART2> for PB3<AF7> {}
-unsafe impl TxPin<USART2> for PD5<AF7> {}
 
 unsafe impl RxPin<USART2> for PA3<AF7> {}
-// unsafe impl RxPin<USART2> for PA15<AF7> {}
-// unsafe impl RxPin<USART2> for PB4<AF7> {}
-unsafe impl RxPin<USART2> for PD6<AF7> {}
 
-unsafe impl TxPin<USART3> for PB10<AF7> {}
-unsafe impl TxPin<USART3> for PC10<AF7> {}
-unsafe impl TxPin<USART3> for PD8<AF7> {}
-
-unsafe impl RxPin<USART3> for PB11<AF7> {}
-unsafe impl RxPin<USART3> for PC11<AF7> {}
-unsafe impl RxPin<USART3> for PD9<AF7> {}
-unsafe impl RxPin<USART3> for PE15<AF7> {}
 
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
@@ -239,5 +222,4 @@ macro_rules! hal {
 hal! {
     USART1: (usart1, APB2, usart1en, usart1rst, pclk2),
     USART2: (usart2, APB1, usart2en, usart2rst, pclk1),
-    // USART3: (usart3, APB1, usart3en, usart3rst, pclk1),
 }
