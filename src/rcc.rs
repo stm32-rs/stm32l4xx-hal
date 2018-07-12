@@ -15,7 +15,9 @@ pub trait RccExt {
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
-            // ahb: AHB { _0: () },
+            ahb1: AHB1 { _0: () },
+            ahb2: AHB2 { _0: () },
+            ahb3: AHB3 { _0: () },
             apb1: APB1 { _0: () },
             apb2: APB2 { _0: () },
             cfgr: CFGR {
@@ -30,8 +32,12 @@ impl RccExt for RCC {
 
 /// Constrained RCC peripheral
 pub struct Rcc {
-    /// AMBA High-performance Bus (AHB) registers
-    // pub ahb: AHB,
+    /// AMBA High-performance Bus (AHB1) registers
+    pub ahb1: AHB1,
+    /// AMBA High-performance Bus (AHB2) registers
+    pub ahb2: AHB2,
+    /// AMBA High-performance Bus (AHB3) registers
+    pub ahb3: AHB3,
     /// Advanced Peripheral Bus 1 (APB1) registers
     pub apb1: APB1,
     /// Advanced Peripheral Bus 2 (APB2) registers
@@ -70,6 +76,23 @@ impl AHB2 {
     pub(crate) fn rstr(&mut self) -> &rcc::AHB2RSTR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb2rstr }
+    }
+}
+
+// AMBA High-performance Bus (AHB3) registers
+pub struct AHB3 {
+    _0: (),
+}
+
+impl AHB3 {
+    pub(crate) fn enr(&mut self) -> &rcc::AHB3ENR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb3enr }
+    }
+
+    pub(crate) fn rstr(&mut self) -> &rcc::AHB3RSTR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ahb3rstr }
     }
 }
 
@@ -162,7 +185,7 @@ impl CFGR {
 
         let sysclk = pllmul * HSI / 2;
 
-        assert!(sysclk < 72_000_000);
+        assert!(sysclk < 80_000_000);
 
         let hpre_bits = self.hclk
             .map(|hclk| match sysclk / hclk {
@@ -181,7 +204,7 @@ impl CFGR {
 
         let hclk = sysclk / (1 << (hpre_bits - 0b0111));
 
-        assert!(hclk < 72_000_000);
+        assert!(hclk < 80_000_000);
 
         let ppre1_bits = self.pclk1
             .map(|pclk1| match hclk / pclk1 {
@@ -237,7 +260,7 @@ impl CFGR {
 
             // // turn on pll
             // rcc.cr.write(|w| { 
-            //     w.pllon();
+            //     w.pllon().set_bit()
             // });
             // // wait till ready
             // while rcc.cr.read().pllrdy().bit_is_set() {}
@@ -272,6 +295,15 @@ impl CFGR {
         } else {
             //use HSI16 as source
             let hsi_switch_bits = 0b00000001;
+
+            // turn on hsi
+            // rcc.cr.write(|w| { 
+            //     w.hsion().set_bit()
+            // });
+
+            // // wait till ready
+            // while rcc.cr.read().hsirdy().bit_is_set() {}
+
             rcc.cfgr.write(|w| unsafe {
                 w.ppre2()
                     .bits(ppre2_bits)

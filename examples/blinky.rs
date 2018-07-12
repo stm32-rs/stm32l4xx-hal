@@ -44,9 +44,13 @@ fn main() -> ! {
     //     .pclk1(32.mhz())
     //     .freeze(&mut flash.acr);
 
-    // let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
+    // let mut gpioc = dp.GPIOC.split(&mut rcc.ahb2);
+    // let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.afrh);
 
-    // let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+    let mut gpiob = dp.GPIOB.split(&mut rcc.ahb2);
+    let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+    led.set_high();
+
     // // Try a different timer (even SYST)
     // let mut timer = Timer::syst(cp.SYST, 1.hz(), clocks);
     // loop {
