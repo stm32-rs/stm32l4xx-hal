@@ -48,20 +48,18 @@ fn main() -> ! {
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart1(p.USART1, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb2);
-    let (mut tx, mut _rx) = serial.split();
+    let (mut tx, mut rx) = serial.split();
 
     let sent = b'X';
 
     // The `block!` macro makes an operation block until it finishes
     // NOTE the error type is `!`
 
-    for _ in 0..5 {
-        block!(tx.write(sent)).ok();
-    }
+    block!(tx.write(sent)).ok();
     
-    // let received = block!(rx.read()).unwrap();
+    let received = block!(rx.read()).unwrap();
 
-    // assert_eq!(received, sent);
+    assert_eq!(received, sent);
 
     // if all goes well you should reach this breakpoint
     asm::bkpt();
