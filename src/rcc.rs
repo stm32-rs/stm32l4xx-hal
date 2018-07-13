@@ -278,9 +278,10 @@ impl CFGR {
         }
 
         let rcc = unsafe { &*RCC::ptr() };
+        let sysclk_src_bits;
         if let Some(pllmul_bits) = pllmul_bits {
             // use PLL as source
-
+            sysclk_src_bits = 0b11;
             // rcc.cfgr.write(|w| unsafe { w.plln().bits(pllmul_bits) });
             rcc.pllcfgr.write(|w| unsafe { 
                 w.plln().bits(pllmul_bits)
@@ -300,11 +301,11 @@ impl CFGR {
                     .hpre()
                     .bits(hpre_bits)
                     .sw()
-                    .bits(0b10)
+                    .bits(sysclk_src_bits)
             });
         } else {
             // use HSI as source
-
+            sysclk_src_bits = 0b01;
             // SW: HSI selected as system clock
             rcc.cfgr.write(|w| unsafe {
                 w.ppre2()
@@ -314,9 +315,12 @@ impl CFGR {
                     .hpre()
                     .bits(hpre_bits)
                     .sw()
-                    .bits(0b00)
+                    .bits(sysclk_src_bits)
             });
         }
+
+        // let sysclk_src_sts = rcc.cfgr.read().sws().bits();
+        // assert_eq!(sysclk_src_sts, sysclk_src_bits);
 
         Clocks {
             hclk: Hertz(hclk),
