@@ -209,14 +209,14 @@ impl CFGR {
             Some(pllmul as u8 - 2)
         };
 
-        let sysclk = pllmul * HSI / 2;
+        let sysclk = pllmul * HSI;
 
         assert!(sysclk <= 72_000_000);
 
         let hpre_bits = self.hclk
             .map(|hclk| match sysclk / hclk {
                 0 => unreachable!(),
-                1 => 0b0111,
+                1 => 0b0000,
                 2 => 0b1000,
                 3...5 => 0b1001,
                 6...11 => 0b1010,
@@ -226,40 +226,54 @@ impl CFGR {
                 192...383 => 0b1110,
                 _ => 0b1111,
             })
-            .unwrap_or(0b0111);
+            .unwrap_or(0b0000);
 
-        let hclk = sysclk / (1 << (hpre_bits - 0b0111));
+        let hclk = sysclk / (1 << (hpre_bits));
 
         assert!(hclk <= 72_000_000);
 
         let ppre1_bits = self.pclk1
             .map(|pclk1| match hclk / pclk1 {
                 0 => unreachable!(),
-                1 => 0b011,
+                1 => 0b000,
                 2 => 0b100,
                 3...5 => 0b101,
                 6...11 => 0b110,
                 _ => 0b111,
             })
-            .unwrap_or(0b011);
+            .unwrap_or(0b000);
 
-        let ppre1 = 1 << (ppre1_bits - 0b011);
+        let ppre1 = 1 << (ppre1_bits);
         let pclk1 = hclk / u32(ppre1);
 
         assert!(pclk1 <= 36_000_000);
 
+        // let ppre2_bits = self.pclk2
+        //     .map(|pclk2| match hclk / pclk2 {
+        //         0 => unreachable!(),
+        //         1 => 0b011,
+        //         2 => 0b100,
+        //         3...5 => 0b101,
+        //         6...11 => 0b110,
+        //         _ => 0b111,
+        //     })
+        //     .unwrap_or(0b011);
+
+        // let ppre2 = 1 << (ppre2_bits - 0b011);
+        // let pclk2 = hclk / u32(ppre2);
+
         let ppre2_bits = self.pclk2
             .map(|pclk2| match hclk / pclk2 {
                 0 => unreachable!(),
-                1 => 0b011,
+                1 => 0b000,
                 2 => 0b100,
                 3...5 => 0b101,
                 6...11 => 0b110,
                 _ => 0b111,
             })
-            .unwrap_or(0b011);
+            .unwrap_or(0b000);
 
-        let ppre2 = 1 << (ppre2_bits - 0b011);
+        let ppre2 = 1 << (ppre2_bits);
         let pclk2 = hclk / u32(ppre2);
 
         assert!(pclk2 <= 72_000_000);
@@ -306,6 +320,10 @@ impl CFGR {
         } else {
             // use HSI as source
             sysclk_src_bits = 0b01;
+
+            rcc.cr.write(|w| w.hsion().set_bit());
+            while rcc.cr.read().hsirdy().bit_is_clear() {}
+
             // SW: HSI selected as system clock
             rcc.cfgr.write(|w| unsafe {
                 w.ppre2()
@@ -318,6 +336,8 @@ impl CFGR {
                     .bits(sysclk_src_bits)
             });
         }
+
+        while rcc.cfgr.read().sws().bits() != sysclk_src_bits {}
 
         // let sysclk_src_sts = rcc.cfgr.read().sws().bits();
         // assert_eq!(sysclk_src_sts, sysclk_src_bits);
