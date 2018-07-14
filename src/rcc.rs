@@ -56,11 +56,14 @@ pub struct AHB1 {
 }
 
 impl AHB1 {
+    // TODO remove `allow`
+    #[allow(dead_code)]
     pub(crate) fn enr(&mut self) -> &rcc::AHB1ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb1enr }
     }
-
+    // TODO remove `allow`
+    #[allow(dead_code)]
     pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb1rstr }
@@ -90,11 +93,14 @@ pub struct AHB3 {
 }
 
 impl AHB3 {
+    // TODO remove `allow`
+    #[allow(dead_code)]
     pub(crate) fn enr(&mut self) -> &rcc::AHB3ENR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb3enr }
     }
-
+    // TODO remove `allow`
+    #[allow(dead_code)]
     pub(crate) fn rstr(&mut self) -> &rcc::AHB3RSTR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb3rstr }
@@ -124,11 +130,14 @@ pub struct APB1R2 {
 }
 
 impl APB1R2 {
+    // TODO remove `allow`
+    #[allow(dead_code)]
     pub(crate) fn enr(&mut self) -> &rcc::APB1ENR2 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb1enr2 }
     }
-
+    // TODO remove `allow`
+    #[allow(dead_code)]
     pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR2 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb1rstr2 }
@@ -361,9 +370,9 @@ pub struct Clocks {
     hclk: Hertz,
     pclk1: Hertz,
     pclk2: Hertz,
-    ppre1: u8,
     // TODO remove `allow`
     #[allow(dead_code)]
+    ppre1: u8,
     ppre2: u8,
     sysclk: Hertz,
 }
@@ -384,10 +393,11 @@ impl Clocks {
         self.pclk2
     }
 
+    // TODO remove `allow`
+    #[allow(dead_code)]
     pub(crate) fn ppre1(&self) -> u8 {
         self.ppre1
     }
-
     // TODO remove `allow`
     #[allow(dead_code)]
     pub(crate) fn ppre2(&self) -> u8 {
