@@ -162,6 +162,8 @@ macro_rules! gpio {
             }
 
             impl AFRH {
+                // TODO remove `allow`
+                #[allow(dead_code)]
                 pub(crate) fn afr(&mut self) -> &$gpioy::AFRH {
                     unsafe { &(*$GPIOX::ptr()).afrh }
                 }
