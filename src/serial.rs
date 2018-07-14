@@ -37,23 +37,25 @@ pub enum Error {
     _Extensible,
 }
 
-// FIXME these should be "closed" traits
-/// TX pin - DO NOT IMPLEMENT THIS TRAIT
-pub unsafe trait TxPin<USART> {}
+pub trait Pins<USART> {
+    const REMAP: u8;
+}
 
-/// RX pin - DO NOT IMPLEMENT THIS TRAIT
-pub unsafe trait RxPin<USART> {}
+impl Pins<USART1> for (PA9<AF7>, PA10<AF7>) {
+    const REMAP: u8 = 0;
+}
 
-unsafe impl TxPin<USART1> for PA9<AF7> {}
-unsafe impl TxPin<USART1> for PB6<AF7> {}
+impl Pins<USART1> for (PB6<AF7>, PB7<AF7>) {
+    const REMAP: u8 = 1;
+}
 
-unsafe impl RxPin<USART1> for PA10<AF7> {}
-unsafe impl RxPin<USART1> for PB7<AF7> {}
+impl Pins<USART2> for (PA2<AF7>, PA3<AF7>) {
+    const REMAP: u8 = 0;
+}
 
-
-unsafe impl TxPin<USART2> for PA2<AF7> {}
-
-unsafe impl RxPin<USART2> for PA3<AF7> {}
+// impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
+//     const REMAP: u8 = 0;
+// }
 
 
 /// Serial abstraction
@@ -77,23 +79,24 @@ macro_rules! hal {
         $USARTX:ident: ($usartX:ident, $APB:ident, $usartXen:ident, $usartXrst:ident, $pclkX:ident),
     )+) => {
         $(
-            impl<TX, RX> Serial<$USARTX, (TX, RX)> {
+            impl<PINS> Serial<$USARTX, PINS> {
                 /// Configures a USART peripheral to provide serial communication
                 pub fn $usartX(
                     usart: $USARTX,
-                    pins: (TX, RX),
+                    pins: PINS,
                     baud_rate: Bps,
                     clocks: Clocks,
                     apb: &mut $APB,
                 ) -> Self
                 where
-                    TX: TxPin<$USARTX>,
-                    RX: RxPin<$USARTX>,
+                    PINS: Pins<$USARTX>,
                 {
                     // enable or reset $USARTX
                     apb.enr().modify(|_, w| w.$usartXen().set_bit());
                     apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
                     apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
+
+                    // TODO implement pin remaping
 
                     // disable hardware flow control
                     // TODO enable DMA
@@ -150,7 +153,7 @@ macro_rules! hal {
                 }
 
                 /// Releases the USART peripheral and associated pins
-                pub fn free(self) -> ($USARTX, (TX, RX)) {
+                pub fn free(self) -> ($USARTX, PINS) {
                     (self.usart, self.pins)
                 }
             }
