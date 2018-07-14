@@ -27,3 +27,5 @@ features = ["stm32l4x2", "rt"]
 [dev-dependencies]
 panic-semihosting = "0.3.0"
 cortex-m-semihosting = "0.3.0"
+ssd1306 = "0.1.0"
+embedded-graphics = "0.1.1"
