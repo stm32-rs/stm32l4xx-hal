@@ -36,16 +36,13 @@ fn main() -> ! {
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
     // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
-    // The `Lsm303dlhc` abstraction exposed by the `f3` crate requires a specific pin configuration
-    // to be used and won't accept any configuration other than the one used here. Trying to use a
-    // different pin configuration will result in a compiler error.
     let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
     let scl = gpiob.pb6.into_af4(&mut gpiob.moder, &mut gpiob.afrl);
     let sda = gpiob.pb7.into_af4(&mut gpiob.moder, &mut gpiob.afrl);
 
-    let mut i2c = I2c::i2c1(p.I2C1, (scl, sda), 400.khz(), clocks, &mut rcc.apb1r1);
+    let i2c = I2c::i2c1(p.I2C1, (scl, sda), 400.khz(), clocks, &mut rcc.apb1r1);
 
-    let mut disp: GraphicsMode<_> = Builder::new().with_i2c_addr(0x78).connect_i2c(i2c).into();
+    let mut disp: GraphicsMode<_> = Builder::new().with_i2c_addr(0x3C).connect_i2c(i2c).into();
 
     disp.init().unwrap();
     disp.flush().unwrap();

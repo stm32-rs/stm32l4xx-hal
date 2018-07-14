@@ -35,10 +35,10 @@ fn main() -> ! {
     let scl = gpiob.pb6.into_af4(&mut gpiob.moder, &mut gpiob.afrl);
     let sda = gpiob.pb7.into_af4(&mut gpiob.moder, &mut gpiob.afrl);
 
-    let mut i2c = I2c::i2c1(p.I2C1, (scl, sda), 400.khz(), clocks, &mut rcc.apb1r1);
+    let mut i2c = I2c::i2c1(p.I2C1, (scl, sda), 100.khz(), clocks, &mut rcc.apb1r1);
 
-    let bytes = [0xCC];
-    i2c.write(0x78, &bytes).unwrap();
+    let bytes = [0x40];
+    i2c.write(0x3C, &bytes).unwrap();
     
 
     // when you reach this breakpoint you'll be able to inspect the variables `_accel`, `_mag` and
