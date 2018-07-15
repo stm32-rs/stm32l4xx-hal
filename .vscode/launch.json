@@ -13,7 +13,7 @@
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/debug/examples/serial",
+            "executable": "./target/thumbv7em-none-eabi/debug/examples/blinky",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",

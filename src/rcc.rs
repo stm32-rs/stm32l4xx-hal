@@ -161,7 +161,7 @@ impl APB2 {
     }
 }
 
-const HSI: u32 = 8_000_000; // Hz
+const HSI: u32 = 16_000_000; // Hz
 
 /// Clock configuration
 pub struct CFGR {
@@ -218,7 +218,7 @@ impl CFGR {
             Some(pllmul as u8 - 2)
         };
 
-        let sysclk = pllmul * HSI;
+        let sysclk = pllmul * HSI / 2;
 
         assert!(sysclk <= 72_000_000);
 
