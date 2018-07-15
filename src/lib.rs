@@ -21,6 +21,7 @@ pub mod flash;
 pub mod gpio;
 pub mod delay;
 pub mod timer;
+pub mod spi;
 
 
 #[cfg(test)]
