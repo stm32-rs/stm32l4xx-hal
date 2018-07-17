@@ -17,7 +17,7 @@ extern crate stm32l432xx_hal as hal;
 use hal::prelude::*;
 use hal::stm32l4::stm32l4x2;
 
-// use hal::timer::Timer;
+use hal::delay::Delay;
 use rt::ExceptionFrame;
 
 use core::fmt::Write;
@@ -52,13 +52,15 @@ fn main() -> ! {
     led.set_high();
 
     // // Try a different timer (even SYST)
-    // let mut timer = Timer::syst(cp.SYST, 1.hz(), clocks);
-    // loop {
-    //     block!(timer.wait()).unwrap();
-    //     led.set_high();
-    //     block!(timer.wait()).unwrap();
-    //     led.set_low();
-    // }
+    let mut timer = Delay::new(cp.SYST, clocks);
+    loop {
+        // block!(timer.wait()).unwrap();
+        timer.delay_ms(1000 as u32);
+        led.set_high();
+        // block!(timer.wait()).unwrap();
+        timer.delay_ms(1000 as u32);
+        led.set_low();
+    }
     writeln!(hstdout, "Good bye!").unwrap();
     loop {}
 }
