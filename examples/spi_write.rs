@@ -20,8 +20,8 @@ use ehal::spi::{FullDuplex, Mode, Phase, Polarity};
 
 /// SPI mode
 pub const MODE: Mode = Mode {
-    phase: Phase::CaptureOnSecondTransition,
-    polarity: Polarity::IdleHigh,
+    phase: Phase::CaptureOnFirstTransition,
+    polarity: Polarity::IdleLow,
 };
 
 entry!(main);
@@ -39,8 +39,12 @@ fn main() -> ! {
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
-    let mut nss = gpiob
-        .pb0
+    // let mut nss = gpiob
+    //     .pb0
+    //     .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+
+    let mut dc = gpiob
+        .pb1
         .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
 
     // The `L3gd20` abstraction exposed by the `f3` crate requires a specific pin configuration to
@@ -50,7 +54,8 @@ fn main() -> ! {
     let miso = gpioa.pa6.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
     let mosi = gpioa.pa7.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
 
-    nss.set_high();
+    // nss.set_high();
+    dc.set_low();
 
     let mut spi = Spi::spi1(
         p.SPI1,
@@ -62,12 +67,12 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    nss.set_low();
+    // nss.set_low();
     let data = [0x3C];
     spi.write(&data).unwrap();
     spi.write(&data).unwrap();
     spi.write(&data).unwrap();
-    nss.set_high();
+    // nss.set_high();
 
     // when you reach this breakpoint you'll be able to inspect the variable `_m` which contains the
     // gyroscope and the temperature sensor readings
