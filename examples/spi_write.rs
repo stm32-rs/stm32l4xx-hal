@@ -46,6 +46,7 @@ fn main() -> ! {
     let mut dc = gpiob
         .pb1
         .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+    
 
     // The `L3gd20` abstraction exposed by the `f3` crate requires a specific pin configuration to
     // be used and won't accept any configuration other than the one used here. Trying to use a
