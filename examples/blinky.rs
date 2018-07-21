@@ -17,7 +17,7 @@ extern crate stm32l432xx_hal as hal;
 use hal::prelude::*;
 use hal::stm32l4::stm32l4x2;
 
-// use hal::timer::Timer;
+use hal::delay::Delay;
 use rt::ExceptionFrame;
 
 use core::fmt::Write;
@@ -49,16 +49,16 @@ fn main() -> ! {
 
     let mut gpiob = dp.GPIOB.split(&mut rcc.ahb2);
     let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-    led.set_high();
-
-    // // Try a different timer (even SYST)
-    // let mut timer = Timer::syst(cp.SYST, 1.hz(), clocks);
-    // loop {
-    //     block!(timer.wait()).unwrap();
-    //     led.set_high();
-    //     block!(timer.wait()).unwrap();
-    //     led.set_low();
-    // }
+    
+    let mut timer = Delay::new(cp.SYST, clocks);
+    loop {
+        // block!(timer.wait()).unwrap();
+        timer.delay_ms(1000 as u32);
+        led.set_high();
+        // block!(timer.wait()).unwrap();
+        timer.delay_ms(1000 as u32);
+        led.set_low();
+    }
     writeln!(hstdout, "Good bye!").unwrap();
     loop {}
 }
