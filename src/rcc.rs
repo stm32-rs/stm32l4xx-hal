@@ -318,23 +318,14 @@ impl CFGR {
                     .bits(pllsrc_bits)
                     .pllm().bits(pllmul_bits)
             });
-            // .plln().bits(self.n)
-            // .pllr().bits(self.r)
+            // .plln().bits(n) // TODO?
+            // .pllr().bits(r)
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
             
             while rcc.cr.read().pllrdy().bit_is_clear() {}
 
             rcc.pllcfgr.modify(|_, w| w.pllren().set_bit());
-
-            // rcc.pllcfgr.write(|w| unsafe { 
-            //     w.plln()
-            //         .bits(pllmul_bits)
-            // });
-
-            // rcc.cr.write(|w| w.pllon().set_bit());
-
-            // while rcc.cr.read().pllrdy().bit_is_clear() {}
 
             // SW: PLL selected as system clock
             rcc.cfgr.modify(|_, w| unsafe {
