@@ -215,12 +215,12 @@ impl CFGR {
         let pllmul_bits = if pllmul == 2 {
             None
         } else {
-            Some(pllmul as u8 - 2)
+            Some(pllmul as u8) //  - 2
         };
 
         let sysclk = pllmul * HSI / 2;
 
-        assert!(sysclk <= 72_000_000);
+        assert!(sysclk <= 80_000_000);
 
         let hpre_bits = self.hclk
             .map(|hclk| match sysclk / hclk {
@@ -239,7 +239,7 @@ impl CFGR {
 
         let hclk = sysclk / (1 << (hpre_bits));
 
-        assert!(hclk <= 72_000_000);
+        assert!(hclk <= 80_000_000);
 
         let ppre1_bits = self.pclk1
             .map(|pclk1| match hclk / pclk1 {
@@ -255,7 +255,7 @@ impl CFGR {
         let ppre1 = 1 << (ppre1_bits);
         let pclk1 = hclk / u32(ppre1);
 
-        assert!(pclk1 <= 36_000_000);
+        assert!(pclk1 <= 80_000_000);
 
         // let ppre2_bits = self.pclk2
         //     .map(|pclk2| match hclk / pclk2 {
@@ -285,7 +285,7 @@ impl CFGR {
         let ppre2 = 1 << (ppre2_bits);
         let pclk2 = hclk / u32(ppre2);
 
-        assert!(pclk2 <= 72_000_000);
+        assert!(pclk2 <= 80_000_000);
 
         // adjust flash wait states
         unsafe {
@@ -305,15 +305,27 @@ impl CFGR {
         if let Some(pllmul_bits) = pllmul_bits {
             // use PLL as source
             sysclk_src_bits = 0b11;
-            // rcc.cfgr.write(|w| unsafe { w.plln().bits(pllmul_bits) });
-            rcc.pllcfgr.write(|w| unsafe { 
-                w.plln().bits(pllmul_bits)
-                    .pllren().set_bit()
+            rcc.cr.modify(|_, w| w.pllon().clear_bit());
+            while rcc.cr.read().pllrdy().bit_is_set() {}
+
+            let pllsrc_bits = 0b10; // use HSI16 as PLL source
+            rcc.cr.write(|w| w.hsion().set_bit());
+            while rcc.cr.read().hsirdy().bit_is_clear() {}
+
+            rcc.pllcfgr
+            .modify(|_, w| unsafe { 
+                w.pllsrc()
+                    .bits(pllsrc_bits)
+                    .pllm().bits(pllmul_bits)
             });
+            // .plln().bits(n) // TODO?
+            // .pllr().bits(r)
 
-            rcc.cr.write(|w| w.pllon().set_bit());
-
+            rcc.cr.modify(|_, w| w.pllon().set_bit());
+            
             while rcc.cr.read().pllrdy().bit_is_clear() {}
+
+            rcc.pllcfgr.modify(|_, w| w.pllren().set_bit());
 
             // SW: PLL selected as system clock
             rcc.cfgr.modify(|_, w| unsafe {
@@ -348,8 +360,6 @@ impl CFGR {
 
         while rcc.cfgr.read().sws().bits() != sysclk_src_bits {}
 
-        // let sysclk_src_sts = rcc.cfgr.read().sws().bits();
-        // assert_eq!(sysclk_src_sts, sysclk_src_bits);
 
         Clocks {
             hclk: Hertz(hclk),
