@@ -33,8 +33,8 @@ fn main() -> ! {
     let mut rcc = p.RCC.constrain();
 
     // TRY the other clock configuration
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-    // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
+    // let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.sysclk(80.mhz()).pclk1(80.mhz()).pclk2(80.mhz()).freeze(&mut flash.acr);
 
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
