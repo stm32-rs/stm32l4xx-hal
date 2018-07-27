@@ -55,8 +55,13 @@ fn main() -> ! {
     // NOTE the error type is `!`
 
     block!(tx.write(sent)).ok();
+    block!(tx.write(sent)).ok();
+    block!(tx.write(sent)).ok();
+    block!(tx.write(sent)).ok();
+    block!(tx.write(sent)).ok();
     
-    let received = block!(rx.read()).unwrap();
+    // when using virtual com port for recieve, causes a framing error
+    // let received = block!(rx.read()).unwrap();
 
     // assert_eq!(received, sent);
 
