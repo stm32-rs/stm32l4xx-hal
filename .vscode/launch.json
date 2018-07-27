@@ -8,12 +8,12 @@
             "type": "gdb",
             "request": "attach",
             "name": "STM32F1",
-            // "gdbpath" : "/home/mabez/programs/gcc-arm-none-eabi-5_4-2016q3/bin/arm-none-eabi-gdb",
-            "gdbpath" : "/home/mabez/programs/gcc-arm-none-eabi-7-2017-q4-major/bin/arm-none-eabi-gdb",
+            "gdbpath" : "/home/mabez/programs/gcc-arm-none-eabi-5_4-2016q3/bin/arm-none-eabi-gdb",
+            // "gdbpath" : "/home/mabez/programs/gcc-arm-none-eabi-7-2017-q4-major/bin/arm-none-eabi-gdb",
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/debug/examples/spi_write",
+            "executable": "./target/thumbv7em-none-eabi/debug/examples/serial",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",

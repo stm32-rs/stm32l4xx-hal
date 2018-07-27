@@ -40,14 +40,14 @@ fn main() -> ! {
 
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
-    let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
+    let tx = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
     // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
-    let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
+    let rx = gpioa.pa3.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
     // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
-    let serial = Serial::usart1(p.USART1, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb2);
+    let serial = Serial::usart2(p.USART2, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb1r1);
     let (mut tx, mut rx) = serial.split();
 
     let sent = b'X';
