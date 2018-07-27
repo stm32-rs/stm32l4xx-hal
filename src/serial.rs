@@ -247,27 +247,28 @@ macro_rules! hal {
                         // the next statement, which starts the DMA transfer
                         atomic::compiler_fence(Ordering::SeqCst);
 
-                        chan.ccr().modify(|_, w| {
-                            w
-                            // TODO
-                            // w.mem2mem()
-                            //     .clear_bit()
-                            //     .pl()
-                            //     .medium()
-                            //     .msize()
-                            //     .bit8()
-                            //     .psize()
-                            //     .bit8()
-                            //     .minc()
-                            //     .set_bit()
-                            //     .pinc()
-                            //     .clear_bit()
-                            //     .circ()
-                            //     .set_bit()
-                            //     .dir()
-                            //     .clear_bit()
-                            //     .en()
-                            //     .set_bit()
+                        chan.ccr().modify(|_, w| unsafe {
+                            w.mem2mem()
+                                .clear_bit()
+                                // 00: Low, 01: Medium, 10: High, 11: Very high
+                                .pl()
+                                .bits(0b10)
+                                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                                .msize()
+                                .bits(0b00)
+                                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                                .psize()
+                                .bits(0b00)
+                                .minc()
+                                .set_bit()
+                                .pinc()
+                                .clear_bit()
+                                .circ()
+                                .set_bit()
+                                .dir()
+                                .clear_bit()
+                                .en()
+                                .set_bit()
                         });
                     }
 
