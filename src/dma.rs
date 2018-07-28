@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 use core::ops;
 
-// use stm32l4::stm32l4x2::rcc::;
+use rcc::AHB1;
 
 #[derive(Debug)]
 pub enum Error {
@@ -61,7 +61,7 @@ impl<B> Static<B> for &'static mut B {
 pub trait DmaExt {
     type Channels;
 
-    fn split(self) -> Self::Channels;
+    fn split(self, ahb: &mut AHB1) -> Self::Channels;
 }
 
 pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
@@ -133,7 +133,7 @@ macro_rules! dma {
                 use stm32l4::stm32l4x2::{$DMAX, dma1};
 
                 use dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
-                // use stm32l4::stm32l4x2::rcc::AHB;
+                use rcc::AHB1;
 
                 pub struct Channels((), $(pub $CX),+);
 
@@ -184,6 +184,10 @@ macro_rules! dma {
 
                         pub(crate) fn cmar(&mut self) -> &dma1::$CMARX {
                             unsafe { &(*$DMAX::ptr()).$cmarX }
+                        }
+
+                        pub(crate) fn cselr(&mut self) -> &dma1::CSELR {
+                            unsafe { &(*$DMAX::ptr()).cselr }
                         }
 
                         pub(crate) fn get_cndtr(&self) -> u32 {
@@ -302,8 +306,8 @@ macro_rules! dma {
                 impl DmaExt for $DMAX {
                     type Channels = Channels;
 
-                    fn split(self) -> Channels {
-                        // ahb.enr().modify(|_, w| w.$dmaXen().enabled());
+                    fn split(self, ahb: &mut AHB1) -> Channels {
+                        ahb.enr().modify(|_, w| w.$dmaXen().set_bit());
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(

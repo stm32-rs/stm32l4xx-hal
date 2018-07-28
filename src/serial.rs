@@ -78,7 +78,7 @@ pub struct Tx<USART> {
 
 macro_rules! hal {
     ($(
-        $USARTX:ident: ($usartX:ident, $APB:ident, $usartXen:ident, $usartXrst:ident, $pclkX:ident, tx: $rx_chan:path, rx: $tx_chan:path),
+        $USARTX:ident: ($usartX:ident, $APB:ident, $usartXen:ident, $usartXrst:ident, $pclkX:ident, tx: $tx_chan:path, rx: $rx_chan:path),
     )+) => {
         $(
             impl<PINS> Serial<$USARTX, PINS> {
@@ -103,6 +103,7 @@ macro_rules! hal {
                     // disable hardware flow control
                     // TODO enable DMA
                     // usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
+                    usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit()); // enable DMA transfers
 
                     let brr = clocks.$pclkX().0 / baud_rate.0;
                     assert!(brr >= 16, "impossible baud rate");
@@ -242,6 +243,11 @@ macro_rules! hal {
                             w.pa().bits(&(*$USARTX::ptr()).rdr as *const _ as usize as u32)
                         });
 
+                        // TODO select what the DMA channel is doing!
+                        chan.cselr().write(|w| unsafe {
+                            w.c5s().bits(0010) // TODO make cs5 part of the macro!
+                        });
+
                         // TODO can we weaken this compiler barrier?
                         // NOTE(compiler_fence) operations on `buffer` should not be reordered after
                         // the next statement, which starts the DMA transfer
@@ -252,7 +258,7 @@ macro_rules! hal {
                                 .clear_bit()
                                 // 00: Low, 01: Medium, 10: High, 11: Very high
                                 .pl()
-                                .bits(0b10)
+                                .bits(0b01)
                                 // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
                                 .msize()
                                 .bits(0b00)
