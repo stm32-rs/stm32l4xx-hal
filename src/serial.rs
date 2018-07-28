@@ -78,7 +78,7 @@ pub struct Tx<USART> {
 
 macro_rules! hal {
     ($(
-        $USARTX:ident: ($usartX:ident, $APB:ident, $usartXen:ident, $usartXrst:ident, $pclkX:ident, tx: $tx_chan:path, rx: $rx_chan:path),
+        $USARTX:ident: ($usartX:ident, $APB:ident, $usartXen:ident, $usartXrst:ident, $pclkX:ident, tx: ($dmacst:ident, $tx_chan:path), rx: ($dmacsr:ident, $rx_chan:path)),
     )+) => {
         $(
             impl<PINS> Serial<$USARTX, PINS> {
@@ -243,9 +243,9 @@ macro_rules! hal {
                             w.pa().bits(&(*$USARTX::ptr()).rdr as *const _ as usize as u32)
                         });
 
-                        // TODO select what the DMA channel is doing!
+                        // Tell DMA to request from serial
                         chan.cselr().write(|w| unsafe {
-                            w.c5s().bits(0010) // TODO make cs5 part of the macro!
+                            w.$dmacsr().bits(0010)
                         });
 
                         // TODO can we weaken this compiler barrier?
@@ -265,6 +265,7 @@ macro_rules! hal {
                                 // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
                                 .psize()
                                 .bits(0b00)
+                                // incr mem address
                                 .minc()
                                 .set_bit()
                                 .pinc()
@@ -286,6 +287,6 @@ macro_rules! hal {
 }
 
 hal! {
-    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: dma1::C4, rx: dma1::C5),
-    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: dma1::C7, rx: dma1::C6),
+    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
+    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
 }

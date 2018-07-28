@@ -66,9 +66,15 @@ fn main() -> ! {
 
     while circ_buffer.readable_half().unwrap() != Half::First {}
 
-    let _first_half = circ_buffer.peek(|half, _| *half).unwrap();
+    let _first_half = circ_buffer.peek(|half, _| {
+        *half
+    }).unwrap();
+    
+    asm::bkpt();
 
     while circ_buffer.readable_half().unwrap() != Half::Second {}
+
+    asm::bkpt();
 
     let _second_half = circ_buffer.peek(|half, _| *half).unwrap();
     
