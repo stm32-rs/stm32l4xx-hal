@@ -73,25 +73,9 @@ fn main() -> ! {
     timer.delay_ms(1000_u32);
 
     // then view the partial buffer
-    circ_buffer.partial_peek(|half, _| {
-        Ok( (0, 0) )
+    let buffer = circ_buffer.partial_peek(|half, _| {
+        Ok( (0, half) )
     }).unwrap();
-
-    // for _ in 0..2 {
-    //     while circ_buffer.readable_half().unwrap() != Half::First {}
-
-    //     let _first_half = circ_buffer.peek(|half, _| {
-    //         *half
-    //     }).unwrap();
-        
-    //     // asm::bkpt();
-
-    //     while circ_buffer.readable_half().unwrap() != Half::Second {}
-
-    //     // asm::bkpt();
-
-    //     let _second_half = circ_buffer.peek(|half, _| *half).unwrap();
-    // }
     
     asm::bkpt();
 

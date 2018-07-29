@@ -202,6 +202,7 @@ macro_rules! dma {
 
                     impl<B> CircBuffer<B, $CX> {
                         /// Peeks into the readable half of the buffer
+                        /// Returns the result of the closure
                         pub fn peek<R, F>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&B, Half) -> R,
@@ -230,6 +231,7 @@ macro_rules! dma {
                         }
 
                         /// Partial Peek of the current state of the DMA buffer -> https://github.com/japaric/stm32f103xx-hal/issues/48#issuecomment-386683962
+                        /// Return type of closure is a tuple (bytes 'used', the partial_peek with return)
                         pub fn partial_peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
