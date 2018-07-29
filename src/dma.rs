@@ -3,11 +3,12 @@
 use core::marker::PhantomData;
 use core::ops;
 
-// use stm32l4::stm32l4x2::rcc::;
+use rcc::AHB1;
 
 #[derive(Debug)]
 pub enum Error {
     Overrun,
+    BufferError,
     #[doc(hidden)]
     _Extensible,
 }
@@ -30,6 +31,7 @@ where
     buffer: &'static mut [BUFFER; 2],
     channel: CHANNEL,
     readable_half: Half,
+    consumed_offset: usize
 }
 
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
@@ -38,6 +40,7 @@ impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
             buffer: buf,
             channel: chan,
             readable_half: Half::Second,
+            consumed_offset: 0,
         }
     }
 }
@@ -61,7 +64,7 @@ impl<B> Static<B> for &'static mut B {
 pub trait DmaExt {
     type Channels;
 
-    fn split(self) -> Self::Channels;
+    fn split(self, ahb: &mut AHB1) -> Self::Channels;
 }
 
 pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
@@ -133,7 +136,7 @@ macro_rules! dma {
                 use stm32l4::stm32l4x2::{$DMAX, dma1};
 
                 use dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
-                // use stm32l4::stm32l4x2::rcc::AHB;
+                use rcc::AHB1;
 
                 pub struct Channels((), $(pub $CX),+);
 
@@ -186,6 +189,10 @@ macro_rules! dma {
                             unsafe { &(*$DMAX::ptr()).$cmarX }
                         }
 
+                        pub(crate) fn cselr(&mut self) -> &dma1::CSELR {
+                            unsafe { &(*$DMAX::ptr()).cselr }
+                        }
+
                         pub(crate) fn get_cndtr(&self) -> u32 {
                             // NOTE(unsafe) atomic read with no side effects
                             unsafe { (*$DMAX::ptr()).$cndtrX.read().bits() }
@@ -195,6 +202,7 @@ macro_rules! dma {
 
                     impl<B> CircBuffer<B, $CX> {
                         /// Peeks into the readable half of the buffer
+                        /// Returns the result of the closure
                         pub fn peek<R, F>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&B, Half) -> R,
@@ -219,6 +227,52 @@ macro_rules! dma {
                                 Err(Error::Overrun)
                             } else {
                                 Ok(ret)
+                            }
+                        }
+
+                        /// Partial Peek of the current state of the DMA buffer -> https://github.com/japaric/stm32f103xx-hal/issues/48#issuecomment-386683962
+                        /// Return type of closure is a tuple (bytes 'used', the partial_peek with return)
+                        pub fn partial_peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
+                            where
+                            F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
+                            B: Unsize<[T]>,
+                        {
+                            // this inverts expectation and returns the half being _written_
+                            let buf = match self.readable_half {
+                                Half::First => &self.buffer[1],
+                                Half::Second => &self.buffer[0],
+                            };
+
+                            //                          ,- half-buffer
+                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
+                            //                       ^- pending=11
+                            let pending = self.channel.get_cndtr() as usize; // available bytes in _whole_ buffer
+
+                            let slice: &[T] = buf;
+                            let capacity = slice.len(); // capacity of _half_ a buffer
+                            //     <--- capacity=10 --->
+                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
+
+                            let pending = if pending > capacity {
+                                pending - capacity
+                            } else {
+                                pending
+                            };
+
+                            //                          ,- half-buffer
+                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
+                            //                       ^- pending=1
+
+                            let end = capacity - pending;
+                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
+                            //                       ^- end=9
+                            //             ^- consumed_offset=4
+                            //             [y y y y y] <-- slice
+                            let slice = &slice[self.consumed_offset..end];
+
+                            match f(slice, self.readable_half) {
+                                Ok((l, r)) => { self.consumed_offset += l; Ok(r) },
+                                Err(_) => Err(Error::BufferError),
                             }
                         }
 
@@ -302,8 +356,8 @@ macro_rules! dma {
                 impl DmaExt for $DMAX {
                     type Channels = Channels;
 
-                    fn split(self) -> Channels {
-                        // ahb.enr().modify(|_, w| w.$dmaXen().enabled());
+                    fn split(self, ahb: &mut AHB1) -> Channels {
+                        ahb.enr().modify(|_, w| w.$dmaXen().set_bit());
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(

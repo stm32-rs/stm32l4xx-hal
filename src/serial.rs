@@ -1,7 +1,8 @@
 //! Serial
 
-use core::marker::PhantomData;
+use core::marker::{PhantomData, Unsize};
 use core::ptr;
+use core::sync::atomic::{self, Ordering};
 
 use hal::serial;
 use nb;
@@ -13,6 +14,7 @@ use gpio::gpiob::{PB6, PB7};
 use gpio::AF7;
 use rcc::{APB1R1, APB2, Clocks};
 use time::Bps;
+use dma::{dma1, CircBuffer, Static, Transfer, R, W};
 
 /// Interrupt event
 pub enum Event {
@@ -76,7 +78,7 @@ pub struct Tx<USART> {
 
 macro_rules! hal {
     ($(
-        $USARTX:ident: ($usartX:ident, $APB:ident, $usartXen:ident, $usartXrst:ident, $pclkX:ident),
+        $USARTX:ident: ($usartX:ident, $APB:ident, $usartXen:ident, $usartXrst:ident, $pclkX:ident, tx: ($dmacst:ident, $tx_chan:path), rx: ($dmacsr:ident, $rx_chan:path)),
     )+) => {
         $(
             impl<PINS> Serial<$USARTX, PINS> {
@@ -101,6 +103,7 @@ macro_rules! hal {
                     // disable hardware flow control
                     // TODO enable DMA
                     // usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
+                    usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit()); // enable DMA transfers
 
                     let brr = clocks.$pclkX().0 / baud_rate.0;
                     assert!(brr >= 16, "impossible baud rate");
@@ -218,11 +221,72 @@ macro_rules! hal {
                     }
                 }
             }
+
+            impl Rx<$USARTX> {
+                pub fn circ_read<B>(
+                    self,
+                    mut chan: $rx_chan,
+                    buffer: &'static mut [B; 2],
+                ) -> CircBuffer<B, $rx_chan>
+                where
+                    B: Unsize<[u8]>,
+                {
+                    {
+                        let buffer: &[u8] = &buffer[0];
+                        chan.cmar().write(|w| unsafe {
+                            w.ma().bits(buffer.as_ptr() as usize as u32)
+                        });
+                        chan.cndtr().write(|w| unsafe{
+                            w.ndt().bits((buffer.len() * 2) as u16)
+                        });
+                        chan.cpar().write(|w| unsafe {
+                            w.pa().bits(&(*$USARTX::ptr()).rdr as *const _ as usize as u32)
+                        });
+
+                        // Tell DMA to request from serial
+                        chan.cselr().write(|w| unsafe {
+                            w.$dmacsr().bits(0010)
+                        });
+
+                        // TODO can we weaken this compiler barrier?
+                        // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                        // the next statement, which starts the DMA transfer
+                        atomic::compiler_fence(Ordering::SeqCst);
+
+                        chan.ccr().modify(|_, w| unsafe {
+                            w.mem2mem()
+                                .clear_bit()
+                                // 00: Low, 01: Medium, 10: High, 11: Very high
+                                .pl()
+                                .bits(0b01)
+                                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                                .msize()
+                                .bits(0b00)
+                                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                                .psize()
+                                .bits(0b00)
+                                // incr mem address
+                                .minc()
+                                .set_bit()
+                                .pinc()
+                                .clear_bit()
+                                .circ()
+                                .set_bit()
+                                .dir()
+                                .clear_bit()
+                                .en()
+                                .set_bit()
+                        });
+                    }
+
+                    CircBuffer::new(buffer, chan)
+                }
+            }
         )+
     }
 }
 
 hal! {
-    USART1: (usart1, APB2, usart1en, usart1rst, pclk2),
-    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1),
+    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
+    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
 }
