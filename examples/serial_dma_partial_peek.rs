@@ -24,12 +24,14 @@ use hal::prelude::*;
 use hal::serial::Serial;
 use hal::stm32l4::stm32l4x2;
 use rt::ExceptionFrame;
+use hal::delay::Delay;
 
 entry!(main);
 
 fn main() -> ! {
     let p = stm32l4x2::Peripherals::take().unwrap();
-
+    let cp = cortex_m::Peripherals::take().unwrap();
+    
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
@@ -41,6 +43,7 @@ fn main() -> ! {
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
+    let mut timer = Delay::new(cp.SYST, clocks);
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
     let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
@@ -53,7 +56,7 @@ fn main() -> ! {
     let serial = Serial::usart1(p.USART1, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb2);
     let (mut tx, mut rx) = serial.split();
 
-    let sent = b'X';
+    let sent = b'S';
 
     // The `block!` macro makes an operation block until it finishes
     // NOTE the error type is `!`
@@ -64,27 +67,32 @@ fn main() -> ! {
 
     let mut circ_buffer = rx.circ_read(channels.5, buf);
 
-    for _ in 0..2 {
-        while circ_buffer.readable_half().unwrap() != Half::First {}
+    // wait for 3 seconds, enter data on serial
+    timer.delay_ms(1000_u32);
+    timer.delay_ms(1000_u32);
+    timer.delay_ms(1000_u32);
 
-        let _first_half = circ_buffer.peek(|half, _| {
-            *half
-        }).unwrap();
+    // then view the partial buffer
+    circ_buffer.partial_peek(|half, _| {
+        Ok( (0, 0) )
+    }).unwrap();
+
+    // for _ in 0..2 {
+    //     while circ_buffer.readable_half().unwrap() != Half::First {}
+
+    //     let _first_half = circ_buffer.peek(|half, _| {
+    //         *half
+    //     }).unwrap();
         
-        // asm::bkpt();
+    //     // asm::bkpt();
 
-        while circ_buffer.readable_half().unwrap() != Half::Second {}
+    //     while circ_buffer.readable_half().unwrap() != Half::Second {}
 
-        // asm::bkpt();
+    //     // asm::bkpt();
 
-        let _second_half = circ_buffer.peek(|half, _| *half).unwrap();
-    }
+    //     let _second_half = circ_buffer.peek(|half, _| *half).unwrap();
+    // }
     
-    // let received = block!(rx.read()).unwrap();
-
-    // assert_eq!(received, sent);
-
-    // if all goes well you should reach this breakpoint
     asm::bkpt();
 
     loop {}

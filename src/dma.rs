@@ -8,6 +8,7 @@ use rcc::AHB1;
 #[derive(Debug)]
 pub enum Error {
     Overrun,
+    BufferError,
     #[doc(hidden)]
     _Extensible,
 }
@@ -30,6 +31,7 @@ where
     buffer: &'static mut [BUFFER; 2],
     channel: CHANNEL,
     readable_half: Half,
+    consumed_offset: usize
 }
 
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
@@ -38,6 +40,7 @@ impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
             buffer: buf,
             channel: chan,
             readable_half: Half::Second,
+            consumed_offset: 0,
         }
     }
 }
@@ -223,6 +226,51 @@ macro_rules! dma {
                                 Err(Error::Overrun)
                             } else {
                                 Ok(ret)
+                            }
+                        }
+
+                        /// Partial Peek of the current state of the DMA buffer -> https://github.com/japaric/stm32f103xx-hal/issues/48#issuecomment-386683962
+                        pub fn partial_peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
+                            where
+                            F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
+                            B: Unsize<[T]>,
+                        {
+                            // this inverts expectation and returns the half being _written_
+                            let buf = match self.readable_half {
+                                Half::First => &self.buffer[1],
+                                Half::Second => &self.buffer[0],
+                            };
+
+                            //                          ,- half-buffer
+                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
+                            //                       ^- pending=11
+                            let pending = self.channel.get_cndtr() as usize; // available bytes in _whole_ buffer
+
+                            let slice: &[T] = buf;
+                            let capacity = slice.len(); // capacity of _half_ a buffer
+                            //     <--- capacity=10 --->
+                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
+
+                            let pending = if pending > capacity {
+                                pending - capacity
+                            } else {
+                                pending
+                            };
+
+                            //                          ,- half-buffer
+                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
+                            //                       ^- pending=1
+
+                            let end = capacity - pending;
+                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
+                            //                       ^- end=9
+                            //             ^- consumed_offset=4
+                            //             [y y y y y] <-- slice
+                            let slice = &slice[self.consumed_offset..end];
+
+                            match f(slice, self.readable_half) {
+                                Ok((l, r)) => { self.consumed_offset += l; Ok(r) },
+                                Err(_) => Err(Error::BufferError),
                             }
                         }
 
