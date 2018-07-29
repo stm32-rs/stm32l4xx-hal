@@ -35,23 +35,8 @@ impl Pins<SPI1>
         PA7<AF5>,
     )
 {
-    const REMAP: bool = false;
+    const REMAP: bool = false; // TODO REMAP
 }
-
-// FIXME these should be "closed" traits
-// /// SCK pin -- DO NOT IMPLEMENT THIS TRAIT
-// pub unsafe trait SckPin<SPI> {}
-
-// /// MISO pin -- DO NOT IMPLEMENT THIS TRAIT
-// pub unsafe trait MisoPin<SPI> {}
-
-// /// MOSI pin -- DO NOT IMPLEMENT THIS TRAIT
-// pub unsafe trait MosiPin<SPI> {}
-
-// unsafe impl SckPin<SPI1> for PA5<AF5> {}
-// unsafe impl MisoPin<SPI1> for PA6<AF5> {}
-// unsafe impl MosiPin<SPI1> for PA7<AF5> {}
-
 
 /// SPI peripheral operating in full duplex master mode
 pub struct Spi<SPI, PINS> {
