@@ -14,7 +14,7 @@ use gpio::gpiob::{PB6, PB7};
 use gpio::AF7;
 use rcc::{APB1R1, APB2, Clocks};
 use time::Bps;
-use dma::{dma1, CircBuffer, Static, Transfer, R, W};
+use dma::{dma1, CircBuffer};
 
 /// Interrupt event
 pub enum Event {

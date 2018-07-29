@@ -3,7 +3,7 @@
 use cast::{u16, u32};
 use hal::timer::{CountDown, Periodic};
 use nb;
-use stm32l4::stm32l4x2::{TIM2, TIM3, TIM6, TIM7};
+use stm32l4::stm32l4x2::{TIM2, /* TODO TIM3 ,*/ TIM6, TIM7};
 use void::Void;
 
 use rcc::{APB1R1, Clocks};

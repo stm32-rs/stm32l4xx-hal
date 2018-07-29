@@ -4,10 +4,10 @@ use core::ptr;
 
 use hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use nb;
-use stm32l4::stm32l4x2::{SPI1, SPI2, SPI3};
+use stm32l4::stm32l4x2::{SPI1, /* TODO SPI2, */ SPI3};
 
-use gpio::gpioa::{PA1, PA4, PA5, PA6, PA7};
-use gpio::{AF5, AF6};
+use gpio::gpioa::{PA5, PA6, PA7};
+use gpio::{AF5};
 use rcc::{APB1R1, APB2, Clocks};
 use time::Hertz;
 
@@ -24,19 +24,33 @@ pub enum Error {
     _Extensible,
 }
 
+pub trait Pins<SPI> {
+    const REMAP: bool;
+}
+
+impl Pins<SPI1>
+    for (
+        PA5<AF5>,
+        PA6<AF5>,
+        PA7<AF5>,
+    )
+{
+    const REMAP: bool = false;
+}
+
 // FIXME these should be "closed" traits
-/// SCK pin -- DO NOT IMPLEMENT THIS TRAIT
-pub unsafe trait SckPin<SPI> {}
+// /// SCK pin -- DO NOT IMPLEMENT THIS TRAIT
+// pub unsafe trait SckPin<SPI> {}
 
-/// MISO pin -- DO NOT IMPLEMENT THIS TRAIT
-pub unsafe trait MisoPin<SPI> {}
+// /// MISO pin -- DO NOT IMPLEMENT THIS TRAIT
+// pub unsafe trait MisoPin<SPI> {}
 
-/// MOSI pin -- DO NOT IMPLEMENT THIS TRAIT
-pub unsafe trait MosiPin<SPI> {}
+// /// MOSI pin -- DO NOT IMPLEMENT THIS TRAIT
+// pub unsafe trait MosiPin<SPI> {}
 
-unsafe impl SckPin<SPI1> for PA5<AF5> {}
-unsafe impl MisoPin<SPI1> for PA6<AF5> {}
-unsafe impl MosiPin<SPI1> for PA7<AF5> {}
+// unsafe impl SckPin<SPI1> for PA5<AF5> {}
+// unsafe impl MisoPin<SPI1> for PA6<AF5> {}
+// unsafe impl MosiPin<SPI1> for PA7<AF5> {}
 
 
 /// SPI peripheral operating in full duplex master mode
@@ -48,11 +62,11 @@ pub struct Spi<SPI, PINS> {
 macro_rules! hal {
     ($($SPIX:ident: ($spiX:ident, $APBX:ident, $spiXen:ident, $spiXrst:ident, $pclkX:ident),)+) => {
         $(
-            impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
+            impl<PINS> Spi<$SPIX, PINS> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
                 pub fn $spiX<F>(
                     spi: $SPIX,
-                    pins: (SCK, MISO, MOSI),
+                    pins: PINS,
                     mode: Mode,
                     freq: F,
                     clocks: Clocks,
@@ -60,9 +74,7 @@ macro_rules! hal {
                 ) -> Self
                 where
                     F: Into<Hertz>,
-                    SCK: SckPin<$SPIX>,
-                    MISO: MisoPin<$SPIX>,
-                    MOSI: MosiPin<$SPIX>,
+                    PINS: Pins<$SPIX>
                 {
                     // enable or reset $SPIX
                     apb2.enr().modify(|_, w| w.$spiXen().set_bit());
@@ -127,7 +139,7 @@ macro_rules! hal {
                 }
 
                 /// Releases the SPI peripheral and associated pins
-                pub fn free(self) -> ($SPIX, (SCK, MISO, MOSI)) {
+                pub fn free(self) -> ($SPIX, PINS) {
                     (self.spi, self.pins)
                 }
             }
