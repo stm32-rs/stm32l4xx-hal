@@ -73,7 +73,8 @@ fn main() -> ! {
     timer.delay_ms(1000_u32);
 
     // then view the partial buffer
-    let buffer = circ_buffer.partial_peek(|half, _| {
+    let _curr_half = circ_buffer.partial_peek(|_buf, half| {
+        // do something with _buf here
         Ok( (0, half) )
     }).unwrap();
     
