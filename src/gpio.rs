@@ -1,10 +1,7 @@
-// Based on (ripped)
-// https://github.com/japaric/stm32f30x-hal/blob/master/src/gpio.rs
-
 //! General Purpose Input / Output
 
-// TODO the pins here currently correspond to the LQFP-100 package. There should be Cargo features
-// that let you select different microcontroller packages
+// Based on (ripped)
+// https://github.com/japaric/stm32f30x-hal/blob/master/src/gpio.rs
 
 use core::marker::PhantomData;
 
