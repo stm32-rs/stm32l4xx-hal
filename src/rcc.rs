@@ -23,6 +23,7 @@ impl RccExt for RCC {
             apb1r1: APB1R1 { _0: () },
             apb1r2: APB1R2 { _0: () },
             apb2: APB2 { _0: () },
+            bdcr: BDCR { _0: () },
             cfgr: CFGR {
                 hclk: None,
                 pclk1: None,
@@ -48,6 +49,22 @@ pub struct Rcc {
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
     pub cfgr: CFGR,
+    /// Backup domain control register
+    pub bdcr : BDCR,
+}
+
+// AMBA High-performance Bus (AHB1) registers
+pub struct BDCR {
+    _0: (),
+}
+
+impl BDCR {
+    // TODO remove `allow`
+    #[allow(dead_code)]
+    pub(crate) fn enr(&mut self) -> &rcc::BDCR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).bdcr }
+    }
 }
 
 // AMBA High-performance Bus (AHB1) registers
