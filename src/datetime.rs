@@ -91,3 +91,21 @@ impl Into<Seconds> for Hours {
         Seconds(self.0 * 3600)
     }
 }
+
+impl From <u32> for Seconds {
+    fn from(inner: u32) -> Seconds {
+        Seconds(inner)
+    }
+}
+
+impl From <u32> for Minutes {
+    fn from(inner: u32) -> Minutes {
+        Minutes(inner)
+    }
+}
+
+impl From <u32> for Hours {
+    fn from(inner: u32) -> Hours {
+        Hours(inner)
+    }
+}

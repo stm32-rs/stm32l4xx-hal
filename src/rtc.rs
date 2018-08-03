@@ -1,14 +1,26 @@
 /// RTC peripheral abstraction
 
 use datetime::*;
-use rcc::{BDCR, Clocks};
-use stm32l4::stm32l4x2::{RTC, rtc};
+use rcc::{BDCR};
+use stm32l4::stm32l4x2::{RTC};
 
+#[derive(Clone,Copy,Debug)]
 pub struct Time {
-    seconds: Seconds,
-    minutes: Minutes,
-    hours: Hours,
+    seconds: u8,
+    minutes: u8,
+    hours: u8,
     daylight_savings: bool
+}
+
+impl Time {
+    pub fn new(hours: u8, minutes: u8, seconds: u8, daylight_savings: bool) -> Self {
+        Self {
+            seconds: seconds,
+            minutes: minutes,
+            hours: hours,
+            daylight_savings: daylight_savings
+        }
+    }
 }
 
 /// RTC Abstraction
@@ -17,7 +29,7 @@ pub struct Rtc {
 }
 
 impl Rtc {
-    pub fn init(&self, rtc: RTC, bdcr: &mut BDCR) -> Self {
+    pub fn init(rtc: RTC, bdcr: &mut BDCR) -> Self {
         bdcr.enr().modify(|_, w| unsafe {
             w.rtcsel()
                 /* 
@@ -31,9 +43,9 @@ impl Rtc {
                 .set_bit()
         });
 
-        self.write_protection(&rtc, false);
+       write_protection(&rtc, false);
         {
-            self.init_mode(&rtc, true);
+            init_mode(&rtc, true);
             {
                 rtc.cr.modify(|_, w| unsafe {
                     w.fmt()
@@ -57,7 +69,7 @@ impl Rtc {
                         .bits(127)
                 });
             }
-            self.init_mode(&rtc, false);
+            init_mode(&rtc, false);
 
             rtc.or.modify(|_, w| {
                 w.rtc_alarm_type()
@@ -67,61 +79,93 @@ impl Rtc {
             });
             
         }
-        self.write_protection(&rtc, true);
+        write_protection(&rtc, true);
 
         Self {
             rtc: rtc
         }
     }
 
-    fn init_mode(&self, rtc: &RTC, enabled: bool) {
-        if enabled {
-            rtc.isr.write(|w| unsafe { w.bits(0xFFFFFFFF) }); // Sets init mode
-            while rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
-        } else {
-            rtc.isr.write(|w| { w.init().clear_bit() }); // Exits init mode
-        }
-        
-    }
-
-    pub fn set_time(&self, time: Time){
-        self.write_protection(&self.rtc, false);
+    pub fn set_time(&self, time: &Time){
+        write_protection(&self.rtc, false);
         {
-            self.init_mode(&self.rtc, true);
+            init_mode(&self.rtc, true);
             {
-                self.rtc.tr.write(|w| {
+                self.rtc.tr.write(|w| unsafe {
                     w.pm()
                         .clear_bit()
-                        //TODO set time!
-                })
+                        .hu()
+                        .bits(byte_to_bcd2(time.hours as u8))
+                        .mnu()
+                        .bits(byte_to_bcd2(time.minutes as u8))
+                        .su()
+                        .bits(byte_to_bcd2(time.seconds as u8))
+
+                });
+
+                self.rtc.cr.modify(|_, w| {
+                    w.fmt()
+                        .bit(time.daylight_savings)
+
+                });
             }
-            self.init_mode(&self.rtc, false);
+            init_mode(&self.rtc, false);
         }
-        self.write_protection(&self.rtc, true);
+        write_protection(&self.rtc, true);
     }
 
-    fn write_protection(&self, rtc: &RTC, enable: bool){
-        if enable {
-            rtc.wpr.write(|w| unsafe {
+    pub fn get_time(&self) -> Time {
+        let time;
+        write_protection(&self.rtc, false);
+        {
+            init_mode(&self.rtc, true);
+            {
+                let timer = self.rtc.tr.read();
+                let cr = self.rtc.cr.read();
+                time = Time::new(timer.su().bits(), timer.mnu().bits(), timer.hu().bits(), cr.fmt().bit());
+            }
+            init_mode(&self.rtc, false);
+        }
+        write_protection(&self.rtc, true);
+        time
+    }
+    
+}
+
+fn write_protection(rtc: &RTC, enable: bool){
+    if enable {
+        rtc.wpr.write(|w| unsafe {
             w.bits(0xFF)
-            });
-        } else {
-            rtc.wpr.write(|w| unsafe {
-                w.bits(0xCA)
-            });
+        });
+    } else {
+        rtc.wpr.write(|w| unsafe {
+            w.bits(0xCA)
+        });
 
-            rtc.wpr.write(|w| unsafe {
-                w.bits(0x53)
-            });
-        }
+        rtc.wpr.write(|w| unsafe {
+            w.bits(0x53)
+        });
     }
+}
+
+fn init_mode(rtc: &RTC, enabled: bool) {
+    if enabled {
+        let isr = rtc.isr.read();
+        if isr.initf().bit_is_clear() {
+            rtc.isr.write(|w| unsafe { w.bits(0xFFFFFFFF) }); // Sets init mode
+            while rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
+        } 
+    } else {
+        rtc.isr.write(|w| { w.init().clear_bit() }); // Exits init mode
+    }
+    
 }
 
 fn byte_to_bcd2(byte: u8) -> u8{
     let mut bcd_high: u8 = 0;
     let mut value = byte;
     
-    while byte >= 10 {
+    while value >= 10 {
         bcd_high += 1;
         value -= 10;
     }
