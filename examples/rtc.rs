@@ -20,6 +20,7 @@ use hal::stm32l4::stm32l4x2;
 use hal::delay::Delay;
 use hal::rtc::Rtc;
 use hal::rtc::Time;
+use hal::pwr::Pwr;
 use hal::datetime::*;
 use rt::ExceptionFrame;
 
@@ -47,8 +48,8 @@ fn main() -> ! {
     //     .pclk1(32.mhz())
     //     .freeze(&mut flash.acr);
     let mut timer = Delay::new(cp.SYST, clocks);
-
-    let rtc = Rtc::init(dp.RTC, &mut rcc.bdcr);
+    let mut pwr = Pwr::pwr(&mut rcc.apb1r1);
+    let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1);
     let time = Time::new(0, 0, 19, false);
     rtc.set_time(&time);
 

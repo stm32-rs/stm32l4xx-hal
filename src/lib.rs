@@ -24,6 +24,7 @@ pub mod timer;
 pub mod spi;
 pub mod datetime;
 pub mod rtc;
+pub mod pwr;
 
 
 #[cfg(test)]

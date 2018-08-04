@@ -1,7 +1,8 @@
 /// RTC peripheral abstraction
 
 use datetime::*;
-use rcc::{BDCR};
+use rcc::{BDCR, APB1R1};
+use pwr;
 use stm32l4::stm32l4x2::{RTC};
 
 #[derive(Clone,Copy,Debug)]
@@ -29,7 +30,16 @@ pub struct Rtc {
 }
 
 impl Rtc {
-    pub fn init(rtc: RTC, bdcr: &mut BDCR) -> Self {
+    pub fn rtc(rtc: RTC, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1) -> Self {
+        // enable peripheral clock for communication
+        apb1r1.enr().modify(|_, w| w.rtcapben().set_bit());
+        pwrcr1.reg().read(); // read to allow the pwr clock to enable
+        
+        pwrcr1.reg().modify(|_, w| w.dbp().set_bit());
+        while pwrcr1.reg().read().dbp().bit_is_clear() {}
+        
+        bdcr.enr().modify(|_, w| { w.bdrst().set_bit() }); // reset
+        
         bdcr.enr().modify(|_, w| unsafe {
             w.rtcsel()
                 /* 
@@ -41,7 +51,10 @@ impl Rtc {
                 .bits(0b10)
                 .rtcen()
                 .set_bit()
+                .bdrst() // reset required for clock source change
+                .clear_bit()
         });
+
 
        write_protection(&rtc, false);
         {
@@ -151,8 +164,9 @@ fn write_protection(rtc: &RTC, enable: bool){
 fn init_mode(rtc: &RTC, enabled: bool) {
     if enabled {
         let isr = rtc.isr.read();
-        if isr.initf().bit_is_clear() {
-            rtc.isr.write(|w| unsafe { w.bits(0xFFFFFFFF) }); // Sets init mode
+        if isr.initf().bit_is_clear() { // are we already in init mode?
+            rtc.isr.write(|w| { w.init().set_bit() });
+            // rtc.isr.write(|w| unsafe { w.bits(0xFFFFFFFF) }); // Sets init mode
             while rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
         } 
     } else {
