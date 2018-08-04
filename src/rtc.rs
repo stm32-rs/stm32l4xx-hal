@@ -7,9 +7,9 @@ use stm32l4::stm32l4x2::{RTC};
 
 #[derive(Clone,Copy,Debug)]
 pub struct Time {
-    seconds: u8,
-    minutes: u8,
     hours: u8,
+    minutes: u8,
+    seconds: u8,
     daylight_savings: bool
 }
 
@@ -104,15 +104,18 @@ impl Rtc {
         {
             init_mode(&self.rtc, true);
             {
+                let (ht, hu) = byte_to_bcd2(time.hours);
+                let (mnt, mnu) = byte_to_bcd2(time.minutes);
+                let (st, su) = byte_to_bcd2(time.seconds);
                 self.rtc.tr.write(|w| unsafe {
-                    w.pm()
+                    w.ht().bits(ht)
+                        .hu().bits(hu)
+                        .mnt().bits(mnt)
+                        .mnu().bits(mnu)
+                        .st().bits(st)
+                        .su().bits(su)
+                        .pm()
                         .clear_bit()
-                        .hu()
-                        .bits(time.hours)
-                        .mnu()
-                        .bits(time.minutes)
-                        .su()
-                        .bits(time.seconds)
 
                 });
 
@@ -135,7 +138,11 @@ impl Rtc {
             {
                 let timer = self.rtc.tr.read();
                 let cr = self.rtc.cr.read();
-                time = Time::new(timer.hu().bits(), timer.mnu().bits(), timer.su().bits(), cr.fmt().bit());
+                let ht = timer.ht().bits();
+                time = Time::new(bcd2_to_byte((timer.ht().bits(), timer.hu().bits())), 
+                                bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())),
+                                bcd2_to_byte((timer.st().bits(), timer.su().bits())),
+                                cr.fmt().bit());
             }
             init_mode(&self.rtc, false);
         }
@@ -176,7 +183,7 @@ fn init_mode(rtc: &RTC, enabled: bool) {
     
 }
 
-fn byte_to_bcd2(byte: u8) -> u8{
+fn byte_to_bcd2(byte: u8) -> (u8, u8){
     let mut bcd_high: u8 = 0;
     let mut value = byte;
     
@@ -185,5 +192,13 @@ fn byte_to_bcd2(byte: u8) -> u8{
         value -= 10;
     }
 
-    return  ((bcd_high << 4) | value) as u8;
+    (bcd_high, ((bcd_high << 4) | value) as u8)
+}
+
+fn bcd2_to_byte(bcd: (u8, u8)) -> u8 { // TODO fix this
+    let value = bcd.1 | bcd.0 << 4;
+    
+    let tmp = ((value & 0xF0) >> 0x4) * 10;
+    
+    (tmp + (value & 0x0F))
 }

@@ -50,7 +50,7 @@ fn main() -> ! {
     let mut timer = Delay::new(cp.SYST, clocks);
     let mut pwr = Pwr::pwr(&mut rcc.apb1r1);
     let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1);
-    let time = Time::new(19, 0, 0, false);
+    let time = Time::new(21, 57, 32, false);
     rtc.set_time(&time);
 
     timer.delay_ms(1000_u32);
