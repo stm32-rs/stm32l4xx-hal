@@ -16,9 +16,9 @@ pub struct Time {
 impl Time {
     pub fn new(hours: u8, minutes: u8, seconds: u8, daylight_savings: bool) -> Self {
         Self {
-            seconds: seconds,
-            minutes: minutes,
             hours: hours,
+            minutes: minutes,
+            seconds: seconds,
             daylight_savings: daylight_savings
         }
     }
@@ -108,11 +108,11 @@ impl Rtc {
                     w.pm()
                         .clear_bit()
                         .hu()
-                        .bits(byte_to_bcd2(time.hours as u8))
+                        .bits(time.hours)
                         .mnu()
-                        .bits(byte_to_bcd2(time.minutes as u8))
+                        .bits(time.minutes)
                         .su()
-                        .bits(byte_to_bcd2(time.seconds as u8))
+                        .bits(time.seconds)
 
                 });
 
@@ -135,11 +135,12 @@ impl Rtc {
             {
                 let timer = self.rtc.tr.read();
                 let cr = self.rtc.cr.read();
-                time = Time::new(timer.su().bits(), timer.mnu().bits(), timer.hu().bits(), cr.fmt().bit());
+                time = Time::new(timer.hu().bits(), timer.mnu().bits(), timer.su().bits(), cr.fmt().bit());
             }
             init_mode(&self.rtc, false);
         }
         write_protection(&self.rtc, true);
+        
         time
     }
     
