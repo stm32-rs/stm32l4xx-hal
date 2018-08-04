@@ -24,6 +24,25 @@ impl Time {
     }
 }
 
+#[derive(Clone,Copy,Debug)]
+pub struct Date {
+    day: u8,
+    date: u8,
+    month: u8,
+    year: u16,
+}
+
+impl Date {
+    pub fn new(day: u8, date: u8, month: u8, year: u16) -> Self {
+        Self {
+            day: day,
+            date: date,
+            month: month,
+            year: year
+        }
+    }
+}
+
 /// RTC Abstraction
 pub struct Rtc {
     rtc: RTC
@@ -84,6 +103,7 @@ impl Rtc {
             }
             init_mode(&rtc, false);
 
+            // TODO configuration for output pins
             rtc.or.modify(|_, w| {
                 w.rtc_alarm_type()
                     .clear_bit()
@@ -138,7 +158,6 @@ impl Rtc {
             {
                 let timer = self.rtc.tr.read();
                 let cr = self.rtc.cr.read();
-                let ht = timer.ht().bits();
                 time = Time::new(bcd2_to_byte((timer.ht().bits(), timer.hu().bits())), 
                                 bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())),
                                 bcd2_to_byte((timer.st().bits(), timer.su().bits())),
@@ -149,6 +168,53 @@ impl Rtc {
         write_protection(&self.rtc, true);
         
         time
+    }
+
+    pub fn set_date(&self, date: &Date){
+        write_protection(&self.rtc, false);
+        {
+            init_mode(&self.rtc, true);
+            {
+                let (dt, du) = byte_to_bcd2(date.date);
+                let (mt, mu) = byte_to_bcd2(date.month);
+                let (yt, yu) = byte_to_bcd2((date.year - 1970_u16) as u8);
+
+                self.rtc.dr.write(|w| unsafe {
+                    w.dt().bits(dt)
+                        .du().bits(du)
+                        .mt().bit(mt > 0)
+                        .mu().bits(mu)
+                        .yt().bits(yt)
+                        .yu().bits(yu)
+                        .wdu().bits(date.day)
+                });
+
+
+            }
+            init_mode(&self.rtc, false);
+        }
+        write_protection(&self.rtc, true);
+    }
+
+    pub fn get_date(&self) -> Date {
+        let date;
+        write_protection(&self.rtc, false);
+        {
+            init_mode(&self.rtc, true);
+            {
+                let dater = self.rtc.dr.read();
+                let (yt, yu) = (dater.yt().bits(), dater.yu().bits());
+                date = Date::new(dater.wdu().bits(), 
+                                bcd2_to_byte((dater.dt().bits(), dater.du().bits())),
+                                bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())),
+                                (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16) as u16,
+                                );
+            }
+            init_mode(&self.rtc, false);
+        }
+        write_protection(&self.rtc, true);
+        
+        date
     }
     
 }
