@@ -1,6 +1,6 @@
 /// RTC peripheral abstraction
 
-use datetime::*;
+// use datetime::*;
 use rcc::{BDCR, APB1R1};
 use pwr;
 use stm32l4::stm32l4x2::{RTC};

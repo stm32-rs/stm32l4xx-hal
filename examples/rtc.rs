@@ -22,7 +22,6 @@ use hal::rtc::Rtc;
 use hal::rtc::Time;
 use hal::rtc::Date;
 use hal::pwr::Pwr;
-use hal::datetime::*;
 use rt::ExceptionFrame;
 
 use core::fmt::Write;
@@ -51,8 +50,10 @@ fn main() -> ! {
     let mut timer = Delay::new(cp.SYST, clocks);
     let mut pwr = Pwr::pwr(&mut rcc.apb1r1);
     let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1);
-    let time = Time::new(21, 57, 32, false);
-    let date = Date::new(1, 24, 4, 2018);
+    
+    let mut time = Time::new(21, 57, 32, false);
+    let mut date = Date::new(1, 24, 4, 2018);
+    
     rtc.set_time(&time);
     rtc.set_date(&date);
 
@@ -60,8 +61,8 @@ fn main() -> ! {
     timer.delay_ms(1000_u32);
     timer.delay_ms(1000_u32);
 
-    let _time = rtc.get_time();
-    let _date = rtc.get_date();
+    time = rtc.get_time();
+    date = rtc.get_date();
 
     
     writeln!(hstdout, "Good bye!").unwrap();
