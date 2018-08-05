@@ -22,6 +22,9 @@ pub mod gpio;
 pub mod delay;
 pub mod timer;
 pub mod spi;
+pub mod rtc;
+pub mod pwr;
+pub mod datetime;
 
 
 #[cfg(test)]

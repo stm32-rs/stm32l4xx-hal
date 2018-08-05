@@ -23,6 +23,8 @@ impl RccExt for RCC {
             apb1r1: APB1R1 { _0: () },
             apb1r2: APB1R2 { _0: () },
             apb2: APB2 { _0: () },
+            bdcr: BDCR { _0: () },
+            csr: CSR { _0: () },
             cfgr: CFGR {
                 hclk: None,
                 pclk1: None,
@@ -47,7 +49,40 @@ pub struct Rcc {
     pub apb1r2: APB1R2,
     /// Advanced Peripheral Bus 2 (APB2) registers
     pub apb2: APB2,
+    /// Clock configuration register
     pub cfgr: CFGR,
+    /// Backup domain control register
+    pub bdcr: BDCR,
+    /// Control/Status Register
+    pub csr: CSR, 
+}
+
+// CSR Control/Status Register
+pub struct CSR {
+    _0: (),
+}
+
+impl CSR {
+    // TODO remove `allow`
+    #[allow(dead_code)]
+    pub(crate) fn csr(&mut self) -> &rcc::CSR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).csr }
+    }
+}
+
+// BDCR Backup domain control register registers
+pub struct BDCR {
+    _0: (),
+}
+
+impl BDCR {
+    // TODO remove `allow`
+    #[allow(dead_code)]
+    pub(crate) fn enr(&mut self) -> &rcc::BDCR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).bdcr }
+    }
 }
 
 // AMBA High-performance Bus (AHB1) registers
@@ -359,6 +394,13 @@ impl CFGR {
         }
 
         while rcc.cfgr.read().sws().bits() != sysclk_src_bits {}
+
+        // Turn on the internal 32khz lsi oscillator
+        rcc.csr.modify(|_, w| {
+            w.lsion().set_bit()
+        });
+        // Wait until LSI is running
+        while rcc.csr.read().lsirdy().bit_is_clear() {}
 
 
         Clocks {

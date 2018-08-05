@@ -13,7 +13,7 @@
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/debug/examples/serial_dma_partial_peek",
+            "executable": "./target/thumbv7em-none-eabi/debug/examples/rtc",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",
