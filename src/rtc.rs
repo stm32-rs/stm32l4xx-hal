@@ -1,47 +1,9 @@
 /// RTC peripheral abstraction
 
-// use datetime::*;
+use datetime::*;
 use rcc::{BDCR, APB1R1};
 use pwr;
 use stm32l4::stm32l4x2::{RTC};
-
-#[derive(Clone,Copy,Debug)]
-pub struct Time {
-    pub hours: u8,
-    pub minutes: u8,
-    pub seconds: u8,
-    pub daylight_savings: bool
-}
-
-impl Time {
-    pub fn new(hours: u8, minutes: u8, seconds: u8, daylight_savings: bool) -> Self {
-        Self {
-            hours: hours,
-            minutes: minutes,
-            seconds: seconds,
-            daylight_savings: daylight_savings
-        }
-    }
-}
-
-#[derive(Clone,Copy,Debug)]
-pub struct Date {
-    pub day: u8,
-    pub date: u8,
-    pub month: u8,
-    pub year: u16,
-}
-
-impl Date {
-    pub fn new(day: u8, date: u8, month: u8, year: u16) -> Self {
-        Self {
-            day: day,
-            date: date,
-            month: month,
-            year: year
-        }
-    }
-}
 
 /// RTC Abstraction
 pub struct Rtc {
@@ -124,9 +86,10 @@ impl Rtc {
         {
             init_mode(&self.rtc, true);
             {
-                let (ht, hu) = byte_to_bcd2(time.hours);
-                let (mnt, mnu) = byte_to_bcd2(time.minutes);
-                let (st, su) = byte_to_bcd2(time.seconds);
+                
+                let (ht, hu) = byte_to_bcd2(time.hours.into());
+                let (mnt, mnu) = byte_to_bcd2(time.minutes.into());
+                let (st, su) = byte_to_bcd2(time.seconds.into());
                 self.rtc.tr.write(|w| unsafe {
                     w.ht().bits(ht)
                         .hu().bits(hu)
@@ -155,9 +118,9 @@ impl Rtc {
         
         let timer = self.rtc.tr.read();
         let cr = self.rtc.cr.read();
-        time = Time::new(bcd2_to_byte((timer.ht().bits(), timer.hu().bits())), 
-                        bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())),
-                        bcd2_to_byte((timer.st().bits(), timer.su().bits())),
+        time = Time::new(bcd2_to_byte((timer.ht().bits(), timer.hu().bits())).into(), 
+                        bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())).into(),
+                        bcd2_to_byte((timer.st().bits(), timer.su().bits())).into(),
                         cr.fmt().bit());
         
         write_protection(&self.rtc, true);
@@ -170,9 +133,11 @@ impl Rtc {
         {
             init_mode(&self.rtc, true);
             {
-                let (dt, du) = byte_to_bcd2(date.date);
-                let (mt, mu) = byte_to_bcd2(date.month);
-                let (yt, yu) = byte_to_bcd2((date.year - 1970_u16) as u8);
+                let (dt, du) = byte_to_bcd2(date.date.into());
+                let (mt, mu) = byte_to_bcd2(date.month.into());
+                let yr: u16 = date.year.into();
+                let yr_offset = (yr - 1970_u16) as u8;
+                let (yt, yu) = byte_to_bcd2(yr_offset);
 
                 self.rtc.dr.write(|w| unsafe {
                     w.dt().bits(dt)
@@ -181,7 +146,7 @@ impl Rtc {
                         .mu().bits(mu)
                         .yt().bits(yt)
                         .yu().bits(yu)
-                        .wdu().bits(date.day)
+                        .wdu().bits(date.day.into())
                 });
 
 
@@ -195,10 +160,10 @@ impl Rtc {
         let date;
         
         let dater = self.rtc.dr.read();
-        date = Date::new(dater.wdu().bits(), 
-                        bcd2_to_byte((dater.dt().bits(), dater.du().bits())),
-                        bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())),
-                        (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16) as u16);
+        date = Date::new(dater.wdu().bits().into(), 
+                        bcd2_to_byte((dater.dt().bits(), dater.du().bits())).into(),
+                        bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())).into(),
+                        (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16).into());
         date
     }
     

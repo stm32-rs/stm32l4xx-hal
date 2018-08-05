@@ -19,9 +19,8 @@ use hal::stm32l4::stm32l4x2;
 
 use hal::delay::Delay;
 use hal::rtc::Rtc;
-use hal::rtc::Time;
-use hal::rtc::Date;
 use hal::pwr::Pwr;
+use hal::datetime::{Date,Time};
 use rt::ExceptionFrame;
 
 use core::fmt::Write;
@@ -51,8 +50,8 @@ fn main() -> ! {
     let mut pwr = Pwr::pwr(&mut rcc.apb1r1);
     let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1);
     
-    let mut time = Time::new(21, 57, 32, false);
-    let mut date = Date::new(1, 24, 4, 2018);
+    let mut time = Time::new(21.hours(), 57.minutes(), 32.seconds(), false);
+    let mut date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
     
     rtc.set_time(&time);
     rtc.set_date(&date);

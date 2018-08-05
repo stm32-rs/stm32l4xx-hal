@@ -1,49 +1,49 @@
 /// Date and timer units & helper functions
 
 /// Seconds
-#[derive(Clone, Copy)]
-pub struct Seconds(pub u32);
+#[derive(Clone, Copy, Debug)]
+pub struct Second(pub u32);
 
 /// Minutes
-#[derive(Clone, Copy)]
-pub struct Minutes(pub u32);
+#[derive(Clone, Copy, Debug)]
+pub struct Minute(pub u32);
 
 /// Hours
-#[derive(Clone, Copy)]
-pub struct Hours(pub u32);
+#[derive(Clone, Copy, Debug)]
+pub struct Hour(pub u32);
 
 /// Day (1-7)
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Day(pub u32);
 
 /// Date (1-31)
-#[derive(Clone, Copy)]
-pub struct Date(pub u32);
+#[derive(Clone, Copy, Debug)]
+pub struct DateInMonth(pub u32);
 
 /// Week (1-52)
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Week(pub u32);
 
 /// Month (1-12)
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Month(pub u32);
 
 /// Year
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Year(pub u32);
 
 /// Extension trait that adds convenience methods to the `u32` type
 pub trait U32Ext {
     /// Seconds
-    fn seconds(self) -> Seconds;
+    fn seconds(self) -> Second;
     /// Minutes
-    fn minutes(self) -> Minutes;
+    fn minutes(self) -> Minute;
     /// Hours
-    fn hours(self) -> Hours;
+    fn hours(self) -> Hour;
     /// Day
     fn day(self) -> Day;
     /// Seconds
-    fn date(self) -> Date;
+    fn date(self) -> DateInMonth;
     /// Month
     fn month(self) -> Month;
     /// Year
@@ -51,24 +51,24 @@ pub trait U32Ext {
 }
 
 impl U32Ext for u32 {
-    fn seconds(self) -> Seconds {
-        Seconds(self)
+    fn seconds(self) -> Second {
+        Second(self)
     }
 
-    fn minutes(self) -> Minutes {
-        Minutes(self)
+    fn minutes(self) -> Minute {
+        Minute(self)
     }
 
-    fn hours(self) -> Hours {
-        Hours(self)
+    fn hours(self) -> Hour {
+        Hour(self)
     }
 
     fn day(self) -> Day {
         Day(self)
     }
 
-    fn date(self) -> Date {
-        Date(self)
+    fn date(self) -> DateInMonth {
+        DateInMonth(self)
     }
 
     fn month(self) -> Month {
@@ -80,32 +80,100 @@ impl U32Ext for u32 {
     }
 }
 
-impl Into<Seconds> for Minutes {
-    fn into(self) -> Seconds {
-        Seconds(self.0 * 60)
+#[derive(Clone,Copy,Debug)]
+pub struct Time {
+    pub hours: Hour,
+    pub minutes: Minute,
+    pub seconds: Second,
+    pub daylight_savings: bool
+}
+
+impl Time {
+    pub fn new(hours: Hour, minutes: Minute, seconds: Second, daylight_savings: bool) -> Self {
+        Self {
+            hours: hours,
+            minutes: minutes,
+            seconds: seconds,
+            daylight_savings: daylight_savings
+        }
     }
 }
 
-impl Into<Seconds> for Hours {
-    fn into(self) -> Seconds {
-        Seconds(self.0 * 3600)
+#[derive(Clone,Copy, Debug)]
+pub struct Date {
+    pub day: Day,
+    pub date: DateInMonth,
+    pub month: Month,
+    pub year: Year,
+}
+
+impl Date {
+    pub fn new(day: Day, date: DateInMonth, month: Month, year: Year) -> Self {
+        Self {
+            day: day,
+            date: date,
+            month: month,
+            year: year
+        }
     }
 }
 
-impl From <u32> for Seconds {
-    fn from(inner: u32) -> Seconds {
-        Seconds(inner)
+impl Into<Second> for Minute {
+    fn into(self) -> Second {
+        Second(self.0 * 60)
     }
 }
 
-impl From <u32> for Minutes {
-    fn from(inner: u32) -> Minutes {
-        Minutes(inner)
+impl Into<Second> for Hour {
+    fn into(self) -> Second {
+        Second(self.0 * 3600)
     }
 }
 
-impl From <u32> for Hours {
-    fn from(inner: u32) -> Hours {
-        Hours(inner)
+macro_rules! impl_from_struct {
+    ($(
+        $type:ident: [ $($to:ident),+ ],
+    )+) => {
+        $(
+            $(
+                impl From <$type> for $to {
+                    fn from(inner: $type) -> $to {
+                        inner.0 as $to
+                    }
+                }
+            )+
+        )+
     }
 }
+
+macro_rules! impl_to_struct {
+    ($(
+        $type:ident: [ $($to:ident),+ ],
+    )+) => {
+        $(
+            $(
+                impl From <$type> for $to {
+                    fn from(inner: $type) -> $to {
+                        $to(inner as u32)
+                    }
+                }
+            )+
+        )+
+    }
+}
+
+impl_from_struct!(
+    Hour: [u32, u16, u8],
+    Second: [u32, u16, u8],
+    Minute: [u32, u16, u8],
+    Day: [u32, u16, u8],
+    DateInMonth: [u32, u16, u8],
+    Month: [u32, u16, u8],
+    Year: [u32, u16, u8],
+);
+
+impl_to_struct!(
+    u32: [Hour, Minute, Second, Day, DateInMonth, Month, Year],
+    u16: [Hour, Minute, Second, Day, DateInMonth, Month, Year],
+    u8: [Hour, Minute, Second, Day, DateInMonth, Month, Year],
+);
