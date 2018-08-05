@@ -1,6 +1,3 @@
-// TODO impl power module so we enable backup domain for rtc etc
-// apb1r1.enr().modify(|_, w| w.pwren().set_bit());
-
 use rcc::{APB1R1};
 use stm32l4::stm32l4x2::{pwr, PWR};
 
@@ -12,11 +9,17 @@ pub struct Pwr {
     pub cr4: CR4,
 }
 
-impl Pwr {
-    pub fn pwr(apb1r1: &mut APB1R1) -> Self {
-        apb1r1.enr().modify(|_, w| w.pwren().set_bit());
+/// Extension trait that constrains the `PWR` peripheral
+pub trait PwrExt {
+    /// Constrains the `PWR` peripheral so it plays nicely with the other abstractions
+    fn constrain(self, &mut APB1R1) -> Pwr;
+}
 
-        Self {
+impl PwrExt for PWR {
+    fn constrain(self, apb1r1: &mut APB1R1) -> Pwr {
+        // Enable the peripheral clock
+        apb1r1.enr().modify(|_, w| w.pwren().set_bit());
+        Pwr {
             cr1: CR1 { _0: () },
             cr2: CR2 { _0: () },
             cr3: CR3 { _0: () },

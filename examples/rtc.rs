@@ -19,7 +19,6 @@ use hal::stm32l4::stm32l4x2;
 
 use hal::delay::Delay;
 use hal::rtc::Rtc;
-use hal::pwr::Pwr;
 use hal::datetime::{Date,Time};
 use rt::ExceptionFrame;
 
@@ -42,12 +41,9 @@ fn main() -> ! {
 
     // Try a different clock configuration
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
-    // let clocks = rcc.cfgr
-    //     .sysclk(64.mhz())
-    //     .pclk1(32.mhz())
-    //     .freeze(&mut flash.acr);
+    
     let mut timer = Delay::new(cp.SYST, clocks);
-    let mut pwr = Pwr::pwr(&mut rcc.apb1r1);
+    let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
     let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1);
     
     let mut time = Time::new(21.hours(), 57.minutes(), 32.seconds(), false);
@@ -64,6 +60,8 @@ fn main() -> ! {
     date = rtc.get_date();
 
     
+    writeln!(hstdout, "Time: {:?}", time).unwrap();
+    writeln!(hstdout, "Date: {:?}", date).unwrap();
     writeln!(hstdout, "Good bye!").unwrap();
     loop {}
 }
