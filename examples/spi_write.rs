@@ -16,7 +16,7 @@ use hal::prelude::*;
 use hal::spi::Spi;
 use hal::stm32l4::stm32l4x2;
 use rt::ExceptionFrame;
-use ehal::spi::{FullDuplex, Mode, Phase, Polarity};
+use ehal::spi::{Mode, Phase, Polarity};
 
 /// SPI mode
 pub const MODE: Mode = Mode {

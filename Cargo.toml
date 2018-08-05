@@ -1,7 +1,7 @@
 [package]
 name = "stm32l432xx-hal"
 version = "0.1.0"
-authors = ["Scott <MabezDev@gmail.com>"]
+authors = ["Scott Mabin <MabezDev@gmail.com>"]
 description = "Hardware abstraction layer for the stm32l432xx chips"
 keywords = ["no-std", "stm32l432xx", "stm32l432kc", "embedded", "embedded-hal"]
 repository = "https://github.com/MabezDev/stm32l432xx-hal"
