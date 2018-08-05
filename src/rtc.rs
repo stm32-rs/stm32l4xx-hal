@@ -7,10 +7,10 @@ use stm32l4::stm32l4x2::{RTC};
 
 #[derive(Clone,Copy,Debug)]
 pub struct Time {
-    hours: u8,
-    minutes: u8,
-    seconds: u8,
-    daylight_savings: bool
+    pub hours: u8,
+    pub minutes: u8,
+    pub seconds: u8,
+    pub daylight_savings: bool
 }
 
 impl Time {
@@ -26,10 +26,10 @@ impl Time {
 
 #[derive(Clone,Copy,Debug)]
 pub struct Date {
-    day: u8,
-    date: u8,
-    month: u8,
-    year: u16,
+    pub day: u8,
+    pub date: u8,
+    pub month: u8,
+    pub year: u16,
 }
 
 impl Date {
@@ -152,19 +152,14 @@ impl Rtc {
 
     pub fn get_time(&self) -> Time {
         let time;
-        write_protection(&self.rtc, false);
-        {
-            init_mode(&self.rtc, true);
-            {
-                let timer = self.rtc.tr.read();
-                let cr = self.rtc.cr.read();
-                time = Time::new(bcd2_to_byte((timer.ht().bits(), timer.hu().bits())), 
-                                bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())),
-                                bcd2_to_byte((timer.st().bits(), timer.su().bits())),
-                                cr.fmt().bit());
-            }
-            init_mode(&self.rtc, false);
-        }
+        
+        let timer = self.rtc.tr.read();
+        let cr = self.rtc.cr.read();
+        time = Time::new(bcd2_to_byte((timer.ht().bits(), timer.hu().bits())), 
+                        bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())),
+                        bcd2_to_byte((timer.st().bits(), timer.su().bits())),
+                        cr.fmt().bit());
+        
         write_protection(&self.rtc, true);
         
         time
@@ -198,22 +193,12 @@ impl Rtc {
 
     pub fn get_date(&self) -> Date {
         let date;
-        write_protection(&self.rtc, false);
-        {
-            init_mode(&self.rtc, true);
-            {
-                let dater = self.rtc.dr.read();
-                let (yt, yu) = (dater.yt().bits(), dater.yu().bits());
-                date = Date::new(dater.wdu().bits(), 
-                                bcd2_to_byte((dater.dt().bits(), dater.du().bits())),
-                                bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())),
-                                (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16) as u16,
-                                );
-            }
-            init_mode(&self.rtc, false);
-        }
-        write_protection(&self.rtc, true);
         
+        let dater = self.rtc.dr.read();
+        date = Date::new(dater.wdu().bits(), 
+                        bcd2_to_byte((dater.dt().bits(), dater.du().bits())),
+                        bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())),
+                        (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16) as u16);
         date
     }
     
