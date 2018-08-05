@@ -82,18 +82,18 @@ impl U32Ext for u32 {
 
 #[derive(Clone,Copy,Debug)]
 pub struct Time {
-    pub hours: Hour,
-    pub minutes: Minute,
-    pub seconds: Second,
+    pub hours: u32,
+    pub minutes: u32,
+    pub seconds: u32,
     pub daylight_savings: bool
 }
 
 impl Time {
     pub fn new(hours: Hour, minutes: Minute, seconds: Second, daylight_savings: bool) -> Self {
         Self {
-            hours: hours,
-            minutes: minutes,
-            seconds: seconds,
+            hours: hours.0,
+            minutes: minutes.0,
+            seconds: seconds.0,
             daylight_savings: daylight_savings
         }
     }
@@ -101,19 +101,19 @@ impl Time {
 
 #[derive(Clone,Copy, Debug)]
 pub struct Date {
-    pub day: Day,
-    pub date: DateInMonth,
-    pub month: Month,
-    pub year: Year,
+    pub day: u32,
+    pub date: u32,
+    pub month: u32,
+    pub year: u32,
 }
 
 impl Date {
     pub fn new(day: Day, date: DateInMonth, month: Month, year: Year) -> Self {
         Self {
-            day: day,
-            date: date,
-            month: month,
-            year: year
+            day: day.0,
+            date: date.0,
+            month: month.0,
+            year: year.0
         }
     }
 }
