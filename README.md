@@ -2,6 +2,8 @@
 
 > [HAL] for the STM32L432xx family of microcontrollers
 
+*Note: this HAL is a work in progress, contributions are appreciated :)*
+
 [HAL]: https://crates.io/crates/embedded-hal
 
 ## [Documentation](todo)

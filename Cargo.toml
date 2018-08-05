@@ -2,6 +2,15 @@
 name = "stm32l432xx-hal"
 version = "0.1.0"
 authors = ["Scott <MabezDev@gmail.com>"]
+description = "Hardware abstraction layer for the stm32l432xx chips"
+keywords = ["no-std", "stm32l432xx", "stm32l432kc", "stm32l432kb", "embedded", "embedded-hal"]
+repository = "https://github.com/MabezDev/stm32l432xx-hal"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+exclude = [
+	".travis.yml",
+	".gitignore"
+]
 
 [dependencies]
 cortex-m = "0.5.2"

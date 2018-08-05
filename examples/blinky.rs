@@ -59,8 +59,6 @@ fn main() -> ! {
         timer.delay_ms(1000 as u32);
         led.set_low();
     }
-    writeln!(hstdout, "Good bye!").unwrap();
-    loop {}
 }
 
 exception!(HardFault, hard_fault);

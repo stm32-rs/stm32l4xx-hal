@@ -19,7 +19,6 @@ extern crate stm32l432xx_hal as hal;
 // extern crate nb;
 
 use cortex_m::asm;
-use hal::dma::Half;
 use hal::prelude::*;
 use hal::serial::Serial;
 use hal::stm32l4::stm32l4x2;
