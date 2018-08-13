@@ -201,37 +201,8 @@ macro_rules! dma {
                     }
 
                     impl<B> CircBuffer<B, $CX> {
-                        /// Peeks into the readable half of the buffer
-                        /// Returns the result of the closure
-                        pub fn peek<R, F>(&mut self, f: F) -> Result<R, Error>
-                            where
-                            F: FnOnce(&B, Half) -> R,
-                        {
-                            let half_being_read = self.readable_half()?;
-
-                            let buf = match half_being_read {
-                                Half::First => &self.buffer[0],
-                                Half::Second => &self.buffer[1],
-                            };
-
-                            // XXX does this need a compiler barrier?
-                            let ret = f(buf, half_being_read);
-
-
-                            let isr = self.channel.isr();
-                            let first_half_is_done = isr.$htifX().bit_is_set();
-                            let second_half_is_done = isr.$tcifX().bit_is_set();
-
-                            if (half_being_read == Half::First && second_half_is_done) ||
-                                (half_being_read == Half::Second && first_half_is_done) {
-                                Err(Error::Overrun)
-                            } else {
-                                Ok(ret)
-                            }
-                        }
-
-                        /// Partial Peek of the current state of the DMA buffer -> https://github.com/japaric/stm32f103xx-hal/issues/48#issuecomment-386683962
-                        /// Return type of closure is a tuple (bytes 'used', the partial_peek with return)
+                        
+                        /// Return the partial contents of the buffer half being written
                         pub fn partial_peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
@@ -242,38 +213,50 @@ macro_rules! dma {
                                 Half::First => &self.buffer[1],
                                 Half::Second => &self.buffer[0],
                             };
-
                             //                          ,- half-buffer
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
                             //                       ^- pending=11
                             let pending = self.channel.get_cndtr() as usize; // available bytes in _whole_ buffer
-
                             let slice: &[T] = buf;
                             let capacity = slice.len(); // capacity of _half_ a buffer
                             //     <--- capacity=10 --->
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
-
                             let pending = if pending > capacity {
                                 pending - capacity
                             } else {
                                 pending
                             };
-
                             //                          ,- half-buffer
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
                             //                       ^- pending=1
-
                             let end = capacity - pending;
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
                             //                       ^- end=9
                             //             ^- consumed_offset=4
                             //             [y y y y y] <-- slice
                             let slice = &slice[self.consumed_offset..end];
-
                             match f(slice, self.readable_half) {
                                 Ok((l, r)) => { self.consumed_offset += l; Ok(r) },
                                 Err(_) => Err(Error::BufferError),
                             }
+                        }
+
+                        /// Peeks into the readable half of the buffer
+                        /// Returns the result of the closure
+                        pub fn peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
+                            where
+                            F: FnOnce(&[T], Half) -> R,
+                            B: Unsize<[T]>,
+                        {
+                            let half_being_read = self.readable_half()?;
+                            let buf = match half_being_read {
+                                Half::First => &self.buffer[0],
+                                Half::Second => &self.buffer[1],
+                            };
+                            let slice: &[T] = buf;
+                            let slice = &slice[self.consumed_offset..];
+                            self.consumed_offset = 0;
+                            Ok(f(slice, half_being_read))
                         }
 
                         /// Returns the `Half` of the buffer that can be read
