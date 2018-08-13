@@ -8,6 +8,8 @@
 
 ## [Documentation](todo)
 
+## [Changelog](https://github.com/mabezdev/stm32l432xx-hal/blob/master/CHANGELOG.md)
+
 ## License
 
 Licensed under either of
