@@ -232,7 +232,7 @@ macro_rules! hal {
 
             impl Rx<$USARTX> {
                 pub fn circ_read<B>(
-                    self,
+                    &self,
                     mut chan: $rx_chan,
                     buffer: &'static mut [B; 2],
                 ) -> CircBuffer<B, $rx_chan>
@@ -288,6 +288,24 @@ macro_rules! hal {
                     }
 
                     CircBuffer::new(buffer, chan)
+                }
+
+                /// Checks to see if the usart peripheral has detected an idle line and clears the flag
+                pub fn is_idle(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    
+                    if isr.idle().bit_is_set() {
+                        if clear {
+                            icr.write(|w| {
+                                w.idlecf()
+                                .set_bit()
+                            });
+                        }
+                        true
+                    } else {
+                        false
+                    }
                 }
             }
         )+
