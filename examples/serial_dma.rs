@@ -67,8 +67,8 @@ fn main() -> ! {
     for _ in 0..2 {
         while circ_buffer.readable_half().unwrap() != Half::First {}
 
-        let _first_half = circ_buffer.peek(|half, _| {
-            *half
+        let _first_half = circ_buffer.peek(|_buf, half| {
+            half
         }).unwrap();
         
         // asm::bkpt();
@@ -77,7 +77,7 @@ fn main() -> ! {
 
         // asm::bkpt();
 
-        let _second_half = circ_buffer.peek(|half, _| *half).unwrap();
+        let _second_half = circ_buffer.peek(|_buf, half| half).unwrap();
     }
     
     // let received = block!(rx.read()).unwrap();
