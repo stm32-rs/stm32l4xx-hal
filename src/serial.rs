@@ -22,6 +22,8 @@ pub enum Event {
     Rxne,
     /// New data can be sent
     Txe,
+    /// The line has gone idle
+    Idle
 }
 
 /// Serial error
@@ -128,6 +130,9 @@ macro_rules! hal {
                         Event::Txe => {
                             self.usart.cr1.modify(|_, w| w.txeie().set_bit())
                         },
+                        Event::Idle => {
+                            self.usart.cr1.modify(|_, w| w.idleie().set_bit())
+                        },
                     }
                 }
 
@@ -139,6 +144,9 @@ macro_rules! hal {
                         },
                         Event::Txe => {
                             self.usart.cr1.modify(|_, w| w.txeie().clear_bit())
+                        },
+                        Event::Idle => {
+                            self.usart.cr1.modify(|_, w| w.idleie().clear_bit())
                         },
                     }
                 }
