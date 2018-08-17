@@ -1,4 +1,4 @@
-/// Date and timer units & helper functions
+//! Date and timer units & helper functions
 
 /// Seconds
 #[derive(Clone, Copy, Debug)]

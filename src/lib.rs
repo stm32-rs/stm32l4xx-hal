@@ -1,8 +1,9 @@
+//! STM32l432xx Hardware abstraction layer
+
 #![no_std]
 
-// currently these are the only 2 unstable features, never_typoe can replaced with void, nto sure what unsize can be repalced with
+// TODO, remove this feature (currently required in dma.rs)
 #![feature(unsize)]
-#![feature(never_type)]
 
 extern crate cortex_m;
 extern crate cast;
@@ -25,6 +26,7 @@ pub mod spi;
 pub mod rtc;
 pub mod pwr;
 pub mod datetime;
+pub mod tsc;
 
 
 #[cfg(test)]
