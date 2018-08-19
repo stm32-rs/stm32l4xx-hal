@@ -3,7 +3,7 @@
 use rcc::AHB1;
 use stm32l4::stm32l4x2::{TSC};
 use gpio::gpiob::{PB4, PB5, PB6, PB7};
-use gpio::{AF9};
+use gpio::{AF9, Alternate, Output, OpenDrain, PushPull};
 
 pub enum Event {
     /// Max count error
@@ -12,25 +12,28 @@ pub enum Event {
     EndOfAcquisition
 }
 
+// TODO macro to impl all possible channel/sample pin combinations
+pub trait SamplePin<TSC> {}
+impl SamplePin<TSC> for PB4<Alternate<AF9, Output<OpenDrain>>> {}
+
+pub trait ChannelPins<TSC> {}
+impl ChannelPins<TSC> for (
+    PB5<Alternate<AF9, Output<PushPull>>>,
+    PB6<Alternate<AF9, Output<PushPull>>>,
+    PB7<Alternate<AF9, Output<PushPull>>>)
+{}
+
 // TODO currently requires all the pins even if a user wants one channel, fix
-pub trait Pins<TSC> {
-    const REMAP: bool;
-}
-
-impl Pins<TSC> for (PB4<AF9>, PB5<AF9>, PB6<AF9>, PB7<AF9>) {
-    const REMAP: bool = false; // TODO REMAP
-}
-
-pub struct Tsc<PINS> {
+pub struct Tsc<SPIN, PINS> {
+    sample_pin: SPIN,
     pins: PINS,
-    // num_channels: usize,
-    // channel_pins: [PINS; 3], // upto 3 channels on the stm32l432xx
     tsc: TSC
 }
 
-impl<PINS> Tsc<PINS> {
-    pub fn tsc(tsc: TSC, pins: PINS, ahb: &mut AHB1) -> Self
-        where PINS: Pins<TSC>
+impl<SPIN, PINS> Tsc<SPIN, PINS> {
+    pub fn tsc(tsc: TSC, sample_pin: SPIN, pins: PINS, ahb: &mut AHB1) -> Self
+        where PINS: ChannelPins<TSC>,
+              SPIN: SamplePin<TSC>
     {
         /* Enable the peripheral clock */
         ahb.enr().modify(|_, w| w.tscen().set_bit());
@@ -75,9 +78,8 @@ impl<PINS> Tsc<PINS> {
 
         Tsc {
             tsc: tsc,
+            sample_pin: sample_pin,
             pins: pins,
-            // num_channels: 0,
-            // channel_pins: [PINS; 3]
         }
     }
 
@@ -116,7 +118,7 @@ impl<PINS> Tsc<PINS> {
     }
 
     /// Releases the TSC peripheral and associated pins
-    pub fn free(self) -> (TSC, PINS) {
-        (self.tsc, self.pins)
+    pub fn free(self) -> (TSC, SPIN, PINS) {
+        (self.tsc, self.sample_pin, self.pins)
     }
 }

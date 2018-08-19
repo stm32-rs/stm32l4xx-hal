@@ -7,7 +7,7 @@ use nb;
 use stm32l4::stm32l4x2::{SPI1, /* TODO SPI2, */ SPI3};
 
 use gpio::gpioa::{PA5, PA6, PA7};
-use gpio::{AF5};
+use gpio::{AF5, Input, Floating, Alternate};
 use rcc::{APB1R1, APB2, Clocks};
 use time::Hertz;
 
@@ -30,9 +30,9 @@ pub trait Pins<SPI> {
 
 impl Pins<SPI1>
     for (
-        PA5<AF5>,
-        PA6<AF5>,
-        PA7<AF5>,
+        PA5<Alternate<AF5, Input<Floating>>>,
+        PA6<Alternate<AF5, Input<Floating>>>,
+        PA7<Alternate<AF5, Input<Floating>>>,
     )
 {
     const REMAP: bool = false; // TODO REMAP

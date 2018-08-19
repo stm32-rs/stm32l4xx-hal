@@ -38,6 +38,13 @@ pub struct PushPull;
 /// Open drain output (type state)
 pub struct OpenDrain;
 
+/// Alternate mode (type state)
+pub struct Alternate<AF, MODE>
+{
+    _af: PhantomData<AF>,
+    _mode: PhantomData<MODE>,
+}
+
 /// Alternate function 0 (type state)
 pub struct AF0;
 
@@ -99,7 +106,7 @@ macro_rules! gpio {
 
             use rcc::AHB2;
             use super::{
-                AF4, AF5, AF6, AF7, AF8, AF9, Floating, GpioExt, Input, OpenDrain, Output,
+                Alternate, AF4, AF5, AF6, AF7, AF8, AF9, Floating, GpioExt, Input, OpenDrain, Output,
                 PullDown, PullUp, PushPull,
             };
 
@@ -229,7 +236,7 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         afr: &mut $AFR,
-                    ) -> $PXi<AF4> {
+                    ) -> $PXi<Alternate<AF4, MODE>> {
                         let offset = 2 * $i;
 
                         // alternate function mode
@@ -252,7 +259,7 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         afr: &mut $AFR,
-                    ) -> $PXi<AF5> {
+                    ) -> $PXi<Alternate<AF5, MODE>> {
                         let offset = 2 * $i;
 
                         // alternate function mode
@@ -275,7 +282,7 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         afr: &mut $AFR,
-                    ) -> $PXi<AF6> {
+                    ) -> $PXi<Alternate<AF6, MODE>> {
                         let offset = 2 * $i;
 
                         // alternate function mode
@@ -298,7 +305,7 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         afr: &mut $AFR,
-                    ) -> $PXi<AF7> {
+                    ) -> $PXi<Alternate<AF7, MODE>> {
                         let offset = 2 * $i;
 
                         // alternate function mode
@@ -322,7 +329,7 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         afr: &mut $AFR,
-                    ) -> $PXi<AF8> {
+                    ) -> $PXi<Alternate<AF8, MODE>> {
                         let offset = 2 * $i;
 
                         // alternate function mode
@@ -346,7 +353,7 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         afr: &mut $AFR,
-                    ) -> $PXi<AF9> {
+                    ) -> $PXi<Alternate<AF9, MODE>> {
                         let offset = 2 * $i;
 
                         // alternate function mode
@@ -470,6 +477,28 @@ macro_rules! gpio {
                             .modify(|r, w| unsafe { w.bits(r.bits() & !(0b1 << $i)) });
 
                         $PXi { _mode: PhantomData }
+                    }
+
+                    /// Configures the pin to operate as an touch sample
+                    pub fn into_touch_sample(
+                        self,
+                        moder: &mut MODER,
+                        otyper: &mut OTYPER,
+                        afr: &mut $AFR,
+                    ) -> $PXi<Alternate<AF9, Output<OpenDrain>>> {
+                        let od = self.into_open_drain_output(moder, otyper);
+                        od.into_af9(moder, afr)
+                    }
+
+                    /// Configures the pin to operate as an touch channel
+                    pub fn into_touch_channel(
+                        self,
+                        moder: &mut MODER,
+                        otyper: &mut OTYPER,
+                        afr: &mut $AFR,
+                    ) -> $PXi<Alternate<AF9, Output<PushPull>>> {
+                        let od = self.into_push_pull_output(moder, otyper);
+                        od.into_af9(moder, afr)
                     }
                 }
 

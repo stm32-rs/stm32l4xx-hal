@@ -36,12 +36,12 @@ fn main() -> ! {
     // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
     
-    let sample_pin = gpiob.pb4.into_af9(&mut gpiob.moder, &mut gpiob.afrl);
-    let c1 = gpiob.pb5.into_af9(&mut gpiob.moder, &mut gpiob.afrl);
-    let c2 = gpiob.pb6.into_af9(&mut gpiob.moder, &mut gpiob.afrl);
-    let c3 = gpiob.pb7.into_af9(&mut gpiob.moder, &mut gpiob.afrl);
+    let sample_pin = gpiob.pb4.into_touch_sample(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+    let c1 = gpiob.pb5.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+    let c2 = gpiob.pb6.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+    let c3 = gpiob.pb7.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     
-    let tsc = Tsc::tsc(p.TSC, (sample_pin, c1, c2, c3) , &mut rcc.ahb1);
+    let tsc = Tsc::tsc(p.TSC, sample_pin, (c1, c2, c3) , &mut rcc.ahb1);
 
     // if all goes well you should reach this breakpoint
     asm::bkpt();
