@@ -59,14 +59,19 @@ impl<PINS> Tsc<PINS> {
 
         // TODO this may require the pin index, maybe make into_touch_pin in gpio.rs
 
+        // TODO allow configuration
         // Set the sampling pin
-        tsc.ioscr.write(|w| { w });
+        tsc.ioscr.write(|w| { w.g2_io1().set_bit() });
 
         // Set the channel pin(s)
-        tsc.ioccr.write(|w| { w });
+        tsc.ioccr.write(|w| {
+            w.g2_io2().set_bit()
+                .g2_io3().set_bit()
+                .g2_io4().set_bit()
+        });
         
-        // set the acquisitiuon groups based of the channel pins
-        tsc.iogcsr.write(|w| { w });
+        // set the acquisitiuon groups based of the channel pins, stm32l432xx only has group 2
+        tsc.iogcsr.write(|w| { w.g2e().set_bit() });
 
         Tsc {
             tsc: tsc,
