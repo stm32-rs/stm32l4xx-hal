@@ -86,10 +86,10 @@ impl<SPIN, PINS> Tsc<SPIN, PINS> {
         // set the acquisitiuon groups based of the channel pins, stm32l432xx only has group 2
         tsc.iogcsr.write(|w| { w.g2e().set_bit() });
 
-        // clear interrupt flags
+        // clear interrupt & flags
         tsc.icr.write(|w| { 
-            w.eoaic().clear_bit()
-                .mceic().clear_bit()
+            w.eoaic().set_bit()
+                .mceic().set_bit()
         });
 
         Tsc {
@@ -101,21 +101,26 @@ impl<SPIN, PINS> Tsc<SPIN, PINS> {
 
     /// Starts a charge acquisition
     pub fn start(&self) {
-        // clear interrupt flags
+        // clear interrupt & flags
         self.tsc.icr.write(|w| { 
-            w.eoaic().clear_bit()
-                .mceic().clear_bit()
+            w.eoaic().set_bit()
+                .mceic().set_bit()
+        });
+
+        // discharge the caps ready for a new reading
+        self.tsc.cr.modify(|_, w| {
+            w.iodef().clear_bit()
         });
 
         self.tsc.cr.modify(|_, w| { w.start().set_bit() });
     }
 
     /// Blocks waiting for a acquisition to complete or for a Max Count Error
-    pub fn wait(&self) -> Result<Event, Event> {
+    pub fn wait(&self) -> Result<u16, Event> {
         loop {
             let isr = self.tsc.isr.read();
             if isr.eoaf().bit_is_set() {
-                break Ok(Event::EndOfAcquisition);
+                break Ok(self.tsc.iog2cr.read().cnt().bits());
             } else if isr.mcef().bit_is_set() {
                 break Err(Event::MaxCountError);
             }
