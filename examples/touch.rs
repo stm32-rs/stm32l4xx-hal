@@ -43,6 +43,10 @@ fn main() -> ! {
     
     let tsc = Tsc::tsc(p.TSC, sample_pin, (c1, c2, c3) , &mut rcc.ahb1);
 
+    tsc.start();
+
+    tsc.wait().unwrap();
+
     // if all goes well you should reach this breakpoint
     asm::bkpt();
 
