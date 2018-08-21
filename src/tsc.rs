@@ -14,11 +14,27 @@ pub enum Event {
 }
 
 // TODO macro to impl all possible channel/sample pin combinations
-pub trait SamplePin<TSC> {}
-impl SamplePin<TSC> for PB4<Alternate<AF9, Output<OpenDrain>>> {}
+pub trait SamplePin<TSC> {
+    const OFFSET: u32;
+}
+impl SamplePin<TSC> for PB4<Alternate<AF9, Output<OpenDrain>>> {
+    const OFFSET: u32 = 1 << 0 + (1 * 4);
+}
+impl SamplePin<TSC> for PB5<Alternate<AF9, Output<OpenDrain>>> {
+    const OFFSET: u32 = 1 << 1 + (1 * 4);
+}
+impl SamplePin<TSC> for PB6<Alternate<AF9, Output<OpenDrain>>> {
+    const OFFSET: u32 = 1 << 2 + (1 * 4);
+}
+impl SamplePin<TSC> for PB7<Alternate<AF9, Output<OpenDrain>>> {
+    const OFFSET: u32 = 1 << 3 + (1 * 4);
+}
 
 pub trait ChannelPin<TSC> {
     const OFFSET: u32;
+}
+impl ChannelPin<TSC> for PB4<Alternate<AF9, Output<PushPull>>> {
+    const OFFSET: u32 = 1 << 0 + (1 * 4);
 }
 impl ChannelPin<TSC> for PB5<Alternate<AF9, Output<PushPull>>> {
     const OFFSET: u32 = 1 << 1 + (1 * 4);
@@ -40,7 +56,7 @@ pub struct Tsc<SPIN> {
 
 impl<SPIN> Tsc<SPIN> {
     pub fn tsc(tsc: TSC, sample_pin: SPIN, ahb: &mut AHB1) -> Self
-        where SPIN: SamplePin<TSC> // PINS: ChannelPins<TSC>,
+        where SPIN: SamplePin<TSC>
     {
         /* Enable the peripheral clock */
         ahb.enr().modify(|_, w| w.tscen().set_bit());
