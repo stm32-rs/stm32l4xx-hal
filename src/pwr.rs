@@ -1,3 +1,5 @@
+//! Power management
+
 use rcc::{APB1R1};
 use stm32l4::stm32l4x2::{pwr, PWR};
 

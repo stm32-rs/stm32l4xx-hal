@@ -11,7 +11,7 @@ use void::Void;
 
 use gpio::gpioa::{PA10, PA2, PA3, PA9};
 use gpio::gpiob::{PB6, PB7};
-use gpio::AF7;
+use gpio::{AF7, Alternate, Input, Floating};
 use rcc::{APB1R1, APB2, Clocks};
 use time::Bps;
 use dma::{dma1, CircBuffer};
@@ -45,15 +45,15 @@ pub trait Pins<USART> {
     const REMAP: u8;
 }
 
-impl Pins<USART1> for (PA9<AF7>, PA10<AF7>) {
+impl Pins<USART1> for (PA9<Alternate<AF7, Input<Floating>>>, PA10<Alternate<AF7, Input<Floating>>>) {
     const REMAP: u8 = 0;
 }
 
-impl Pins<USART1> for (PB6<AF7>, PB7<AF7>) {
+impl Pins<USART1> for (PB6<Alternate<AF7, Input<Floating>>>, PB7<Alternate<AF7, Input<Floating>>>) {
     const REMAP: u8 = 1;
 }
 
-impl Pins<USART2> for (PA2<AF7>, PA3<AF7>) {
+impl Pins<USART2> for (PA2<Alternate<AF7, Input<Floating>>>, PA3<Alternate<AF7, Input<Floating>>>) {
     const REMAP: u8 = 0;
 }
 

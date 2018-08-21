@@ -1,4 +1,4 @@
-/// RTC peripheral abstraction
+//! RTC peripheral abstraction
 
 use datetime::*;
 use rcc::{BDCR, APB1R1};

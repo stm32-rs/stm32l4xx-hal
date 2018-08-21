@@ -1,3 +1,5 @@
+//! Direct Memory Access Engine
+
 #![allow(dead_code)]
 
 use core::marker::PhantomData;
