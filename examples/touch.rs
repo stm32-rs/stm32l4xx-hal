@@ -46,14 +46,12 @@ fn main() -> ! {
     // , (c1, c2, c3) 
     let tsc = Tsc::tsc(p.TSC, sample_pin, &mut rcc.ahb1);
 
-    tsc.start(&mut c1);
-    let baseline = tsc.wait().unwrap();
+    let baseline = tsc.acquire(&mut c1).unwrap();
     let threshold = (baseline / 100) * 60;
+    
     loop {
-        tsc.start(&mut c1);
-        let touched = tsc.wait().unwrap();
-        tsc.start(&mut c2);
-        let _touched_c2 = tsc.wait().unwrap();
+        let touched = tsc.acquire(&mut c1).unwrap();
+        let _touched_c2 = tsc.acquire(&mut c2).unwrap();
         if touched < threshold {
             led.set_high();
         } else {

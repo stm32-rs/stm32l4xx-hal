@@ -15,35 +15,45 @@ pub enum Event {
 
 // TODO macro to impl all possible channel/sample pin combinations
 pub trait SamplePin<TSC> {
+    const GROUP: u32;
     const OFFSET: u32;
 }
 impl SamplePin<TSC> for PB4<Alternate<AF9, Output<OpenDrain>>> {
-    const OFFSET: u32 = 1 << 0 + (1 * 4);
+    const GROUP: u32 = 2;
+    const OFFSET: u32 = 0;
 }
 impl SamplePin<TSC> for PB5<Alternate<AF9, Output<OpenDrain>>> {
-    const OFFSET: u32 = 1 << 1 + (1 * 4);
+    const GROUP: u32 = 2;
+    const OFFSET: u32 = 1;
 }
 impl SamplePin<TSC> for PB6<Alternate<AF9, Output<OpenDrain>>> {
-    const OFFSET: u32 = 1 << 2 + (1 * 4);
+    const GROUP: u32 = 2;
+    const OFFSET: u32 = 2;
 }
 impl SamplePin<TSC> for PB7<Alternate<AF9, Output<OpenDrain>>> {
-    const OFFSET: u32 = 1 << 3 + (1 * 4);
+    const GROUP: u32 = 2;
+    const OFFSET: u32 = 3;
 }
 
 pub trait ChannelPin<TSC> {
+    const GROUP: u32;
     const OFFSET: u32;
 }
 impl ChannelPin<TSC> for PB4<Alternate<AF9, Output<PushPull>>> {
-    const OFFSET: u32 = 1 << 0 + (1 * 4);
+    const GROUP: u32 = 2;
+    const OFFSET: u32 = 0;
 }
 impl ChannelPin<TSC> for PB5<Alternate<AF9, Output<PushPull>>> {
-    const OFFSET: u32 = 1 << 1 + (1 * 4);
+    const GROUP: u32 = 2;
+    const OFFSET: u32 = 1;
 }
 impl ChannelPin<TSC> for PB6<Alternate<AF9, Output<PushPull>>> {
-    const OFFSET: u32 = 1 << 2 + (1 * 4);
+    const GROUP: u32 = 2;
+    const OFFSET: u32 = 2;
 }
 impl ChannelPin<TSC> for PB7<Alternate<AF9, Output<PushPull>>> {
-    const OFFSET: u32 = 1 << 3 + (1 * 4);
+    const GROUP: u32 = 2;
+    const OFFSET: u32 = 3;
 }
 
 
@@ -87,16 +97,15 @@ impl<SPIN> Tsc<SPIN> {
 
         // TODO allow configuration
         
-        // Schmitt trigger hysteresis on all used TSC IOs
-        tsc.iohcr.write(|w| {
-            w.g2_io1().set_bit()
-                .g2_io2().set_bit()
-                .g2_io3().set_bit()
-                .g2_io4().set_bit()
+        let bit_pos = SPIN::OFFSET + (4 * (SPIN::GROUP - 1));
+        
+        // Schmitt trigger hysteresis on sample IOs
+        tsc.iohcr.write(|w| unsafe {
+            w.bits(1 << bit_pos)
         });
 
         // Set the sampling pin
-        tsc.ioscr.write(|w| { w.g2_io1().set_bit() });
+        tsc.ioscr.write(|w| unsafe { w.bits(1 << bit_pos) });
         
         // set the acquisitiuon groups based of the channel pins, stm32l432xx only has group 2
         tsc.iogcsr.write(|w| { w.g2e().set_bit() });
@@ -110,7 +119,6 @@ impl<SPIN> Tsc<SPIN> {
         Tsc {
             tsc: tsc,
             sample_pin: sample_pin,
-            // pins: pins,
         }
     }
 
@@ -129,24 +137,44 @@ impl<SPIN> Tsc<SPIN> {
             w.iodef().clear_bit()
         });
 
+        let bit_pos = PIN::OFFSET + (4 * (PIN::GROUP - 1));
+
         // Set the channel pin
         self.tsc.ioccr.write(|w| unsafe {
-            w.bits(PIN::OFFSET)
+            w.bits(1 << bit_pos)
         });
 
         self.tsc.cr.modify(|_, w| { w.start().set_bit() });
     }
 
     /// Blocks waiting for a acquisition to complete or for a Max Count Error
-    pub fn wait(&self) -> Result<u16, Event> {
-        loop {
+    pub fn acquire<PIN>(&self, input: &mut PIN) -> Result<u16, Event>
+        where PIN: ChannelPin<TSC>
+    {
+        let bit_pos = PIN::OFFSET + (4 * (PIN::GROUP - 1));
+        
+        // disable Schmitt trigger hysteresis
+        self.tsc.iohcr.write(|w| unsafe {
+            w.bits(1 << bit_pos)
+        });
+
+        self.start(input);
+
+        let result = loop {
             let isr = self.tsc.isr.read();
             if isr.eoaf().bit_is_set() {
-                break Ok(self.tsc.iog2cr.read().cnt().bits());
+                break Ok(self.tsc.iog2cr.read().cnt().bits())
             } else if isr.mcef().bit_is_set() {
-                break Err(Event::MaxCountError);
+                break Err(Event::MaxCountError)
             }
-        }
+        };
+
+        // re-enable Schmitt trigger hysteresis
+        self.tsc.iohcr.write(|w| unsafe {
+            w.bits(0 << bit_pos)
+        });
+
+        result
     }
 
     /// Enables an interrupt event
