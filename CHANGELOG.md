@@ -5,6 +5,15 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.2.0] - 2018-08-21
+
+### Breaking
+    - GPIO type signature changed to allow pin state and alterante function to be encoded in the pin type.
+
+### Added
+    - Touch sense controller peripheral support
+        - Easy to use blocking API with interrupt support too
+
 ## [v0.1.1] - 2018-08-13
 
 ### Added
@@ -18,5 +27,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.1.1...v0.2.0
 [v0.1.1]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.1.0...v0.1.1
+[v0.1.0]: https://github.com/MabezDev/stm32l432xx-hal/tree/v0.1.0
