@@ -17,24 +17,30 @@ pub enum Event {
 pub trait SamplePin<TSC> {}
 impl SamplePin<TSC> for PB4<Alternate<AF9, Output<OpenDrain>>> {}
 
-pub trait ChannelPins<TSC> {}
-impl ChannelPins<TSC> for (
-    PB5<Alternate<AF9, Output<PushPull>>>,
-    PB6<Alternate<AF9, Output<PushPull>>>,
-    PB7<Alternate<AF9, Output<PushPull>>>)
-{}
+pub trait ChannelPin<TSC> {
+    const OFFSET: u32;
+}
+impl ChannelPin<TSC> for PB5<Alternate<AF9, Output<PushPull>>> {
+    const OFFSET: u32 = 1 << 1 + (1 * 4);
+}
+impl ChannelPin<TSC> for PB6<Alternate<AF9, Output<PushPull>>> {
+    const OFFSET: u32 = 1 << 2 + (1 * 4);
+}
+impl ChannelPin<TSC> for PB7<Alternate<AF9, Output<PushPull>>> {
+    const OFFSET: u32 = 1 << 3 + (1 * 4);
+}
+
 
 // TODO currently requires all the pins even if a user wants one channel, fix
-pub struct Tsc<SPIN, PINS> {
+pub struct Tsc<SPIN> {
     sample_pin: SPIN,
-    pins: PINS,
+    // pins: PINS,
     tsc: TSC
 }
 
-impl<SPIN, PINS> Tsc<SPIN, PINS> {
-    pub fn tsc(tsc: TSC, sample_pin: SPIN, pins: PINS, ahb: &mut AHB1) -> Self
-        where PINS: ChannelPins<TSC>,
-              SPIN: SamplePin<TSC>
+impl<SPIN> Tsc<SPIN> {
+    pub fn tsc(tsc: TSC, sample_pin: SPIN, ahb: &mut AHB1) -> Self
+        where SPIN: SamplePin<TSC> // PINS: ChannelPins<TSC>,
     {
         /* Enable the peripheral clock */
         ahb.enr().modify(|_, w| w.tscen().set_bit());
@@ -75,13 +81,6 @@ impl<SPIN, PINS> Tsc<SPIN, PINS> {
 
         // Set the sampling pin
         tsc.ioscr.write(|w| { w.g2_io1().set_bit() });
-
-        // Set the channel pin(s)
-        tsc.ioccr.write(|w| {
-            w.g2_io2().set_bit()
-                .g2_io3().set_bit()
-                .g2_io4().set_bit()
-        });
         
         // set the acquisitiuon groups based of the channel pins, stm32l432xx only has group 2
         tsc.iogcsr.write(|w| { w.g2e().set_bit() });
@@ -95,12 +94,14 @@ impl<SPIN, PINS> Tsc<SPIN, PINS> {
         Tsc {
             tsc: tsc,
             sample_pin: sample_pin,
-            pins: pins,
+            // pins: pins,
         }
     }
 
     /// Starts a charge acquisition
-    pub fn start(&self) {
+    pub fn start<PIN>(&self, _input: &mut PIN) 
+        where PIN: ChannelPin<TSC>
+    {
         // clear interrupt & flags
         self.tsc.icr.write(|w| { 
             w.eoaic().set_bit()
@@ -110,6 +111,11 @@ impl<SPIN, PINS> Tsc<SPIN, PINS> {
         // discharge the caps ready for a new reading
         self.tsc.cr.modify(|_, w| {
             w.iodef().clear_bit()
+        });
+
+        // Set the channel pin
+        self.tsc.ioccr.write(|w| unsafe {
+            w.bits(PIN::OFFSET)
         });
 
         self.tsc.cr.modify(|_, w| { w.start().set_bit() });
@@ -152,7 +158,7 @@ impl<SPIN, PINS> Tsc<SPIN, PINS> {
     }
 
     /// Releases the TSC peripheral and associated pins
-    pub fn free(self) -> (TSC, SPIN, PINS) {
-        (self.tsc, self.sample_pin, self.pins)
+    pub fn free(self) -> (TSC, SPIN) {
+        (self.tsc, self.sample_pin)
     }
 }
