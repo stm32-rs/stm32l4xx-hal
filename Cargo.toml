@@ -10,7 +10,8 @@ license = "MIT OR Apache-2.0"
 exclude = [
 	".travis.yml",
 	".gitignore",
-	"docs/"
+	"docs/",
+	"docs/*"
 ]
 
 [dependencies]
