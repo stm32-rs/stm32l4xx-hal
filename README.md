@@ -6,7 +6,7 @@
 
 [HAL]: https://crates.io/crates/embedded-hal
 
-## [Documentation](todo)
+## [Documentation](https://docs.rs/stm32l432xx-hal/latest/stm32l432xx_hal/)
 
 ## [Changelog](https://github.com/mabezdev/stm32l432xx-hal/blob/master/CHANGELOG.md)
 
