@@ -103,8 +103,8 @@ macro_rules! hal {
                     // TODO implement pin remaping
 
                     // disable hardware flow control
-                    // TODO enable DMA
                     // usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
+                    
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit()); // enable DMA transfers
 
                     let brr = clocks.$pclkX().0 / baud_rate.0;

@@ -1,4 +1,11 @@
 //! Touch sense controller
+//! 
+//! From STM32 (https://www.st.com/content/ccc/resource/technical/document/application_note/9d/be/03/8c/5d/8c/49/50/DM00088471.pdf/files/DM00088471.pdf/jcr:content/translations/en.DM00088471.pdf): 
+//! 
+//! The Cs capacitance is a key parameter for sensitivity. For touchkey sensors, the Cs value is
+//! usually comprised between 8.7nF to 22nF. For linear and rotary touch sensors, the value is
+//! usually comprised between 47nF and 100nF. These values are given as reference for an
+//! electrode fitting a human finger tip size across a few millimeters dielectric panel.
 
 use rcc::AHB1;
 use stm32l4::stm32l4x2::{TSC};
@@ -21,7 +28,6 @@ pub enum Error {
     InvalidPin
 }
 
-// TODO macro to impl all possible channel/sample pin combinations
 pub trait SamplePin<TSC> {
     const GROUP: u32;
     const OFFSET: u32;
@@ -65,10 +71,8 @@ impl ChannelPin<TSC> for PB7<Alternate<AF9, Output<PushPull>>> {
 }
 
 
-// TODO currently requires all the pins even if a user wants one channel, fix
 pub struct Tsc<SPIN> {
     sample_pin: SPIN,
-    // pins: PINS,
     tsc: TSC
 }
 
@@ -102,8 +106,6 @@ impl<SPIN> Tsc<SPIN> {
                 .tsce()
                 .set_bit()
         });
-
-        // TODO allow configuration
         
         let bit_pos = SPIN::OFFSET + (4 * (SPIN::GROUP - 1));
         
