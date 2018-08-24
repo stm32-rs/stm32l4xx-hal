@@ -13,6 +13,14 @@ pub enum Event {
     EndOfAcquisition
 }
 
+#[derive(Debug)]
+pub enum Error {
+    /// Max count error
+    MaxCountError,
+    /// Wrong GPIO for reading
+    InvalidPin
+}
+
 // TODO macro to impl all possible channel/sample pin combinations
 pub trait SamplePin<TSC> {
     const GROUP: u32;
@@ -148,33 +156,43 @@ impl<SPIN> Tsc<SPIN> {
     }
 
     /// Blocks waiting for a acquisition to complete or for a Max Count Error
-    pub fn acquire<PIN>(&self, input: &mut PIN) -> Result<u16, Event>
+    pub fn acquire<PIN>(&self, input: &mut PIN) -> Result<u16, Error>
         where PIN: ChannelPin<TSC>
     {
-        let bit_pos = PIN::OFFSET + (4 * (PIN::GROUP - 1));
-        
-        // disable Schmitt trigger hysteresis
-        self.tsc.iohcr.write(|w| unsafe {
-            w.bits(1 << bit_pos)
-        });
-
+        // start the acq
         self.start(input);
 
         let result = loop {
             let isr = self.tsc.isr.read();
             if isr.eoaf().bit_is_set() {
-                break Ok(self.tsc.iog2cr.read().cnt().bits())
+                break Ok(self.read_unchecked())
             } else if isr.mcef().bit_is_set() {
-                break Err(Event::MaxCountError)
+                break Err(Error::MaxCountError)
             }
         };
 
-        // re-enable Schmitt trigger hysteresis
-        self.tsc.iohcr.write(|w| unsafe {
-            w.bits(0 << bit_pos)
-        });
-
         result
+    }
+
+    /// Reads the tsc group 2 count register
+    pub fn read<PIN>(&self, _input: &mut PIN) -> Result<u16, Error>
+        where PIN: ChannelPin<TSC>
+    {
+        let bit_pos = PIN::OFFSET + (4 * (PIN::GROUP - 1));
+        // Read the current channel config
+        let channel = self.tsc.ioccr.read().bits();
+        // if they are equal we have the right pin
+        if channel == (1 << bit_pos) {
+            Ok(self.read_unchecked())
+        } else {
+            Err(Error::InvalidPin)
+        }
+    }
+
+    /// Reads the tsc group 2 count register
+    /// WARNING, just returns the contents of the register! No validation of the correct pin 
+    pub fn read_unchecked(&self) -> u16 {
+        self.tsc.iog2cr.read().cnt().bits()
     }
 
     /// Enables an interrupt event

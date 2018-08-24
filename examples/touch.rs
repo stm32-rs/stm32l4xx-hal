@@ -52,6 +52,8 @@ fn main() -> ! {
     loop {
         let touched = tsc.acquire(&mut c1).unwrap();
         let _touched_c2 = tsc.acquire(&mut c2).unwrap();
+        // try and pass c1, it will detect an error!
+        let _touched_c2_again = tsc.read(&mut c2).unwrap();
         if touched < threshold {
             led.set_high();
         } else {
