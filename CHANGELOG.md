@@ -5,6 +5,17 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.2.1] - 2018-08-25
+
+### Added
+    - Timer implementations for timer15 & timer 16
+    - Two new TSC API's, `read` & `read_unchecked`
+        - `read` checks the supplied pin is the pin we are reading
+        - `read_unchecked` returns the contents of the count register
+
+### Fixed
+    - Channel pins do not require Schmitt trigger hysteresis
+
 ## [v0.2.0] - 2018-08-21
 
 ### Breaking
@@ -27,7 +38,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.1...HEAD
+[v0.2.1]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.1.1...v0.2.0
 [v0.1.1]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/MabezDev/stm32l432xx-hal/tree/v0.1.0
