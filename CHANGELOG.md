@@ -5,6 +5,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.2.3] - 2018-10-06
+
+### Fixed
+    - RCC configuration for higher clocks, using the wrong multiplyier reg caused issue with time sensative peripherals
+
+### Added
+    - New TSC Configuration, to set the prescaler and max count value.
+
 ## [v0.2.2] - 2018-08-25
     - Fixed documentation link in readme.
 
@@ -41,7 +49,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.3...HEAD
+[v0.2.3]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.2...v0.2.3
 [v0.2.2]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.1...v0.2.2
 [v0.2.1]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.1.1...v0.2.0
