@@ -351,10 +351,10 @@ impl CFGR {
             .modify(|_, w| unsafe { 
                 w.pllsrc()
                     .bits(pllsrc_bits)
-                    .pllm().bits(pllmul_bits)
+                    .pllm().bits(0b0) // no division, how to calculate?
+                    .pllr().bits(0b0) // no division, how to calculate?
+                    .plln().bits(pllmul_bits)
             });
-            // .plln().bits(n) // TODO?
-            // .pllr().bits(r)
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
             
