@@ -44,7 +44,7 @@ fn main() -> ! {
     // let mut c3 = gpiob.pb7.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     
     // , (c1, c2, c3) 
-    let tsc = Tsc::tsc(p.TSC, sample_pin, &mut rcc.ahb1);
+    let tsc = Tsc::tsc(p.TSC, sample_pin, &mut rcc.ahb1, None);
 
     let baseline = tsc.acquire(&mut c1).unwrap();
     let threshold = (baseline / 100) * 60;

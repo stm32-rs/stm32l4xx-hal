@@ -76,8 +76,41 @@ pub struct Tsc<SPIN> {
     tsc: TSC
 }
 
+pub struct Config {
+    pub clock_prescale: Option<ClockPrescaler>,
+    pub max_count_error: Option<MaxCountError>,
+}
+
+pub enum ClockPrescaler {
+    Hclk = 0b000,
+    HclkDiv2 = 0b001,
+    HclkDiv4 = 0b010,
+    HclkDiv8 = 0b011,
+    HclkDiv16 = 0b100,
+    HclkDiv32 = 0b101,
+    HclkDiv64 = 0b110,
+    HclkDiv128 = 0b111,
+}
+
+pub enum MaxCountError {
+    /// 000: 255
+    U255 = 000,
+    /// 001: 511
+    U511 = 001,
+    /// 010: 1023
+    U1023 = 010,
+    /// 011: 2047
+    U2047 = 011,
+    /// 100: 4095
+    U4095 = 100,
+    /// 101: 8191
+    U8191 = 101,
+    /// 110: 16383
+    U16383 = 110
+}
+
 impl<SPIN> Tsc<SPIN> {
-    pub fn tsc(tsc: TSC, sample_pin: SPIN, ahb: &mut AHB1) -> Self
+    pub fn tsc(tsc: TSC, sample_pin: SPIN, ahb: &mut AHB1, cfg: Option<Config>) -> Self
         where SPIN: SamplePin<TSC>
     {
         /* Enable the peripheral clock */
@@ -85,24 +118,25 @@ impl<SPIN> Tsc<SPIN> {
         ahb.rstr().modify(|_, w| w.tscrst().set_bit());
         ahb.rstr().modify(|_, w| w.tscrst().clear_bit());
 
+        let config = cfg.unwrap_or(Config {
+            clock_prescale: None,
+            max_count_error: None
+        });
+
         tsc.cr.write(|w| unsafe {
             w.ctph()
                 .bits((1 << 28) as u8)
                 .ctpl()
                 .bits((1 << 24) as u8)
+                // TODO configure sse?
                 .sse()
-                .clear_bit()
+                .set_bit()
+                .ssd()
+                .bits(16)
                 .pgpsc()
-                .bits((2 << 12) as u8)
+                .bits(config.clock_prescale.unwrap_or(ClockPrescaler::Hclk) as u8)
                 .mcv()
-                // 000: 255
-                // 001: 511
-                // 010: 1023
-                // 011: 2047
-                // 100: 4095
-                // 101: 8191
-                // 110: 16383
-                .bits(0b101) // TODO make this value configurable
+                .bits(config.max_count_error.unwrap_or(MaxCountError::U8191) as u8)
                 .tsce()
                 .set_bit()
         });
