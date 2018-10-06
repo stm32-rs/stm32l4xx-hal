@@ -30,6 +30,7 @@ impl RccExt for RCC {
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
+                pllcfg: None,
             },
         }
     }
@@ -204,6 +205,7 @@ pub struct CFGR {
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
+    pllcfg: Option<PllConfig>
 }
 
 impl CFGR {
@@ -243,17 +245,41 @@ impl CFGR {
         self
     }
 
+    /// Sets the system (core) frequency with some pll configuration
+    pub fn sysclk_with_pll<F>(mut self, freq: F, cfg: PllConfig) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        self.pllcfg = Some(cfg);
+        self.sysclk = Some(freq.into().0);
+        self
+    }
+
     /// Freezes the clock configuration, making it effective
     pub fn freeze(self, acr: &mut ACR) -> Clocks {
-        let pllmul = (2 * self.sysclk.unwrap_or(HSI)) / HSI;
-        let pllmul = cmp::min(cmp::max(pllmul, 2), 16);
-        let pllmul_bits = if pllmul == 2 {
-            None
+
+        let pllconf = if self.pllcfg.is_none() {
+            let plln = (2 * self.sysclk.unwrap_or(HSI)) / HSI;
+            let plln = cmp::min(cmp::max(plln, 2), 16);
+            if plln == 2 {
+                None
+            } else {
+                // create a best effort pll config, just multiply n
+                // TODO should we reject this configuration as the clocks stored in RCC could cause timing issues?
+                let conf = PllConfig {
+                    m: 0b0,
+                    r: 0b0,
+                    n: plln as u8
+                };
+                Some(conf)
+            }
+            
         } else {
-            Some(pllmul as u8) //  - 2
+            let conf = self.pllcfg.unwrap();
+            Some(conf)
         };
 
-        let sysclk = pllmul * HSI / 2;
+        let sysclk = self.sysclk.unwrap_or(HSI);
 
         assert!(sysclk <= 80_000_000);
 
@@ -274,7 +300,7 @@ impl CFGR {
 
         let hclk = sysclk / (1 << (hpre_bits));
 
-        assert!(hclk <= 80_000_000);
+        assert!(hclk <= sysclk);
 
         let ppre1_bits = self.pclk1
             .map(|pclk1| match hclk / pclk1 {
@@ -290,21 +316,7 @@ impl CFGR {
         let ppre1 = 1 << (ppre1_bits);
         let pclk1 = hclk / u32(ppre1);
 
-        assert!(pclk1 <= 80_000_000);
-
-        // let ppre2_bits = self.pclk2
-        //     .map(|pclk2| match hclk / pclk2 {
-        //         0 => unreachable!(),
-        //         1 => 0b011,
-        //         2 => 0b100,
-        //         3...5 => 0b101,
-        //         6...11 => 0b110,
-        //         _ => 0b111,
-        //     })
-        //     .unwrap_or(0b011);
-
-        // let ppre2 = 1 << (ppre2_bits - 0b011);
-        // let pclk2 = hclk / u32(ppre2);
+        assert!(pclk1 <= sysclk);
 
         let ppre2_bits = self.pclk2
             .map(|pclk2| match hclk / pclk2 {
@@ -320,7 +332,7 @@ impl CFGR {
         let ppre2 = 1 << (ppre2_bits);
         let pclk2 = hclk / u32(ppre2);
 
-        assert!(pclk2 <= 80_000_000);
+        assert!(pclk2 <= sysclk);
 
         // adjust flash wait states
         unsafe {
@@ -337,7 +349,7 @@ impl CFGR {
 
         let rcc = unsafe { &*RCC::ptr() };
         let sysclk_src_bits;
-        if let Some(pllmul_bits) = pllmul_bits {
+        if let Some(pllconf) = pllconf {
             // use PLL as source
             sysclk_src_bits = 0b11;
             rcc.cr.modify(|_, w| w.pllon().clear_bit());
@@ -351,9 +363,9 @@ impl CFGR {
             .modify(|_, w| unsafe { 
                 w.pllsrc()
                     .bits(pllsrc_bits)
-                    .pllm().bits(0b0) // no division, how to calculate?
-                    .pllr().bits(0b0) // no division, how to calculate?
-                    .plln().bits(pllmul_bits)
+                    .pllm().bits(pllconf.m)
+                    .pllr().bits(pllconf.r)
+                    .plln().bits(pllconf.n)
             });
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
@@ -412,6 +424,17 @@ impl CFGR {
             sysclk: Hertz(sysclk),
         }
     }
+}
+
+#[derive(Clone, Copy)]
+/// Pll Configuration - Calculation = ((SourceClk / m) * n) / r
+pub struct PllConfig {
+    /// Main PLL Division factor
+    pub m: u8,
+    /// Main Pll Multiplication factor
+    pub n: u8,
+    /// Main PLL division factor for PLLCLK (system clock)
+    pub r: u8,
 }
 
 /// Frozen clock frequencies
