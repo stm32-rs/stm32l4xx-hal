@@ -25,8 +25,7 @@ use rt::ExceptionFrame;
 use core::fmt::Write;
 use sh::hio;
 
-entry!(main);
-
+#[entry]
 fn main() -> ! {
 
     let mut hstdout = hio::hstdout().unwrap();
@@ -66,14 +65,7 @@ fn main() -> ! {
     loop {}
 }
 
-exception!(HardFault, hard_fault);
-
-fn hard_fault(ef: &ExceptionFrame) -> ! {
+#[exception]
+fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
-}
-
-exception!(*, default_handler);
-
-fn default_handler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }

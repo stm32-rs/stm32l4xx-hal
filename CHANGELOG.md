@@ -5,6 +5,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.2.4] - 2018-10-32
+
+### Fixed
+    - Updated examples and bumped dependancies.
+
 ## [v0.2.3] - 2018-10-06
 
 ### Fixed
@@ -49,7 +54,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.4...HEAD
+[v0.2.4]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.2...v0.2.3
 [v0.2.2]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.1...v0.2.2
 [v0.2.1]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.0...v0.2.1

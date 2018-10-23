@@ -24,8 +24,7 @@ pub const MODE: Mode = Mode {
     polarity: Polarity::IdleLow,
 };
 
-entry!(main);
-
+#[entry]
 fn main() -> ! {
     let p = stm32l4x2::Peripherals::take().unwrap();
 
@@ -82,14 +81,7 @@ fn main() -> ! {
     loop {}
 }
 
-exception!(HardFault, hard_fault);
-
-fn hard_fault(ef: &ExceptionFrame) -> ! {
+#[exception]
+fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
-}
-
-exception!(*, default_handler);
-
-fn default_handler(irqn: i16) {
-    panic!("Unhandled exception (IRQn = {})", irqn);
 }

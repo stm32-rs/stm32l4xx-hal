@@ -241,10 +241,10 @@ macro_rules! hal {
                 {
                     {
                         let buffer: &[u8] = &buffer[0];
-                        chan.cmar().write(|w| unsafe {
+                        chan.cmar().write(|w| {
                             w.ma().bits(buffer.as_ptr() as usize as u32)
                         });
-                        chan.cndtr().write(|w| unsafe{
+                        chan.cndtr().write(|w|{
                             w.ndt().bits((buffer.len() * 2) as u16)
                         });
                         chan.cpar().write(|w| unsafe {
@@ -252,7 +252,7 @@ macro_rules! hal {
                         });
 
                         // Tell DMA to request from serial
-                        chan.cselr().write(|w| unsafe {
+                        chan.cselr().write(|w| {
                             w.$dmacsr().bits(0010)
                         });
 
