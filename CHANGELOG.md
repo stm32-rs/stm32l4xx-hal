@@ -5,6 +5,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.2.5] - 2018-11-03
+
+## Fixed TSC flags not getting cleared by the `aquire` tsc method.
+
 ## [v0.2.4] - 2018-10-32
 
 ### Fixed
@@ -54,7 +58,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.5...HEAD
+[v0.2.4]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.4...v0.2.5
 [v0.2.4]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.2...v0.2.3
 [v0.2.2]: https://github.com/mabezdev/stm32l432xx-hal/compare/v0.2.1...v0.2.2

@@ -201,8 +201,10 @@ impl<SPIN> Tsc<SPIN> {
         let result = loop {
             let isr = self.tsc.isr.read();
             if isr.eoaf().bit_is_set() {
+                self.tsc.icr.write(|w| { w.eoaic().clear_bit() });
                 break Ok(self.read_unchecked())
             } else if isr.mcef().bit_is_set() {
+                self.tsc.icr.write(|w| { w.mceic().clear_bit() });
                 break Err(Error::MaxCountError)
             }
         };
