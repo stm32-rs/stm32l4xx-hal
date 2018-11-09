@@ -7,7 +7,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [v0.2.6] - 2018-11-03
 
-## Fixed TSC flags not getting cleared by the `aquire` tsc method.
+## Fixed 
+
+    - TSC flags not getting cleared by the `aquire` tsc method.
 
 ## [v0.2.5] - YANKED
 
