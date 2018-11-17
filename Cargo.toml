@@ -13,6 +13,7 @@ exclude = [
 	"docs/",
 	"docs/*"
 ]
+edition = "2018"
 
 [dependencies]
 cortex-m = "0.5.7"

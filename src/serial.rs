@@ -4,17 +4,17 @@ use core::marker::{PhantomData, Unsize};
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
 
-use hal::serial;
+use crate::hal::serial;
 use nb;
 use stm32l4::stm32l4x2::{USART1, USART2};
 use void::Void;
 
-use gpio::gpioa::{PA10, PA2, PA3, PA9};
-use gpio::gpiob::{PB6, PB7};
-use gpio::{AF7, Alternate, Input, Floating};
-use rcc::{APB1R1, APB2, Clocks};
-use time::Bps;
-use dma::{dma1, CircBuffer};
+use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
+use crate::gpio::gpiob::{PB6, PB7};
+use crate::gpio::{AF7, Alternate, Input, Floating};
+use crate::rcc::{APB1R1, APB2, Clocks};
+use crate::time::Bps;
+use crate::dma::{dma1, CircBuffer};
 
 /// Interrupt event
 pub enum Event {

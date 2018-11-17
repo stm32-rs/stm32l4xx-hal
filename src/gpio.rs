@@ -5,7 +5,7 @@
 
 use core::marker::PhantomData;
 
-use rcc::AHB2;
+use crate::rcc::AHB2;
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
@@ -101,10 +101,10 @@ macro_rules! gpio {
         pub mod $gpiox {
             use core::marker::PhantomData;
 
-            use hal::digital::OutputPin;
+            use crate::hal::digital::OutputPin;
             use stm32l4::stm32l4x2::{$gpioy, $GPIOX};
 
-            use rcc::AHB2;
+            use crate::rcc::AHB2;
             use super::{
                 Alternate, AF4, AF5, AF6, AF7, AF8, AF9, Floating, GpioExt, Input, OpenDrain, Output,
                 PullDown, PullUp, PushPull,

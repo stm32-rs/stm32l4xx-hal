@@ -1,6 +1,6 @@
 //! Power management
 
-use rcc::{APB1R1};
+use crate::rcc::{APB1R1};
 use stm32l4::stm32l4x2::{pwr, PWR};
 
 
@@ -14,7 +14,7 @@ pub struct Pwr {
 /// Extension trait that constrains the `PWR` peripheral
 pub trait PwrExt {
     /// Constrains the `PWR` peripheral so it plays nicely with the other abstractions
-    fn constrain(self, &mut APB1R1) -> Pwr;
+    fn constrain(self, _: &mut APB1R1) -> Pwr;
 }
 
 impl PwrExt for PWR {

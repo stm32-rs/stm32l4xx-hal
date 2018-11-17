@@ -1,13 +1,13 @@
 //! Timers
 
 use cast::{u16, u32};
-use hal::timer::{CountDown, Periodic};
+use crate::hal::timer::{CountDown, Periodic};
 use nb;
 use stm32l4::stm32l4x2::{TIM2, TIM6, TIM7, TIM15, TIM16};
 use void::Void;
 
-use rcc::{APB1R1, Clocks, APB2};
-use time::Hertz;
+use crate::rcc::{APB1R1, Clocks, APB2};
+use crate::time::Hertz;
 
 /// Hardware timers
 pub struct Timer<TIM> {

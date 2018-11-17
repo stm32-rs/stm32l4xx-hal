@@ -5,7 +5,7 @@
 use core::marker::PhantomData;
 use core::ops;
 
-use rcc::AHB1;
+use crate::rcc::AHB1;
 
 #[derive(Debug)]
 pub enum Error {
@@ -137,8 +137,8 @@ macro_rules! dma {
 
                 use stm32l4::stm32l4x2::{$DMAX, dma1};
 
-                use dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
-                use rcc::AHB1;
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
+                use crate::rcc::AHB1;
 
                 pub struct Channels((), $(pub $CX),+);
 

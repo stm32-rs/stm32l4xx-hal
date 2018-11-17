@@ -2,14 +2,14 @@
 
 use core::ptr;
 
-use hal::spi::{FullDuplex, Mode, Phase, Polarity};
+use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use nb;
 use stm32l4::stm32l4x2::{SPI1, /* TODO SPI2, */ SPI3};
 
-use gpio::gpioa::{PA5, PA6, PA7};
-use gpio::{AF5, Input, Floating, Alternate};
-use rcc::{APB1R1, APB2, Clocks};
-use time::Hertz;
+use crate::gpio::gpioa::{PA5, PA6, PA7};
+use crate::gpio::{AF5, Input, Floating, Alternate};
+use crate::rcc::{APB1R1, APB2, Clocks};
+use crate::time::Hertz;
 
 /// SPI error
 #[derive(Debug)]
@@ -171,56 +171,15 @@ macro_rules! hal {
                 }
             }
 
-            impl<PINS> ::hal::blocking::spi::transfer::Default<u8> for Spi<$SPIX, PINS> {}
+            impl<PINS> crate::hal::blocking::spi::transfer::Default<u8> for Spi<$SPIX, PINS> {}
 
-            impl<PINS> ::hal::blocking::spi::write::Default<u8> for Spi<$SPIX, PINS> {}
+            impl<PINS> crate::hal::blocking::spi::write::Default<u8> for Spi<$SPIX, PINS> {}
         )+
     }
 }
 
 hal! {
     SPI1: (spi1, APB2, spi1en, spi1rst, pclk2),
-    // SPI2: (spi2, APB1R1, spi2en, spi2rst, pclk1), // NOT Avail on 32kc
+    // SPI2: (spi2, APB1R1, spi2en, spi2rst, pclk1), // NOT Avail on 32k(b|c)
     SPI3: (spi3, APB1R1, spi3en, spi3rst, pclk1),
 }
-
-// FIXME not working
-// TODO measure if this actually faster than the default implementation
-// impl ::hal::blocking::spi::Write<u8> for Spi {
-//     type Error = Error;
-
-//     fn write(&mut self, bytes: &[u8]) -> Result<(), Error> {
-//         for byte in bytes {
-//             'l: loop {
-//                 let sr = self.spi.sr.read();
-
-//                 // ignore overruns because we don't care about the incoming data
-//                 // if sr.ovr().bit_is_set() {
-//                 // Err(nb::Error::Other(Error::Overrun))
-//                 // } else
-//                 if sr.modf().bit_is_set() {
-//                     return Err(Error::ModeFault);
-//                 } else if sr.crcerr().bit_is_set() {
-//                     return Err(Error::Crc);
-//                 } else if sr.txe().bit_is_set() {
-//                     // NOTE(write_volatile) see note above
-//                     unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, *byte) }
-//                     break 'l;
-//                 } else {
-//                     // try again
-//                 }
-//             }
-//         }
-
-//         // wait until the transmission of the last byte is done
-//         while self.spi.sr.read().bsy().bit_is_set() {}
-
-//         // clear OVR flag
-//         unsafe {
-//             ptr::read_volatile(&self.spi.dr as *const _ as *const u8);
-//         }
-//         self.spi.sr.read();
-
-//         Ok(())
-//     }
-// }

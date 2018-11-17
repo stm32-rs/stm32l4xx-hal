@@ -7,10 +7,10 @@
 //! usually comprised between 47nF and 100nF. These values are given as reference for an
 //! electrode fitting a human finger tip size across a few millimeters dielectric panel.
 
-use rcc::AHB1;
+use crate::rcc::AHB1;
 use stm32l4::stm32l4x2::{TSC};
-use gpio::gpiob::{PB4, PB5, PB6, PB7};
-use gpio::{AF9, Alternate, Output, OpenDrain, PushPull};
+use crate::gpio::gpiob::{PB4, PB5, PB6, PB7};
+use crate::gpio::{AF9, Alternate, Output, OpenDrain, PushPull};
 
 #[derive(Debug)]
 pub enum Event {

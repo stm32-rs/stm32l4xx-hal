@@ -5,12 +5,12 @@
 // TODO, remove this feature (currently required in dma.rs)
 #![feature(unsize)]
 
-extern crate cortex_m;
-extern crate cast;
-extern crate embedded_hal as hal;
-extern crate nb;
-pub extern crate stm32l4;
-extern crate void;
+
+
+use embedded_hal as hal;
+
+pub use stm32l4;
+
 
 
 pub mod dma;
@@ -28,11 +28,3 @@ pub mod pwr;
 pub mod datetime;
 pub mod tsc;
 
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}

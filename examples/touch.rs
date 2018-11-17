@@ -14,10 +14,10 @@ extern crate panic_semihosting;
 extern crate stm32l432xx_hal as hal;
 
 
-use hal::prelude::*;
-use hal::stm32l4::stm32l4x2;
-use hal::tsc::Tsc;
-use rt::ExceptionFrame;
+use crate::hal::prelude::*;
+use crate::hal::stm32l4::stm32l4x2;
+use crate::hal::tsc::Tsc;
+use crate::rt::ExceptionFrame;
 
 #[entry]
 fn main() -> ! {

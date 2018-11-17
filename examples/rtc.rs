@@ -14,16 +14,16 @@ extern crate stm32l432xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use hal::prelude::*;
-use hal::stm32l4::stm32l4x2;
+use crate::hal::prelude::*;
+use crate::hal::stm32l4::stm32l4x2;
 
-use hal::delay::Delay;
-use hal::rtc::Rtc;
-use hal::datetime::{Date,Time};
-use rt::ExceptionFrame;
+use crate::hal::delay::Delay;
+use crate::hal::rtc::Rtc;
+use crate::hal::datetime::{Date,Time};
+use crate::rt::ExceptionFrame;
 
 use core::fmt::Write;
-use sh::hio;
+use crate::sh::hio;
 
 #[entry]
 fn main() -> ! {

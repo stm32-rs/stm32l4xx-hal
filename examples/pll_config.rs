@@ -18,11 +18,11 @@ extern crate stm32l432xx_hal as hal;
 // extern crate nb;
 
 use cortex_m::asm;
-use hal::prelude::*;
-use hal::serial::Serial;
-use hal::stm32l4::stm32l4x2;
-use hal::rcc::PllConfig;
-use rt::ExceptionFrame;
+use crate::hal::prelude::*;
+use crate::hal::serial::Serial;
+use crate::hal::stm32l4::stm32l4x2;
+use crate::hal::rcc::PllConfig;
+use crate::rt::ExceptionFrame;
 
 #[entry]
 fn main() -> ! {

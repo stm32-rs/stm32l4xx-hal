@@ -12,11 +12,11 @@ extern crate embedded_hal as ehal;
 extern crate stm32l432xx_hal as hal;
 
 use cortex_m::asm;
-use hal::prelude::*;
-use hal::spi::Spi;
-use hal::stm32l4::stm32l4x2;
-use rt::ExceptionFrame;
-use ehal::spi::{Mode, Phase, Polarity};
+use crate::hal::prelude::*;
+use crate::hal::spi::Spi;
+use crate::hal::stm32l4::stm32l4x2;
+use crate::rt::ExceptionFrame;
+use crate::ehal::spi::{Mode, Phase, Polarity};
 
 /// SPI mode
 pub const MODE: Mode = Mode {
