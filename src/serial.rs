@@ -253,7 +253,7 @@ macro_rules! hal {
 
                         // Tell DMA to request from serial
                         chan.cselr().write(|w| {
-                            w.$dmacsr().bits(0010)
+                            w.$dmacsr().bits(0b0010)
                         });
 
                         // TODO can we weaken this compiler barrier?

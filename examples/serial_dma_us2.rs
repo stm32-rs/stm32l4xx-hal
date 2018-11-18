@@ -1,11 +1,12 @@
-//! Test the serial interface
+//! Test the serial interface with the DMA engine
 //!
 //! This example requires you to short (connect) the TX and RX pins.
 #![deny(unsafe_code)]
-#![deny(warnings)]
+// #![deny(warnings)]
 #![no_main]
 #![no_std]
 
+#[macro_use(singleton)]
 extern crate cortex_m;
 #[macro_use(entry, exception)]
 extern crate cortex_m_rt as rt;
@@ -18,6 +19,7 @@ extern crate stm32l432xx_hal as hal;
 // extern crate nb;
 
 use cortex_m::asm;
+use crate::hal::dma::Half;
 use crate::hal::prelude::*;
 use crate::hal::serial::Serial;
 use crate::hal::stm32l4::stm32l4x2;
@@ -30,16 +32,14 @@ fn main() -> ! {
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
+    let channels = p.DMA1.split(&mut rcc.ahb1);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
-    // let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.freeze(&mut flash.acr);
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
-    let clocks = rcc.cfgr.sysclk(80.mhz()).pclk1(80.mhz()).pclk2(80.mhz()).freeze(&mut flash.acr);
+    // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
-    // The Serial API is highly generic
-    // TRY the commented out, different pin configurations
-    // let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
     let tx = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
     // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
@@ -57,10 +57,30 @@ fn main() -> ! {
     // NOTE the error type is `!`
 
     block!(tx.write(sent)).ok();
-    
-    let received = block!(rx.read()).unwrap();
 
-    assert_eq!(received, sent);
+    let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
+
+    let mut circ_buffer = rx.circ_read(channels.6, buf);
+
+    for _ in 0..2 {
+        while circ_buffer.readable_half().unwrap() != Half::First {}
+
+        let _first_half = circ_buffer.peek(|_buf, half| {
+            half
+        }).unwrap();
+        
+        // asm::bkpt();
+
+        while circ_buffer.readable_half().unwrap() != Half::Second {}
+
+        // asm::bkpt();
+
+        let _second_half = circ_buffer.peek(|_buf, half| half).unwrap();
+    }
+    
+    // let received = block!(rx.read()).unwrap();
+
+    // assert_eq!(received, sent);
 
     // if all goes well you should reach this breakpoint
     asm::bkpt();
