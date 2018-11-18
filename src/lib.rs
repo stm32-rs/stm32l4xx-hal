@@ -27,4 +27,5 @@ pub mod rtc;
 pub mod pwr;
 pub mod datetime;
 pub mod tsc;
+pub mod i2c;
 
