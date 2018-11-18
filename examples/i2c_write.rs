@@ -41,10 +41,15 @@ fn main() -> ! {
 
     let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);
 
-    let scl = gpioa.pa9.into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper).into_af4(&mut gpioa.moder, &mut gpioa.afrh);
-    let sda = gpioa.pa10.into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper).into_af4(&mut gpioa.moder, &mut gpioa.afrh);
+    let mut scl = gpioa.pa9.into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+    // scl.internal_pull_up(&mut gpioa.pupdr, true);
+    let scl = scl.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
+
+    let mut sda = gpioa.pa10.into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+    // sda.internal_pull_up(&mut gpioa.pupdr, true);
+    let sda = sda.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
     
-    let mut i2c = I2c::i2c1(dp.I2C1, (scl, sda), 400.khz(), clocks, &mut rcc.apb1r1);
+    let mut i2c = I2c::i2c1(dp.I2C1, (scl, sda), 100.khz(), clocks, &mut rcc.apb1r1);
 
     i2c.write(0x3C, &[0xCC, 0xAA]).unwrap();
 
