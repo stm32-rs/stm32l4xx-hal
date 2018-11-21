@@ -14,22 +14,21 @@ extern crate cortex_m_rt as rt;
 extern crate nb;
 extern crate panic_semihosting;
 
-extern crate stm32l432xx_hal as hal;
+extern crate stm32l4_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
 use crate::cortex_m::asm;
 use crate::hal::prelude::*;
 use crate::hal::serial::Serial;
-use crate::hal::stm32l4::stm32l4x2;
 use crate::rt::ExceptionFrame;
 use crate::hal::delay::Delay;
 
 #[entry]
 fn main() -> ! {
-    let p = stm32l4x2::Peripherals::take().unwrap();
+    let p = hal::stm32::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
-    
+
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
@@ -75,7 +74,7 @@ fn main() -> ! {
         // do something with _buf here
         Ok( (0, half) )
     }).unwrap();
-    
+
     asm::bkpt();
 
     loop {}

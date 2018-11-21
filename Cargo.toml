@@ -1,9 +1,9 @@
 [package]
-name = "stm32l432xx-hal"
-version = "0.2.6"
-authors = ["Scott Mabin <MabezDev@gmail.com>"]
-description = "Hardware abstraction layer for the stm32l432xx chips"
-keywords = ["no-std", "stm32l432xx", "stm32l432kc", "embedded", "embedded-hal"]
+name = "stm32l4-hal"
+version = "0.3.0"
+authors = ["Scott Mabin <MabezDev@gmail.com>", "Nicolas Stalder <n@stalder.io>"]
+description = "Hardware abstraction layer for the stm32l4 chips"
+keywords = ["no-std", "stm32l4", "stm32l432xx", "stm32l432kc", "embedded", "embedded-hal"]
 repository = "https://github.com/MabezDev/stm32l432xx-hal"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
@@ -16,24 +16,32 @@ exclude = [
 edition = "2018"
 
 [dependencies]
-cortex-m = "0.5.7"
+cortex-m = "0.5.8"
 nb = "0.1.1"
+stm32l4 = "0.4.0"
 
 [dependencies.cast]
 version  = "0.2.2"
 default-features = false
 
 [dependencies.void]
-default-features = false
 version = "1.0.2"
+default-features = false
 
 [dependencies.embedded-hal]
-version = "0.2.1"
+version = "0.2.2"
 features = ["unproven"]
 
-[dependencies.stm32l4]
-version = "0.3.2"
-features = ["stm32l4x2", "rt"]
+[package.metadata.docs.rs]
+features = ['rt', 'stm32l4x2']
+
+[features]
+rt = ["stm32l4/rt"]
+stm32l4x1 = ["stm32l4/stm32l4x1"]
+stm32l4x2 = ["stm32l4/stm32l4x2"]
+stm32l4x3 = ["stm32l4/stm32l4x3"]
+stm32l4x5 = ["stm32l4/stm32l4x5"]
+stm32l4x6 = ["stm32l4/stm32l4x6"]
 
 [dev-dependencies]
 panic-semihosting = "0.5.0"
