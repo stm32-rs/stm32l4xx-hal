@@ -49,7 +49,7 @@ fn main() -> ! {
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart1(p.USART1, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb2);
-    let (mut tx, mut rx) = serial.split();
+    let (mut tx, rx) = serial.split();
 
     let sent = b'X';
 

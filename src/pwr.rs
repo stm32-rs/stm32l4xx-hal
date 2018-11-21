@@ -1,7 +1,7 @@
 //! Power management
 
 use crate::rcc::{APB1R1};
-use stm32l4::stm32l4x2::{pwr, PWR};
+use crate::stm32::{pwr, PWR};
 
 
 pub struct Pwr {

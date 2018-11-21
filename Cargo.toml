@@ -33,7 +33,7 @@ version = "0.2.2"
 features = ["unproven"]
 
 [package.metadata.docs.rs]
-features = ['rt', 'stm32l4x2']
+features = ["rt", "stm32l4x2"]
 
 [features]
 rt = ["stm32l4/rt"]
