@@ -1,5 +1,5 @@
 [package]
-name = "stm32l4xx-hal"
+name = "stm32l4-hal"
 version = "0.3.0"
 authors = ["Scott Mabin <MabezDev@gmail.com>"]
 description = "Hardware abstraction layer for the stm32l4xx chips"
