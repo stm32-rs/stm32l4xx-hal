@@ -135,7 +135,7 @@ macro_rules! dma {
                 use core::marker::Unsize;
                 use core::sync::atomic::{self, Ordering};
 
-                use stm32l4::stm32l4x2::{$DMAX, dma1};
+                use crate::stm32::{$DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
                 use crate::rcc::AHB1;

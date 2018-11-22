@@ -10,13 +10,11 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 extern crate cortex_m_semihosting as sh;
 extern crate panic_semihosting;
-extern crate stm32l432xx_hal as hal;
+extern crate stm32l4_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
 use crate::hal::prelude::*;
-use crate::hal::stm32l4::stm32l4x2;
-
 use crate::hal::delay::Delay;
 use crate::hal::rtc::Rtc;
 use crate::hal::datetime::{Date,Time};
@@ -33,21 +31,21 @@ fn main() -> ! {
     writeln!(hstdout, "Hello, world!").unwrap();
 
     let cp = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32l4x2::Peripherals::take().unwrap();
+    let dp = hal::stm32::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain(); // .constrain();
     let mut rcc = dp.RCC.constrain();
 
     // Try a different clock configuration
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
-    
+
     let mut timer = Delay::new(cp.SYST, clocks);
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
     let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1);
-    
+
     let mut time = Time::new(21.hours(), 57.minutes(), 32.seconds(), false);
     let mut date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
-    
+
     rtc.set_time(&time);
     rtc.set_date(&date);
 
@@ -58,7 +56,7 @@ fn main() -> ! {
     time = rtc.get_time();
     date = rtc.get_date();
 
-    
+
     writeln!(hstdout, "Time: {:?}", time).unwrap();
     writeln!(hstdout, "Date: {:?}", date).unwrap();
     writeln!(hstdout, "Good bye!").unwrap();

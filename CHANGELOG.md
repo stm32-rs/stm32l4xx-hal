@@ -5,9 +5,18 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.0] - 2018-11-21
+
+### Breaking
+    - Move device selection (l4x1, l4x2, etc.) behind feature, in line with stm32f4xx-hal.
+    - Change crate name accordingly to `stm32l4-hal`.
+
+### Fixed
+    - Update crate dependencies.
+
 ## [v0.2.6] - 2018-11-03
 
-## Fixed 
+## Fixed
 
     - TSC flags not getting cleared by the `aquire` tsc method.
 

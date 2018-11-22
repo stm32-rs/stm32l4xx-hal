@@ -3,7 +3,7 @@
 use cast::{u16, u32};
 use crate::hal::timer::{CountDown, Periodic};
 use nb;
-use stm32l4::stm32l4x2::{TIM2, TIM6, TIM7, TIM15, TIM16};
+use crate::stm32::{TIM2, TIM6, TIM7, TIM15, TIM16};
 use void::Void;
 
 use crate::rcc::{APB1R1, Clocks, APB2};

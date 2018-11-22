@@ -6,7 +6,7 @@ use core::sync::atomic::{self, Ordering};
 
 use crate::hal::serial;
 use nb;
-use stm32l4::stm32l4x2::{USART1, USART2};
+use crate::stm32::{USART1, USART2};
 use void::Void;
 
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};

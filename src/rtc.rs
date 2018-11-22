@@ -3,7 +3,7 @@
 use crate::datetime::*;
 use crate::rcc::{BDCR, APB1R1};
 use crate::pwr;
-use stm32l4::stm32l4x2::{RTC};
+use crate::stm32::{RTC};
 
 /// RTC Abstraction
 pub struct Rtc {

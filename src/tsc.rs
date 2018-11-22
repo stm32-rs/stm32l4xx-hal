@@ -8,7 +8,7 @@
 //! electrode fitting a human finger tip size across a few millimeters dielectric panel.
 
 use crate::rcc::AHB1;
-use stm32l4::stm32l4x2::{TSC};
+use crate::stm32::{TSC};
 use crate::gpio::gpiob::{PB4, PB5, PB6, PB7};
 use crate::gpio::{AF9, Alternate, Output, OpenDrain, PushPull};
 

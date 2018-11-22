@@ -9,12 +9,11 @@ extern crate cortex_m_rt as rt;
 extern crate cortex_m;
 extern crate panic_semihosting;
 extern crate embedded_hal as ehal;
-extern crate stm32l432xx_hal as hal;
+extern crate stm32l4_hal as hal;
 
 use cortex_m::asm;
 use crate::hal::prelude::*;
 use crate::hal::spi::Spi;
-use crate::hal::stm32l4::stm32l4x2;
 use crate::rt::ExceptionFrame;
 use crate::ehal::spi::{Mode, Phase, Polarity};
 
@@ -26,7 +25,7 @@ pub const MODE: Mode = Mode {
 
 #[entry]
 fn main() -> ! {
-    let p = stm32l4x2::Peripherals::take().unwrap();
+    let p = hal::stm32::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
@@ -45,7 +44,7 @@ fn main() -> ! {
     let mut dc = gpiob
         .pb1
         .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-    
+
 
     // The `L3gd20` abstraction exposed by the `f3` crate requires a specific pin configuration to
     // be used and won't accept any configuration other than the one used here. Trying to use a

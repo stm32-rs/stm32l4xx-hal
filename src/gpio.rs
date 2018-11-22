@@ -102,7 +102,7 @@ macro_rules! gpio {
             use core::marker::PhantomData;
 
             use crate::hal::digital::OutputPin;
-            use stm32l4::stm32l4x2::{$gpioy, $GPIOX};
+            use crate::stm32::{$gpioy, $GPIOX};
 
             use crate::rcc::AHB2;
             use super::{

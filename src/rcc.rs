@@ -3,7 +3,7 @@
 use core::cmp;
 
 use cast::u32;
-use stm32l4::stm32l4x2::{rcc, RCC};
+use crate::stm32::{rcc, RCC};
 
 use crate::flash::ACR;
 use crate::time::Hertz;
@@ -55,10 +55,10 @@ pub struct Rcc {
     /// Backup domain control register
     pub bdcr: BDCR,
     /// Control/Status Register
-    pub csr: CSR, 
+    pub csr: CSR,
 }
 
-// CSR Control/Status Register
+/// CSR Control/Status Register
 pub struct CSR {
     _0: (),
 }
@@ -72,7 +72,7 @@ impl CSR {
     }
 }
 
-// BDCR Backup domain control register registers
+/// BDCR Backup domain control register registers
 pub struct BDCR {
     _0: (),
 }
@@ -86,7 +86,7 @@ impl BDCR {
     }
 }
 
-// AMBA High-performance Bus (AHB1) registers
+/// AMBA High-performance Bus 1 (AHB1) registers
 pub struct AHB1 {
     _0: (),
 }
@@ -106,7 +106,7 @@ impl AHB1 {
     }
 }
 
-// AMBA High-performance Bus (AHB2) registers
+/// AMBA High-performance Bus 2 (AHB2) registers
 pub struct AHB2 {
     _0: (),
 }
@@ -123,7 +123,7 @@ impl AHB2 {
     }
 }
 
-// AMBA High-performance Bus (AHB3) registers
+/// AMBA High-performance Bus (AHB3) registers
 pub struct AHB3 {
     _0: (),
 }
@@ -143,7 +143,7 @@ impl AHB3 {
     }
 }
 
-/// Advanced Peripheral Bus 1 (APB1) registers
+/// Advanced Peripheral Bus 1 (APB1) register 1 registers
 pub struct APB1R1 {
     _0: (),
 }
@@ -160,7 +160,7 @@ impl APB1R1 {
     }
 }
 
-/// Advanced Peripheral Bus 1 (APB1) registers
+/// Advanced Peripheral Bus 1 (APB1) register 2 registers
 pub struct APB1R2 {
     _0: (),
 }
@@ -273,7 +273,7 @@ impl CFGR {
                 };
                 Some(conf)
             }
-            
+
         } else {
             let conf = self.pllcfg.unwrap();
             Some(conf)
@@ -360,7 +360,7 @@ impl CFGR {
             while rcc.cr.read().hsirdy().bit_is_clear() {}
 
             rcc.pllcfgr
-            .modify(|_, w| unsafe { 
+            .modify(|_, w| unsafe {
                 w.pllsrc()
                     .bits(pllsrc_bits)
                     .pllm().bits(pllconf.m)
@@ -369,7 +369,7 @@ impl CFGR {
             });
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
-            
+
             while rcc.cr.read().pllrdy().bit_is_clear() {}
 
             rcc.pllcfgr.modify(|_, w| w.pllren().set_bit());

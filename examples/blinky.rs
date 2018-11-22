@@ -10,13 +10,11 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 extern crate cortex_m_semihosting as sh;
 extern crate panic_semihosting;
-extern crate stm32l432xx_hal as hal;
+extern crate stm32l4_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
 use crate::hal::prelude::*;
-use crate::hal::stm32l4::stm32l4x2;
-
 use crate::hal::delay::Delay;
 use crate::rt::ExceptionFrame;
 use crate::rt::entry;
@@ -32,7 +30,7 @@ fn main() -> ! {
     writeln!(hstdout, "Hello, world!").unwrap();
 
     let cp = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32l4x2::Peripherals::take().unwrap();
+    let dp = hal::stm32::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain(); // .constrain();
     let mut rcc = dp.RCC.constrain();
@@ -49,7 +47,7 @@ fn main() -> ! {
 
     let mut gpiob = dp.GPIOB.split(&mut rcc.ahb2);
     let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-    
+
     let mut timer = Delay::new(cp.SYST, clocks);
     loop {
         // block!(timer.wait()).unwrap();

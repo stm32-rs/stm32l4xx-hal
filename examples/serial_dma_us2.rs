@@ -14,7 +14,7 @@ extern crate cortex_m_rt as rt;
 extern crate nb;
 extern crate panic_semihosting;
 
-extern crate stm32l432xx_hal as hal;
+extern crate stm32l4_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
@@ -22,12 +22,11 @@ use cortex_m::asm;
 use crate::hal::dma::Half;
 use crate::hal::prelude::*;
 use crate::hal::serial::Serial;
-use crate::hal::stm32l4::stm32l4x2;
 use crate::rt::ExceptionFrame;
 
 #[entry]
 fn main() -> ! {
-    let p = stm32l4x2::Peripherals::take().unwrap();
+    let p = hal::stm32::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
@@ -49,7 +48,7 @@ fn main() -> ! {
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart2(p.USART2, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb1r1);
-    let (mut tx, mut rx) = serial.split();
+    let (mut tx, rx) = serial.split();
 
     let sent = b'X';
 
@@ -68,7 +67,7 @@ fn main() -> ! {
         let _first_half = circ_buffer.peek(|_buf, half| {
             half
         }).unwrap();
-        
+
         // asm::bkpt();
 
         while circ_buffer.readable_half().unwrap() != Half::Second {}
@@ -77,7 +76,7 @@ fn main() -> ! {
 
         let _second_half = circ_buffer.peek(|_buf, half| half).unwrap();
     }
-    
+
     // let received = block!(rx.read()).unwrap();
 
     // assert_eq!(received, sent);

@@ -11,17 +11,16 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 extern crate panic_semihosting;
 
-extern crate stm32l432xx_hal as hal;
+extern crate stm32l4_hal as hal;
 
 
 use crate::hal::prelude::*;
-use crate::hal::stm32l4::stm32l4x2;
 use crate::hal::tsc::Tsc;
 use crate::rt::ExceptionFrame;
 
 #[entry]
 fn main() -> ! {
-    let p = stm32l4x2::Peripherals::take().unwrap();
+    let p = hal::stm32::Peripherals::take().unwrap();
     // let cp = cortex_m::Peripherals::take().unwrap();
 
     let mut flash = p.FLASH.constrain();
@@ -41,13 +40,13 @@ fn main() -> ! {
     let mut c1 = gpiob.pb5.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     let mut c2 = gpiob.pb6.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     // let mut c3 = gpiob.pb7.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
-    
-    // , (c1, c2, c3) 
+
+    // , (c1, c2, c3)
     let tsc = Tsc::tsc(p.TSC, sample_pin, &mut rcc.ahb1, None);
 
     let baseline = tsc.acquire(&mut c1).unwrap();
     let threshold = (baseline / 100) * 60;
-    
+
     loop {
         let touched = tsc.acquire(&mut c1).unwrap();
         let _touched_c2 = tsc.acquire(&mut c2).unwrap();
