@@ -1,15 +1,14 @@
-# Superceded by [stm32l4xx-hal](https://crates.io/crates/stm32l4xx-hal) crate, please use this instead.
-# `stm32l432xx-hal`
+# `stm32l4xx-hal`
 
-> [HAL] for the STM32L432xx family of microcontrollers
+> [HAL] for the STM32L4xx family of microcontrollers
 
-*Note: this HAL is a work in progress, contributions are appreciated :)*
+- *Note: this HAL is a work in progress, contributions are appreciated :)*
 
 [HAL]: https://crates.io/crates/embedded-hal
 
-## [Documentation](https://docs.rs/stm32l432xx-hal/latest/stm32l432xx_hal/)
+## [Documentation](https://docs.rs/stm32l4xx-hal/latest/stm32l4xx_hal/)
 
-## [Changelog](https://github.com/mabezdev/stm32l432xx-hal/blob/master/CHANGELOG.md)
+## [Changelog](https://github.com/mabezdev/stm32l4xx-hal/blob/master/CHANGELOG.md)
 
 ## License
 
