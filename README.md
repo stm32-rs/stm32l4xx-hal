@@ -1,3 +1,4 @@
+# Superceded by [stm32l4xx-hal](https://crates.io/crates/stm32l4xx-hal) crate, please use this instead.
 # `stm32l432xx-hal`
 
 > [HAL] for the STM32L432xx family of microcontrollers
