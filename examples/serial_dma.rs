@@ -14,7 +14,7 @@ extern crate cortex_m_rt as rt;
 extern crate nb;
 extern crate panic_semihosting;
 
-extern crate stm32l4_hal as hal;
+extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 

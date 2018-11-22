@@ -9,7 +9,7 @@ extern crate cortex_m_rt as rt;
 extern crate cortex_m;
 extern crate panic_semihosting;
 extern crate embedded_hal as ehal;
-extern crate stm32l4_hal as hal;
+extern crate stm32l4xx_hal as hal;
 
 use cortex_m::asm;
 use crate::hal::prelude::*;
