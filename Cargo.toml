@@ -53,11 +53,6 @@ panic-semihosting = "0.5.0"
 cortex-m-semihosting = "0.3.1"
 cortex-m-rt = "0.6.5"
 
-[dev-dependencies.stm32l4xx-hal]
-version = "*"
-path = "."
-features = ["rt", "stm32l4x2"]
-
 [profile.dev]
 incremental = false
 codegen-units = 1
