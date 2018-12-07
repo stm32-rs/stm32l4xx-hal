@@ -13,7 +13,7 @@
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/debug/examples/serial_dma_us2",
+            "executable": "./target/thumbv7em-none-eabi/debug/examples/rtc",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",
@@ -34,7 +34,7 @@
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/release/examples/serial_dma_us2",
+            "executable": "./target/thumbv7em-none-eabi/release/examples/rtc",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",

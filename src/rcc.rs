@@ -407,12 +407,6 @@ impl CFGR {
 
         while rcc.cfgr.read().sws().bits() != sysclk_src_bits {}
 
-        // Turn on the internal 32khz lsi oscillator
-        rcc.csr.modify(|_, w| {
-            w.lsion().set_bit()
-        });
-        // Wait until LSI is running
-        while rcc.csr.read().lsirdy().bit_is_clear() {}
 
 
         Clocks {

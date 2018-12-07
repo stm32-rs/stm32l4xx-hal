@@ -12,6 +12,13 @@ pub struct Rtc {
 
 impl Rtc {
     pub fn rtc(rtc: RTC, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1) -> Self {
+        // Turn on the internal 32khz lsi oscillator
+        // rcc.csr.modify(|_, w| {
+        //     w.lsion().set_bit()
+        // });
+        // // Wait until LSI is running
+        // while rcc.csr.read().lsirdy().bit_is_clear() {}
+
         // enable peripheral clock for communication
         apb1r1.enr().modify(|_, w| w.rtcapben().set_bit());
         pwrcr1.reg().read(); // read to allow the pwr clock to enable
@@ -20,6 +27,13 @@ impl Rtc {
         while pwrcr1.reg().read().dbp().bit_is_clear() {}
         
         bdcr.enr().modify(|_, w| { w.bdrst().set_bit() }); // reset
+        bdcr.enr().modify(|_, w| { w.bdrst().clear_bit() }); // reset
+
+        bdcr.enr().modify(|_, w| {
+            w.lseon().set_bit()
+        });
+
+        while bdcr.enr().read().lserdy().bit_is_clear() {}
         
         bdcr.enr().modify(|_, w| unsafe {
             w.rtcsel()
@@ -29,7 +43,7 @@ impl Rtc {
                     10: LSI oscillator clock used as RTC clock
                     11: HSE oscillator clock divided by 32 used as RTC clock 
                 */
-                .bits(0b10)
+                .bits(0b01)
                 .rtcen()
                 .set_bit()
                 .bdrst() // reset required for clock source change
