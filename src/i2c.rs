@@ -6,7 +6,7 @@ use stm32l4::stm32l4x2::{I2C1, I2C2};
 use crate::gpio::gpioa::{PA10, PA9};
 use crate::gpio::gpiob::{PB6, PB7};
 use crate::gpio::{AF4, Alternate, OpenDrain, Output};
-use crate::hal::blocking::i2c::{Write, WriteRead};
+use crate::hal::blocking::i2c::{Write, WriteRead, Read};
 use crate::rcc::{APB1R1, Clocks};
 use crate::time::Hertz;
 
@@ -17,6 +17,8 @@ pub enum Error {
     Bus,
     /// Arbitration loss
     Arbitration,
+    /// NACK
+    Nack,
     // Overrun, // slave mode only
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
@@ -53,6 +55,8 @@ macro_rules! busy_wait {
                 return Err(Error::Bus);
             } else if isr.arlo().bit_is_set() {
                 return Err(Error::Arbitration);
+            } else if isr.nackf().bit_is_set() {
+                return Err(Error::Nack);  
             } else if isr.$flag().bit_is_set() {
                 break;
             } else {
@@ -207,6 +211,36 @@ macro_rules! hal {
                 }
             }
 
+            impl<PINS> Read for I2c<$I2CX, PINS> {
+                type Error = Error;
+
+                fn read(&mut self,
+                    addr: u8,
+                    buffer: &mut [u8],) -> Result<(), Error> {
+                    self.i2c.cr2.write(|w| {
+                        w.sadd()
+                            .bits(addr as u16)
+                            .rd_wrn()
+                            .set_bit()
+                            .nbytes()
+                            .bits(buffer.len() as u8)
+                            .start()
+                            .set_bit()
+                            .autoend()
+                            .set_bit()
+                    });
+
+                    for byte in buffer {
+                        // Wait until we have received something
+                        busy_wait!(self.i2c, rxne);
+
+                        *byte = self.i2c.rxdr.read().rxdata().bits();
+                    }
+
+                    Ok(())
+                }
+            }
+
             impl<PINS> WriteRead for I2c<$I2CX, PINS> {
                 type Error = Error;
 
@@ -247,7 +281,7 @@ macro_rules! hal {
                     }
 
                     // Wait until the last transmission is finished
-                    busy_wait!(self.i2c, tc);
+                    // busy_wait!(self.i2c, tc);
 
                     // reSTART and prepare to receive bytes into `buffer`
                     self.i2c.cr2.write(|w| {
