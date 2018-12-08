@@ -203,7 +203,8 @@ macro_rules! hal {
                     }
 
                     // Wait until the last transmission is finished ???
-                    // busy_wait!(self.i2c, busy); // or busy_wait!(self.i2c, tc); ????
+                    // busy_wait!(self.i2c, busy); // or 
+                    busy_wait!(self.i2c, tc);
 
                     // automatic STOP
 
@@ -281,7 +282,7 @@ macro_rules! hal {
                     }
 
                     // Wait until the last transmission is finished
-                    // busy_wait!(self.i2c, tc);
+                    busy_wait!(self.i2c, tc);
 
                     // reSTART and prepare to receive bytes into `buffer`
                     self.i2c.cr2.write(|w| {
@@ -304,7 +305,7 @@ macro_rules! hal {
                         *byte = self.i2c.rxdr.read().rxdata().bits();
                     }
 
-                    // automatic STOP
+                    // automatic STOP - due to autoend
 
                     Ok(())
                 }
