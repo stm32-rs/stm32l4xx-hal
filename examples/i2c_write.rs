@@ -10,9 +10,7 @@ extern crate cortex_m;
 extern crate cortex_m_rt as rt;
 extern crate cortex_m_semihosting as sh;
 extern crate panic_semihosting;
-extern crate stm32l432xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
+extern crate stm32l4xx_hal as hal;
 
 use crate::hal::prelude::*;
 use crate::hal::stm32l4::stm32l4x2;
