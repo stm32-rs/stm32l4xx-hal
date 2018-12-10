@@ -202,10 +202,6 @@ macro_rules! hal {
                         self.i2c.txdr.write(|w| { w.txdata().bits(*byte) });
                     }
 
-                    // Wait until the last transmission is finished ???
-                    // busy_wait!(self.i2c, busy); // or 
-                    busy_wait!(self.i2c, tc);
-
                     // automatic STOP
 
                     Ok(())
