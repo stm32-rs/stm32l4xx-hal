@@ -10,8 +10,6 @@
 
 #![no_std]
 
-// TODO, remove this feature (currently required in dma.rs)
-#![feature(unsize)]
 
 pub use embedded_hal as hal;
 
