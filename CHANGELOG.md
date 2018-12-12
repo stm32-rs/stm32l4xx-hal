@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.1] - 2018-12-10
+
+### Added
+    - I2C support using embedded-hal traits
+    - Added GPIO input embedded-hal traits
+
 ## [v0.3.0] - 2018-11-21
 
 ### Breaking
@@ -76,8 +82,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.3.0...HEAD
-[v0.2.7]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.7...v0.3.0
+[Unreleased]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.3.1...HEAD
+[v0.3.1]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.3.0...v0.3.1
+[v0.3.0]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.7...v0.3.0
 [v0.2.7]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.6...v0.2.7
 [v0.2.6]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.5...v0.2.6
 [v0.2.5]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.4...v0.2.5
@@ -87,4 +94,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 [v0.2.1]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.1.1...v0.2.0
 [v0.1.1]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.1.0...v0.1.1
-[v0.1.0]: https://github.com/MabezDev/stm32l4xx-hal/tree/v0.1.
+[v0.1.0]: https://github.com/MabezDev/stm32l4xx-hal/tree/v0.1.0
