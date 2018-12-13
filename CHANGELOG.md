@@ -5,6 +5,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.2] - 2018-12-12
+
+## Added
+    - DMA buffers now use as-slice
+
+## Fixed
+    - This crate now compiles on stable (1.31)! :tada:
+
 ## [v0.3.1] - 2018-12-10
 
 ### Added
@@ -82,16 +90,17 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.3.1...HEAD
-[v0.3.1]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.3.0...v0.3.1
-[v0.3.0]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.7...v0.3.0
-[v0.2.7]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.6...v0.2.7
-[v0.2.6]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.5...v0.2.6
-[v0.2.5]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.4...v0.2.5
-[v0.2.4]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.3...v0.2.4
-[v0.2.3]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.2...v0.2.3
-[v0.2.2]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.1...v0.2.2
-[v0.2.1]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.2.0...v0.2.1
-[v0.2.0]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.1.1...v0.2.0
-[v0.1.1]: https://github.com/mabezdev/stm32l4xx-hal/compare/v0.1.0...v0.1.1
-[v0.1.0]: https://github.com/MabezDev/stm32l4xx-hal/tree/v0.1.0
+[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.2...HEAD
+[v0.3.2]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.1...v0.3.2
+[v0.3.1]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.0...v0.3.1
+[v0.3.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.7...v0.3.0
+[v0.2.7]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.6...v0.2.7
+[v0.2.6]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.5...v0.2.6
+[v0.2.5]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.4...v0.2.5
+[v0.2.4]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.3...v0.2.4
+[v0.2.3]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.2...v0.2.3
+[v0.2.2]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.1...v0.2.2
+[v0.2.1]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.0...v0.2.1
+[v0.2.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.1.1...v0.2.0
+[v0.1.1]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.1.0...v0.1.1
+[v0.1.0]: https://github.com/stm32-rs/stm32l4xx-hal/tree/v0.1.0

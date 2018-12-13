@@ -1,5 +1,7 @@
 # `stm32l4xx-hal`
 
+_formerly [MabezDev/stm32l4xx-hal](https://github.com/mabezdev/stm32l4xx-hal)_
+
 > [HAL] for the STM32L4xx family of microcontrollers
 
 - *Note: this HAL is a work in progress, contributions are appreciated :)*
@@ -9,6 +11,10 @@
 ## [Documentation](https://docs.rs/stm32l4xx-hal/latest/stm32l4xx_hal/)
 
 ## [Changelog](https://github.com/mabezdev/stm32l4xx-hal/blob/master/CHANGELOG.md)
+
+## About
+
+    - Minimum rustc version 1.31
 
 ## License
 
