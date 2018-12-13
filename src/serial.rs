@@ -1,8 +1,12 @@
 //! Serial
 
-use core::marker::{PhantomData, Unsize};
+use core::marker::PhantomData;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
+use core::ops::DerefMut;
+use stable_deref_trait::StableDeref;
+use as_slice::AsMutSlice;
+use cast::u16;
 
 use crate::hal::serial;
 use nb;
@@ -231,21 +235,21 @@ macro_rules! hal {
             }
 
             impl Rx<$USARTX> {
-                pub fn circ_read<B>(
+                pub fn circ_read<B, H>(
                     &self,
                     mut chan: $rx_chan,
-                    buffer: &'static mut [B; 2],
+                    mut buffer: B,
                 ) -> CircBuffer<B, $rx_chan>
                 where
-                    B: Unsize<[u8]>,
+                    B: StableDeref<Target = [H; 2]> + DerefMut,
+                    H: AsMutSlice<Element = u8>
                 {
                     {
-                        let buffer: &[u8] = &buffer[0];
                         chan.cmar().write(|w| {
-                            w.ma().bits(buffer.as_ptr() as usize as u32)
+                            w.ma().bits(buffer[0].as_mut_slice().as_ptr() as usize as u32)
                         });
                         chan.cndtr().write(|w|{
-                            w.ndt().bits((buffer.len() * 2) as u16)
+                            w.ndt().bits(u16(buffer[0].as_mut_slice().len() * 2).unwrap())
                         });
                         chan.cpar().write(|w| unsafe {
                             w.pa().bits(&(*$USARTX::ptr()).rdr as *const _ as usize as u32)

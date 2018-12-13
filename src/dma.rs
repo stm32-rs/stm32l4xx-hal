@@ -6,6 +6,7 @@ use core::marker::PhantomData;
 use core::ops;
 
 use crate::rcc::AHB1;
+use stable_deref_trait::StableDeref;
 
 #[derive(Debug)]
 pub enum Error {
@@ -30,36 +31,23 @@ pub struct CircBuffer<BUFFER, CHANNEL>
 where
     BUFFER: 'static,
 {
-    buffer: &'static mut [BUFFER; 2],
+    buffer: BUFFER,
     channel: CHANNEL,
     readable_half: Half,
     consumed_offset: usize
 }
 
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
-    pub(crate) fn new(buf: &'static mut [BUFFER; 2], chan: CHANNEL) -> Self {
+    pub(crate) fn new<H>(buf: BUFFER, chan: CHANNEL) -> Self
+    where
+        BUFFER: StableDeref<Target = [H; 2]>,
+    {
         CircBuffer {
             buffer: buf,
             channel: chan,
             readable_half: Half::Second,
             consumed_offset: 0,
         }
-    }
-}
-
-pub trait Static<B> {
-    fn borrow(&self) -> &B;
-}
-
-impl<B> Static<B> for &'static B {
-    fn borrow(&self) -> &B {
-        *self
-    }
-}
-
-impl<B> Static<B> for &'static mut B {
-    fn borrow(&self) -> &B {
-        *self
     }
 }
 
@@ -76,7 +64,10 @@ pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
     payload: PAYLOAD,
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD> {
+impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD>
+where
+    BUFFER: StableDeref + 'static,
+{
     pub(crate) fn r(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
             _mode: PhantomData,
@@ -87,7 +78,10 @@ impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD> {
     }
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> Transfer<W, BUFFER, CHANNEL, PAYLOAD> {
+impl<BUFFER, CHANNEL, PAYLOAD> Transfer<W, BUFFER, CHANNEL, PAYLOAD>
+where
+    BUFFER: StableDeref + 'static,
+{
     pub(crate) fn w(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
             _mode: PhantomData,
@@ -132,9 +126,9 @@ macro_rules! dma {
     }),)+) => {
         $(
             pub mod $dmaX {
-                use core::marker::Unsize;
                 use core::sync::atomic::{self, Ordering};
-
+                use stable_deref_trait::StableDeref;
+                use as_slice::AsSlice;
                 use crate::stm32::{$DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
@@ -205,10 +199,11 @@ macro_rules! dma {
                     impl<B> CircBuffer<B, $CX> {
                         
                         /// Return the partial contents of the buffer half being written
-                        pub fn partial_peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
+                        pub fn partial_peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
-                            B: Unsize<[T]>,
+                            B: StableDeref<Target = [H; 2]>,
+                            H: AsSlice<Element=T>,
                         {
                             // this inverts expectation and returns the half being _written_
                             let buf = match self.readable_half {
@@ -219,7 +214,7 @@ macro_rules! dma {
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
                             //                       ^- pending=11
                             let pending = self.channel.get_cndtr() as usize; // available bytes in _whole_ buffer
-                            let slice: &[T] = buf;
+                            let slice = buf.as_slice();
                             let capacity = slice.len(); // capacity of _half_ a buffer
                             //     <--- capacity=10 --->
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
@@ -236,7 +231,7 @@ macro_rules! dma {
                             //                       ^- end=9
                             //             ^- consumed_offset=4
                             //             [y y y y y] <-- slice
-                            let slice = &slice[self.consumed_offset..end];
+                            let slice = &buf.as_slice()[self.consumed_offset..end];
                             match f(slice, self.readable_half) {
                                 Ok((l, r)) => { self.consumed_offset += l; Ok(r) },
                                 Err(_) => Err(Error::BufferError),
@@ -245,18 +240,18 @@ macro_rules! dma {
 
                         /// Peeks into the readable half of the buffer
                         /// Returns the result of the closure
-                        pub fn peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
+                        pub fn peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> R,
-                            B: Unsize<[T]>,
+                            B: StableDeref<Target = [H; 2]>,
+                            H: AsSlice<Element=T>,
                         {
                             let half_being_read = self.readable_half()?;
                             let buf = match half_being_read {
                                 Half::First => &self.buffer[0],
                                 Half::Second => &self.buffer[1],
                             };
-                            let slice: &[T] = buf;
-                            let slice = &slice[self.consumed_offset..];
+                            let slice = &buf.as_slice()[self.consumed_offset..];
                             self.consumed_offset = 0;
                             Ok(f(slice, half_being_read))
                         }
@@ -326,14 +321,13 @@ macro_rules! dma {
                     impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, $CX, PAYLOAD> {
                         pub fn peek<T>(&self) -> &[T]
                         where
-                            BUFFER: Unsize<[T]>,
+                            BUFFER: AsSlice<Element=T>,
                         {
                             let pending = self.channel.get_cndtr() as usize;
 
-                            let slice: &[T] = self.buffer;
-                            let capacity = slice.len();
+                            let capacity = self.buffer.as_slice().len();
 
-                            &slice[..(capacity - pending)]
+                            &self.buffer.as_slice()[..(capacity - pending)]
                         }
                     }
                 )+
