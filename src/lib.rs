@@ -10,6 +10,15 @@
 
 #![no_std]
 
+#[cfg(not(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x4",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+    )))]
+compile_error!("This crate requires one of the following features enabled: stm32l4x1, stm32l4x2, stm32l4x3, stm32l4x4, stm32l4x5 or stm32l4x6");
 
 pub use embedded_hal as hal;
 
