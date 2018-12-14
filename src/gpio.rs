@@ -573,6 +573,9 @@ gpio!(GPIOA, gpioa, gpioa, gpioaen, gpioarst, PAx, [
     PA10: (pa10, 10, Input<Floating>, AFRH),
     PA11: (pa11, 11, Input<Floating>, AFRH),
     PA12: (pa12, 12, Input<Floating>, AFRH),
+    PA13: (pa12, 12, Input<Floating>, AFRH),
+    PA14: (pa12, 12, Input<Floating>, AFRH),
+    PA15: (pa12, 12, Input<Floating>, AFRH),
 ]);
 
 gpio!(GPIOB, gpiob, gpiob, gpioben, gpiobrst, PBx, [
