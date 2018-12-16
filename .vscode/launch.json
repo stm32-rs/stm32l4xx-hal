@@ -13,7 +13,7 @@
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/debug/examples/i2c_write",
+            "executable": "./target/thumbv7em-none-eabi/debug/examples/timer",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",
@@ -34,7 +34,7 @@
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/release/examples/i2c_write",
+            "executable": "./target/thumbv7em-none-eabi/release/examples/timer",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",

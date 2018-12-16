@@ -40,7 +40,7 @@ pub use stm32l4::stm32l4x5 as stm32;
 pub use stm32l4::stm32l4x6 as stm32;
 
 #[cfg(feature = "rt")]
-pub use stm32l4::interrupt;
+pub use self::stm32::interrupt;
 
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6"))]
 pub mod dma;
