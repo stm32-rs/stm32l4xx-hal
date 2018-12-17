@@ -42,7 +42,6 @@ fn main() -> ! {
 
     let mut nvic = cp.NVIC;
     nvic.enable(hal::stm32::Interrupt::TIM7);
-
     let mut timer = Timer::tim7(dp.TIM7, 1.hz(), clocks, &mut rcc.apb1r1);
     timer.listen(Event::TimeOut);
 
@@ -51,8 +50,10 @@ fn main() -> ! {
 
 #[interrupt]
 fn TIM7() {
-    let mut hstdout = hio::hstdout().unwrap();
-    writeln!(hstdout, "Hello, TIM!").unwrap();
+    let mut p = 0;
+    p += 1;
+    // let mut hstdout = hio::hstdout().unwrap();
+    // writeln!(hstdout, "Hello, TIM!").unwrap();
 }
 
 #[exception]
