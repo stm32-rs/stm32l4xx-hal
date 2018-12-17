@@ -5,13 +5,19 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.3] - 2018-12-12
+
+### Fixed
+    - Bumped stm32l4 to v0.5.0
+    - Fixed timer start macro
+
 ## [v0.3.2] - 2018-12-12
 
-## Added
+### Added
     - DMA buffers now use as-slice
 
-## Fixed
-    - This crate now compiles on stable (1.31)! :tada:
+### Fixed
+    - This crate now compiles on stable (1.31)!
 
 ## [v0.3.1] - 2018-12-10
 
@@ -90,7 +96,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.3...HEAD
+[v0.3.2]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.2...v0.3.3
 [v0.3.2]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.2.7...v0.3.0
