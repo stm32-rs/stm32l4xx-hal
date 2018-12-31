@@ -170,11 +170,8 @@ impl<SPIN> Tsc<SPIN> {
     pub fn start<PIN>(&self, _input: &mut PIN) 
         where PIN: ChannelPin<TSC>
     {
-        // clear interrupt & flags
-        self.tsc.icr.write(|w| { 
-            w.eoaic().set_bit()
-                .mceic().set_bit()
-        });
+        self.clear(Event::EndOfAcquisition);
+        self.clear(Event::MaxCountError);
 
         // discharge the caps ready for a new reading
         self.tsc.cr.modify(|_, w| {
@@ -189,6 +186,19 @@ impl<SPIN> Tsc<SPIN> {
         });
 
         self.tsc.cr.modify(|_, w| { w.start().set_bit() });
+    }
+
+    /// Clear interrupt & flags
+    pub fn clear(&self, event: Event) {
+        match event {
+            Event::EndOfAcquisition => {
+                self.tsc.icr.write(|w| { w.eoaic().set_bit() });
+            },
+            Event::MaxCountError => {
+                self.tsc.icr.write(|w| { w.mceic().set_bit() });
+            },
+        }
+        
     }
 
     /// Blocks waiting for a acquisition to complete or for a Max Count Error
