@@ -25,8 +25,11 @@ impl RccExt for RCC {
             apb2: APB2 { _0: () },
             bdcr: BDCR { _0: () },
             csr: CSR { _0: () },
+            crrcr: CRRCR { _0: () },
             cfgr: CFGR {
                 hclk: None,
+                hsi48: false,
+                lsi: true,
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
@@ -56,6 +59,8 @@ pub struct Rcc {
     pub bdcr: BDCR,
     /// Control/Status Register
     pub csr: CSR,
+    /// Clock recovery RC register
+    pub crrcr: CRRCR,
 }
 
 /// CSR Control/Status Register
@@ -69,6 +74,26 @@ impl CSR {
     pub(crate) fn csr(&mut self) -> &rcc::CSR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).csr }
+    }
+}
+
+/// Clock recovery RC register
+pub struct CRRCR {
+    _0: (),
+}
+
+impl CRRCR {
+    // TODO remove `allow`
+    #[allow(dead_code)]
+    pub(crate) fn crrcr(&mut self) -> &rcc::CRRCR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).crrcr }
+    }
+    pub fn is_hsi48_on(&mut self) -> bool {
+        self.crrcr().read().hsi48on().bit()
+    }
+    pub fn is_hsi48_ready(&mut self) -> bool {
+        self.crrcr().read().hsi48rdy().bit()
     }
 }
 
@@ -202,6 +227,9 @@ const HSI: u32 = 16_000_000; // Hz
 /// Clock configuration
 pub struct CFGR {
     hclk: Option<u32>,
+    // should we use an option? it can really only be on/off
+    hsi48: bool,
+    lsi: bool,
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
@@ -215,6 +243,20 @@ impl CFGR {
         F: Into<Hertz>,
     {
         self.hclk = Some(freq.into().0);
+        self
+    }
+
+    /// Sets HSI48 clock on or off (the default)
+    pub fn hsi48(mut self, on: bool) -> Self
+    {
+        self.hsi48 = on;
+        self
+    }
+
+    /// Sets LSI clock on (the default) or off
+    pub fn lsi(mut self, on: bool) -> Self
+    {
+        self.hsi48 = on;
         self
     }
 
@@ -408,15 +450,26 @@ impl CFGR {
         while rcc.cfgr.read().sws().bits() != sysclk_src_bits {}
 
         // Turn on the internal 32khz lsi oscillator
-        rcc.csr.modify(|_, w| {
-            w.lsion().set_bit()
-        });
-        // Wait until LSI is running
-        while rcc.csr.read().lsirdy().bit_is_clear() {}
+        if self.lsi {
+            rcc.csr.modify(|_, w| w.lsion().set_bit());
+            // Wait until LSI is running
+            while rcc.csr.read().lsirdy().bit_is_clear() {}
+        }
+
+        // Turn on HSI48 if required
+        if self.hsi48 {
+            // p. 180 in ref-manual
+            rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
+            // Wait until HSI48 is running
+            while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
+        }
+
 
 
         Clocks {
             hclk: Hertz(hclk),
+            hsi48: self.hsi48,
+            lsi: self.lsi,
             pclk1: Hertz(pclk1),
             pclk2: Hertz(pclk2),
             ppre1,
@@ -440,9 +493,11 @@ pub struct PllConfig {
 /// Frozen clock frequencies
 ///
 /// The existence of this value indicates that the clock configuration can no longer be changed
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Clocks {
     hclk: Hertz,
+    hsi48: bool,
+    lsi: bool,
     pclk1: Hertz,
     pclk2: Hertz,
     // TODO remove `allow`
@@ -456,6 +511,16 @@ impl Clocks {
     /// Returns the frequency of the AHB
     pub fn hclk(&self) -> Hertz {
         self.hclk
+    }
+
+    /// Returns status of HSI48
+    pub fn hsi48(&self) -> bool {
+        self.hsi48
+    }
+
+    /// Returns status of HSI48
+    pub fn lsi(&self) -> bool {
+        self.lsi
     }
 
     /// Returns the frequency of the APB1
