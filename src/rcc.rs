@@ -29,7 +29,7 @@ impl RccExt for RCC {
             cfgr: CFGR {
                 hclk: None,
                 hsi48: false,
-                lsi: true,
+                lsi: false,
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
