@@ -71,4 +71,5 @@ pub mod datetime;
 pub mod tsc;
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6"))]
 pub mod i2c;
-
+#[cfg(any(feature = "stm32l4x2"))]
+pub mod rng;

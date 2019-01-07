@@ -52,8 +52,10 @@ stm32l4x2 = ["stm32l4/stm32l4x2"]
 stm32l4x3 = ["stm32l4/stm32l4x3"]
 stm32l4x5 = ["stm32l4/stm32l4x5"]
 stm32l4x6 = ["stm32l4/stm32l4x6"]
+unproven = ["embedded-hal/unproven"]
 
 [dev-dependencies]
+panic-halt = "0.2.0"
 panic-semihosting = "0.5.0"
 cortex-m-semihosting = "0.3.1"
 cortex-m-rt = "0.6.6"

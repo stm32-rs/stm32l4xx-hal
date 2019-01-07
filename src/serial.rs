@@ -1,5 +1,6 @@
 //! Serial
 
+use core::fmt;
 use core::marker::PhantomData;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
@@ -8,7 +9,7 @@ use stable_deref_trait::StableDeref;
 use as_slice::AsMutSlice;
 use cast::u16;
 
-use crate::hal::serial;
+use crate::hal::serial::{self, Write};
 use nb;
 use crate::stm32::{USART1, USART2};
 use void::Void;
@@ -108,7 +109,7 @@ macro_rules! hal {
 
                     // disable hardware flow control
                     // usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
-                    
+
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit()); // enable DMA transfers
 
                     let brr = clocks.$pclkX().0 / baud_rate.0;
@@ -298,7 +299,7 @@ macro_rules! hal {
                 pub fn is_idle(&mut self, clear: bool) -> bool {
                     let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
                     let icr = unsafe { &(*$USARTX::ptr()).icr };
-                    
+
                     if isr.idle().bit_is_set() {
                         if clear {
                             icr.write(|w| {
@@ -319,4 +320,18 @@ macro_rules! hal {
 hal! {
     USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
     USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
+}
+
+impl<USART> fmt::Write for Tx<USART>
+where
+    Tx<USART>: crate::hal::serial::Write<u8>,
+{
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        let _ = s
+            .as_bytes()
+            .into_iter()
+            .map(|c| nb::block!(self.write(*c)))
+            .last();
+        Ok(())
+    }
 }
