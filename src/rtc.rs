@@ -1,7 +1,7 @@
 //! RTC peripheral abstraction
 
 use crate::datetime::*;
-use crate::rcc::{BDCR, APB1R1};
+use crate::rcc::{BDCR, APB1R1, Clocks};
 use crate::pwr;
 use crate::stm32::{RTC};
 
@@ -11,7 +11,9 @@ pub struct Rtc {
 }
 
 impl Rtc {
-    pub fn rtc(rtc: RTC, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1) -> Self {
+    pub fn rtc(rtc: RTC, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1, clocks: Clocks) -> Self {
+
+        assert_eq!(clocks.lsi(), true); // make sure LSI is enabled
         // enable peripheral clock for communication
         apb1r1.enr().modify(|_, w| w.rtcapben().set_bit());
         pwrcr1.reg().read(); // read to allow the pwr clock to enable

@@ -256,7 +256,7 @@ impl CFGR {
     /// Sets LSI clock on (the default) or off
     pub fn lsi(mut self, on: bool) -> Self
     {
-        self.hsi48 = on;
+        self.lsi = on;
         self
     }
 

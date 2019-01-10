@@ -41,7 +41,7 @@ fn main() -> ! {
 
     let mut timer = Delay::new(cp.SYST, clocks);
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
-    let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1);
+    let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1, clocks);
 
     let mut time = Time::new(21.hours(), 57.minutes(), 32.seconds(), false);
     let mut date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
