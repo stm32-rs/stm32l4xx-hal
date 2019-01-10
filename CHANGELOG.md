@@ -7,18 +7,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [v0.3.5] - 2019-01-07
 
-## Added
+### Added
 
     - Rng implementation
     - GPIOE support
-    - `fmt::Write` for serial Tx 
+    - `fmt::Write` for serial Tx
+
+### Breaking
+    - LSI is no longer enabled by default, requires `lsi(true)` when configuring the rcc 
 
 ## [v0.3.4] - 2018-12-31
 
-## Fixed
+### Fixed
     - Hardcoded stm32 device crate in `i2c`
 
-## Added
+### Added
     - TSC clear flag API
 
 ## [v0.3.3] - 2018-12-12
