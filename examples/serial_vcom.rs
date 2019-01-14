@@ -29,6 +29,7 @@ fn main() -> ! {
     let mut rcc = p.RCC.constrain();
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
+    // let mut gpiod = p.GPIOD.split(&mut rcc.ahb2);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
@@ -36,14 +37,16 @@ fn main() -> ! {
     // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
     let tx = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
-     // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    // let tx = gpiod.pd5.into_af7(&mut gpiod.moder, &mut gpiod.afrl);
 
     let rx = gpioa.pa3.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
-     // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    // let rx = gpiod.pd6.into_af7(&mut gpiod.moder, &mut gpiod.afrl);
 
      // TRY using a different USART peripheral here
-    let serial = Serial::usart2(p.USART2, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb1r1);
-    let (mut tx, _) = serial.split();
+    let serial = Serial::usart2(p.USART2, (tx, rx), 115_200.bps(), clocks, &mut rcc.apb1r1);
+    let (mut tx, mut rx) = serial.split();
 
     let sent = b'X';
 
@@ -58,10 +61,11 @@ fn main() -> ! {
     block!(tx.write(sent)).ok();
     block!(tx.write(sent)).ok();
 
-    // when using virtual com port for recieve, causes a framing error
-    // let received = block!(rx.read()).unwrap();
+    // when using virtual com port for recieve can causes a framing error
+    // On the stm32l476 discovery it is working fine at 115200 baud
+    let received = block!(rx.read()).unwrap();
 
-    // assert_eq!(received, sent);
+    assert_eq!(received, sent);
 
     // if all goes well you should reach this breakpoint
     asm::bkpt();
