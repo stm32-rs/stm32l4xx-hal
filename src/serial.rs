@@ -35,8 +35,6 @@ pub enum Event {
 /// Serial error
 #[derive(Debug)]
 pub enum Error {
-    // Read timeout
-    ReadTimeOut,
     /// Framing error
     Framing,
     /// Noise error
@@ -184,9 +182,7 @@ macro_rules! hal {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
-                    Err(if isr.rtof().bit_is_set() {
-                        nb::Error::Other(Error::ReadTimeOut)
-                    } else if isr.pe().bit_is_set() {
+                    Err(if isr.pe().bit_is_set() {
                         nb::Error::Other(Error::Parity)
                     } else if isr.fe().bit_is_set() {
                         nb::Error::Other(Error::Framing)

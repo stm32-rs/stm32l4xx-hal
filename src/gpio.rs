@@ -587,6 +587,10 @@ gpio!(GPIOB, gpiob, gpiob, gpioben, gpiobrst, PBx, [
     PB5: (pb5, 5, Input<Floating>, AFRL),
     PB6: (pb6, 6, Input<Floating>, AFRL),
     PB7: (pb7, 7, Input<Floating>, AFRL),
+    PB8: (pb8, 8, Input<Floating>, AFRH),
+    PB9: (pb9, 9, Input<Floating>, AFRH),
+    PB10: (pb10, 10, Input<Floating>, AFRH),
+    PB11: (pb11, 11, Input<Floating>, AFRH),
 ]);
 
 gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, [
