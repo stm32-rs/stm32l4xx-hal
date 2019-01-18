@@ -11,6 +11,15 @@ pub struct Pwr {
     pub cr4: CR4,
 }
 
+impl Pwr {
+
+    pub fn lp_run(&mut self, run: bool) {
+        self.cr1.reg().modify(|_, w| {
+            w.lpr().bit(run)
+        });
+    }
+}
+
 /// Extension trait that constrains the `PWR` peripheral
 pub trait PwrExt {
     /// Constrains the `PWR` peripheral so it plays nicely with the other abstractions
