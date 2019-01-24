@@ -21,7 +21,7 @@ impl RngExt for RNG {
 
         // hsi48 should be turned on previously
         // TODO: should we return a Result instead of asserting here?
-        assert!(clocks.hsi48());
+        assert!(clocks.usb_rng());
 
         ahb2.enr().modify(|_, w| w.rngen().set_bit());
         // if we don't do this... we can be "too fast", and

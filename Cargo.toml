@@ -23,7 +23,7 @@ edition = "2018"
 [dependencies]
 cortex-m = "0.5.8"
 nb = "0.1.1"
-stm32l4 = "0.5.0"
+stm32l4 = "0.6.0"
 as-slice = "0.1"
 
 [dependencies.cast]
@@ -52,6 +52,7 @@ stm32l4x2 = ["stm32l4/stm32l4x2"]
 stm32l4x3 = ["stm32l4/stm32l4x3"]
 stm32l4x5 = ["stm32l4/stm32l4x5"]
 stm32l4x6 = ["stm32l4/stm32l4x6"]
+stm32l47x = ["stm32l4x6"]
 unproven = ["embedded-hal/unproven"]
 
 [dev-dependencies]

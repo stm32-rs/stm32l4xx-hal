@@ -15,6 +15,7 @@ use crate::stm32::{USART1, USART2};
 use void::Void;
 
 use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
+use crate::gpio::gpiod::{PD5, PD6};
 use crate::gpio::gpiob::{PB6, PB7};
 use crate::gpio::{AF7, Alternate, Input, Floating};
 use crate::rcc::{APB1R1, APB2, Clocks};
@@ -62,9 +63,9 @@ impl Pins<USART2> for (PA2<Alternate<AF7, Input<Floating>>>, PA3<Alternate<AF7, 
     const REMAP: u8 = 0;
 }
 
-// impl Pins<USART2> for (PD5<Alternate<PushPull>>, PD6<Input<Floating>>) {
-//     const REMAP: u8 = 0;
-// }
+impl Pins<USART2> for (PD5<Alternate<AF7, Input<Floating>>>, PD6<Alternate<AF7, Input<Floating>>>) {
+    const REMAP: u8 = 0;
+}
 
 
 /// Serial abstraction
@@ -109,8 +110,8 @@ macro_rules! hal {
 
                     // disable hardware flow control
                     // usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
-
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit()); // enable DMA transfers
+                    //usart.cr3.write(|w| w.onebit().set_bit());
 
                     let brr = clocks.$pclkX().0 / baud_rate.0;
                     assert!(brr >= 16, "impossible baud rate");
