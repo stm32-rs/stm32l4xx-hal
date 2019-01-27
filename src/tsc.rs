@@ -12,7 +12,7 @@ use crate::stm32::{TSC};
 use crate::gpio::gpiob::{PB4, PB5, PB6, PB7};
 use crate::gpio::{AF9, Alternate, Output, OpenDrain, PushPull};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Event {
     /// Max count error
     MaxCountError,
@@ -20,7 +20,7 @@ pub enum Event {
     EndOfAcquisition
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Error {
     /// Max count error
     MaxCountError,
@@ -76,11 +76,15 @@ pub struct Tsc<SPIN> {
     tsc: TSC
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Config {
     pub clock_prescale: Option<ClockPrescaler>,
     pub max_count_error: Option<MaxCountError>,
+    pub charge_transfer_high: Option<ChargeDischargeTime>,
+    pub charge_transfer_low: Option<ChargeDischargeTime>,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum ClockPrescaler {
     Hclk = 0b000,
     HclkDiv2 = 0b001,
@@ -92,6 +96,7 @@ pub enum ClockPrescaler {
     HclkDiv128 = 0b111,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum MaxCountError {
     /// 000: 255
     U255 = 000,
@@ -109,6 +114,27 @@ pub enum MaxCountError {
     U16383 = 110
 }
 
+#[derive(Debug, Copy, Clone)]
+/// How many tsc cycles are spent charging / discharging
+pub enum ChargeDischargeTime {
+    C1 = 0b0000,
+    C2 = 0b0001,
+    C3 = 0b0010,
+    C4 = 0b0011,
+    C5 = 0b0100,
+    C6 = 0b0101,
+    C7 = 0b0110,
+    C8 = 0b0111,
+    C9 = 0b1000,
+    C10 = 0b1001,
+    C11 = 0b1010,
+    C12 = 0b1011,
+    C13 = 0b1100,
+    C14 = 0b1101,
+    C15 = 0b1110,
+    C16 = 0b1111,
+}
+
 impl<SPIN> Tsc<SPIN> {
     pub fn tsc(tsc: TSC, sample_pin: SPIN, ahb: &mut AHB1, cfg: Option<Config>) -> Self
         where SPIN: SamplePin<TSC>
@@ -120,14 +146,16 @@ impl<SPIN> Tsc<SPIN> {
 
         let config = cfg.unwrap_or(Config {
             clock_prescale: None,
-            max_count_error: None
+            max_count_error: None,
+            charge_transfer_high: None,
+            charge_transfer_low: None
         });
 
         tsc.cr.write(|w| unsafe {
             w.ctph()
-                .bits((1 << 28) as u8)
+                .bits(config.charge_transfer_high.unwrap_or(ChargeDischargeTime::C2) as u8)
                 .ctpl()
-                .bits((1 << 24) as u8)
+                .bits(config.charge_transfer_low.unwrap_or(ChargeDischargeTime::C2) as u8)
                 // TODO configure sse?
                 .sse()
                 .set_bit()
