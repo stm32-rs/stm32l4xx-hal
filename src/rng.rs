@@ -20,14 +20,12 @@ impl RngExt for RNG {
         // ...this is now supposed to be done in RCC configuration before freezing
 
         // hsi48 should be turned on previously or msi at 48mhz
-        let enabled = {
-            clocks.hsi48() ||
-            match clocks.msi() {
-                Some(msi) => msi == crate::rcc::MsiFreq::RANGE48M,
-                None => false,
-            }
+        let msi = match clocks.msi() {
+            Some(msi) => msi == crate::rcc::MsiFreq::RANGE48M,
+            None => false,
         };
-        assert!(enabled);
+        let hsi = clocks.hsi48();
+        assert!(msi || hsi);
 
         ahb2.enr().modify(|_, w| w.rngen().set_bit());
         // if we don't do this... we can be "too fast", and
