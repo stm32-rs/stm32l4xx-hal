@@ -54,7 +54,6 @@ impl RccExt for RCC {
             apb2: APB2 { _0: () },
             bdcr: BDCR { _0: () },
             csr: CSR { _0: () },
-            #[cfg(not(feature = "stm32l4x6"))]
             crrcr: CRRCR { _0: () },
             cfgr: CFGR {
                 hclk: None,
@@ -91,7 +90,6 @@ pub struct Rcc {
     /// Control/Status Register
     pub csr: CSR,
     /// Clock recovery RC register
-    #[cfg(not(feature = "stm32l4x6"))]
     pub crrcr: CRRCR,
 }
 
@@ -110,12 +108,10 @@ impl CSR {
 }
 
 /// Clock recovery RC register
-#[cfg(not(feature = "stm32l4x6"))]
 pub struct CRRCR {
     _0: (),
 }
 
-#[cfg(not(feature = "stm32l4x6"))]
 impl CRRCR {
     // TODO remove `allow`
     #[allow(dead_code)]
@@ -281,8 +277,7 @@ impl CFGR {
         self
     }
 
-    /// Enable the 48Mh USB, RNG, SDMMC clock source. Not available on stm32l4x6 series
-    #[cfg(not(feature = "stm32l4x6"))]
+    /// Enable the 48Mh USB, RNG, SDMMC clock source. Not available on all stm32l4x6 series
     pub fn hsi48(mut self, on: bool) -> Self
     {
         self.hsi48 = on;
@@ -504,7 +499,6 @@ impl CFGR {
             while rcc.cr.read().msirdy().bit_is_clear() {}
         }
 
-        #[cfg(not(feature = "stm32l4x6"))]
         {
             // Turn on USB, RNG Clock using the HSI48 CLK source (default)
             if self.hsi48 {
