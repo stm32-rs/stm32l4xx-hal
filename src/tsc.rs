@@ -24,8 +24,8 @@ pub enum Event {
 pub enum Error {
     /// Max count error
     MaxCountError,
-    /// Wrong GPIO for reading
-    InvalidPin
+    /// Wrong GPIO for reading - returns the ioccr register
+    InvalidPin(u32)
 }
 
 pub trait SamplePin<TSC> {
@@ -218,7 +218,7 @@ impl<SPIN> Tsc<SPIN> {
                 break Err(Error::MaxCountError)
             }
         };
-
+        self.tsc.ioccr.write(|w| unsafe { w.bits(0b0) }); // clear channel register
         result
     }
 
@@ -233,7 +233,7 @@ impl<SPIN> Tsc<SPIN> {
         if channel == (1 << bit_pos) {
             Ok(self.read_unchecked())
         } else {
-            Err(Error::InvalidPin)
+            Err(Error::InvalidPin(channel))
         }
     }
 
@@ -241,6 +241,11 @@ impl<SPIN> Tsc<SPIN> {
     /// WARNING, just returns the contents of the register! No validation of the correct pin 
     pub fn read_unchecked(&self) -> u16 {
         self.tsc.iog2cr.read().cnt().bits()
+    }
+
+    /// Is the tsc performing an aquisition
+    pub fn in_progress(&mut self) -> bool {
+        self.tsc.cr.read().start().bit_is_set()
     }
 
     /// Enables an interrupt event
