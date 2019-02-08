@@ -54,11 +54,9 @@ impl RccExt for RCC {
             apb2: APB2 { _0: () },
             bdcr: BDCR { _0: () },
             csr: CSR { _0: () },
-            #[cfg(not(feature = "stm32l47x"))]
             crrcr: CRRCR { _0: () },
             cfgr: CFGR {
                 hclk: None,
-                #[cfg(not(feature = "stm32l47x"))]
                 hsi48: false,
                 msi: None,
                 lsi: false,
@@ -92,7 +90,6 @@ pub struct Rcc {
     /// Control/Status Register
     pub csr: CSR,
     /// Clock recovery RC register
-    #[cfg(not(feature = "stm32l47x"))]
     pub crrcr: CRRCR,
 }
 
@@ -111,12 +108,10 @@ impl CSR {
 }
 
 /// Clock recovery RC register
-#[cfg(not(feature = "stm32l47x"))]
 pub struct CRRCR {
     _0: (),
 }
 
-#[cfg(not(feature = "stm32l47x"))]
 impl CRRCR {
     // TODO remove `allow`
     #[allow(dead_code)]
@@ -263,8 +258,6 @@ const HSI: u32 = 16_000_000; // Hz
 /// Clock configuration
 pub struct CFGR {
     hclk: Option<u32>,
-    // should we use an option? it can really only be on/off
-    #[cfg(not(feature = "stm32l47x"))]
     hsi48: bool,
     msi: Option<MsiFreq>,
     lsi: bool,
@@ -284,8 +277,7 @@ impl CFGR {
         self
     }
 
-    /// Enable the 48Mh USB, RNG, SDMMC clock source.
-    #[cfg(not(feature = "stm32l47x"))]
+    /// Enable the 48Mh USB, RNG, SDMMC clock source. Not available on all stm32l4x6 series
     pub fn hsi48(mut self, on: bool) -> Self
     {
         self.hsi48 = on;
@@ -343,7 +335,7 @@ impl CFGR {
     }
 
     /// Freezes the clock configuration, making it effective
-    pub fn common_freeze(&self, acr: &mut ACR) -> (Hertz, Hertz, Hertz, u8, u8, Hertz){
+    pub fn freeze(&self, acr: &mut ACR) -> Clocks {
 
         let pllconf = if self.pllcfg.is_none() {
             let plln = (2 * self.sysclk.unwrap_or(HSI)) / HSI;
@@ -507,64 +499,32 @@ impl CFGR {
             while rcc.cr.read().msirdy().bit_is_clear() {}
         }
 
-        (Hertz(hclk), Hertz(pclk1), Hertz(pclk2), ppre1, ppre2, Hertz(sysclk))
-    }
-
-
-    #[cfg(not(feature = "stm32l47x"))]
-    pub fn freeze(self, acr: &mut ACR) -> Clocks {
-
-        let (hclk, pclk1, pclk2, ppre1, ppre2, sysclk) = self.common_freeze(acr);
-        let mut usb_rng = false;
-
-        let rcc = unsafe { &*RCC::ptr() };
-        // Turn on USB, RNG Clock using the HSI48CLK source (default)
-        if !cfg!(feature = "stm32l47x") && self.hsi48 {
-            // p. 180 in ref-manual
-            rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
-            // Wait until HSI48 is running
-            while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
-            usb_rng = true;
+        {
+            // Turn on USB, RNG Clock using the HSI48 CLK source (default)
+            if self.hsi48 {
+                // p. 180 in ref-manual
+                rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
+                // Wait until HSI48 is running
+                while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
+            }
         }
 
-        Clocks {
-            hclk,
-            lsi: self.lsi,
-            hsi48: self.hsi48,
-            usb_rng,
-            msi: self.msi,
-            pclk1,
-            pclk2,
-            ppre1,
-            ppre2,
-            sysclk,
-        }
-    }
-
-    #[cfg(feature = "stm32l47x")]
-    pub fn freeze(self, acr: &mut ACR) -> Clocks {
-
-        let (hclk, pclk1, pclk2, ppre1, ppre2, sysclk) = self.common_freeze(acr);
-
-        let mut usb_rng = false;
-
-        let rcc = unsafe { &*RCC::ptr() };
         // Select MSI as clock source for usb48, rng ...
         if let Some(MsiFreq::RANGE48M) = self.msi {
-            unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b11)) };
-            usb_rng = true;
+            unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(MsiFreq::RANGE48M as u8)) };
         }
+        //TODO proper clk48sel and other selects
 
         Clocks {
-            hclk,
+            hclk: Hertz(hclk),
             lsi: self.lsi,
-            usb_rng,
             msi: self.msi,
-            pclk1,
-            pclk2,
-            ppre1,
-            ppre2,
-            sysclk,
+            hsi48: self.hsi48,
+            pclk1: Hertz(pclk1),
+            pclk2: Hertz(pclk2),
+            ppre1: ppre1,
+            ppre2: ppre2,
+            sysclk: Hertz(sysclk),
         }
     }
 
@@ -587,9 +547,7 @@ pub struct PllConfig {
 #[derive(Clone, Copy, Debug)]
 pub struct Clocks {
     hclk: Hertz,
-    #[cfg(not(feature = "stm32l47x"))]
     hsi48: bool,
-    usb_rng: bool,
     msi: Option<MsiFreq>,
     lsi: bool,
     pclk1: Hertz,
@@ -608,14 +566,13 @@ impl Clocks {
     }
 
     /// Returns status of HSI48
-    #[cfg(not(feature = "stm32l47x"))]
     pub fn hsi48(&self) -> bool {
         self.hsi48
     }
 
-    /// Returns if usb rng clock is available
-    pub fn usb_rng(&self) -> bool {
-        self.usb_rng
+    // Returns the status of the MSI
+    pub fn msi(&self) -> Option<MsiFreq> {
+        self.msi
     }
 
     /// Returns status of HSI48

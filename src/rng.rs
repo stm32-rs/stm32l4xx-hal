@@ -19,9 +19,13 @@ impl RngExt for RNG {
         // crrcr.crrcr().modify(|_, w| w.hsi48on().set_bit()); // p. 180 in ref-manual
         // ...this is now supposed to be done in RCC configuration before freezing
 
-        // hsi48 should be turned on previously
-        // TODO: should we return a Result instead of asserting here?
-        assert!(clocks.usb_rng());
+        // hsi48 should be turned on previously or msi at 48mhz
+        let msi = match clocks.msi() {
+            Some(msi) => msi == crate::rcc::MsiFreq::RANGE48M,
+            None => false,
+        };
+        let hsi = clocks.hsi48();
+        assert!(msi || hsi);
 
         ahb2.enr().modify(|_, w| w.rngen().set_bit());
         // if we don't do this... we can be "too fast", and
