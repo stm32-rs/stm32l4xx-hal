@@ -13,7 +13,7 @@
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/debug/examples/rtc",
+            "executable": "./target/thumbv7em-none-eabi/debug/examples/blinky",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",
@@ -34,7 +34,7 @@
             "debugger_args": [
                 "-nx" // dont use the .gdbinit file
             ],
-            "executable": "./target/thumbv7em-none-eabi/release/examples/timer",
+            "executable": "./target/thumbv7em-none-eabi/release/examples/blinky",
             "remote": true,
             "target": ":3333",
             "cwd": "${workspaceRoot}",
