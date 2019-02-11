@@ -362,53 +362,54 @@ impl CFGR {
 
         assert!(sysclk <= 80_000_000);
 
-        let hpre_bits = self.hclk
+        let (hpre_bits, hpre_div) = self.hclk
             .map(|hclk| match sysclk / hclk {
+                // From p 194 in RM0394
                 0 => unreachable!(),
-                1 => 0b0000,
-                2 => 0b1000,
-                3...5 => 0b1001,
-                6...11 => 0b1010,
-                12...39 => 0b1011,
-                40...95 => 0b1100,
-                96...191 => 0b1101,
-                192...383 => 0b1110,
-                _ => 0b1111,
+                1 => (0b0000, 1),
+                2 => (0b1000, 2),
+                3...5 => (0b1001, 4),
+                6...11 => (0b1010, 8),
+                12...39 => (0b1011, 16),
+                40...95 => (0b1100, 64),
+                96...191 => (0b1101, 128),
+                192...383 => (0b1110, 256),
+                _ => (0b1111, 512),
             })
-            .unwrap_or(0b0000);
+            .unwrap_or((0b0000, 1));
 
-        let hclk = sysclk / (1 << (hpre_bits));
+        let hclk = sysclk / hpre_div;
 
         assert!(hclk <= sysclk);
 
-        let ppre1_bits = self.pclk1
+        let (ppre1_bits, ppre1) = self.pclk1
             .map(|pclk1| match hclk / pclk1 {
+                // From p 194 in RM0394
                 0 => unreachable!(),
-                1 => 0b000,
-                2 => 0b100,
-                3...5 => 0b101,
-                6...11 => 0b110,
-                _ => 0b111,
+                1 => (0b000, 1),
+                2 => (0b100, 2),
+                3...5 => (0b101, 4),
+                6...11 => (0b110, 8),
+                _ => (0b111, 16)
             })
-            .unwrap_or(0b000);
+            .unwrap_or((0b000, 1));
 
-        let ppre1 = 1 << (ppre1_bits);
         let pclk1 = hclk / u32(ppre1);
 
         assert!(pclk1 <= sysclk);
 
-        let ppre2_bits = self.pclk2
+        let (ppre2_bits, ppre2) = self.pclk2
             .map(|pclk2| match hclk / pclk2 {
+                // From p 194 in RM0394
                 0 => unreachable!(),
-                1 => 0b000,
-                2 => 0b100,
-                3...5 => 0b101,
-                6...11 => 0b110,
-                _ => 0b111,
+                1 => (0b000, 1),
+                2 => (0b100, 2),
+                3...5 => (0b101, 4),
+                6...11 => (0b110, 8),
+                _ => (0b111, 16)
             })
-            .unwrap_or(0b000);
+            .unwrap_or((0b000, 1));
 
-        let ppre2 = 1 << (ppre2_bits);
         let pclk2 = hclk / u32(ppre2);
 
         assert!(pclk2 <= sysclk);
