@@ -5,6 +5,20 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.3.6] - 2019-02-11
+
+## Added
+
+    - GPIOE Support
+    - MSI Clock support
+
+## Fixed
+
+    - The TSC `aquire` did not reset the channel select register after aquisition
+    - The default charge high and charge low time for the TSC were fixed at the max, this now has a sane default and can be configured with the TSC config.
+    - HCLK and PCKL rcc prescaling, although setting the right clocks, the value in `Clocks` was wrong, this now correctly calculated.
+
+
 ## [v0.3.5] - 2019-01-07
 
 ### Added
@@ -115,7 +129,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.6...HEAD
+[v0.3.6]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.5...v0.3.6
 [v0.3.5]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.4...v0.3.5
 [v0.3.4]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.3...v0.3.4
 [v0.3.3]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.2...v0.3.3
