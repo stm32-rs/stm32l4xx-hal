@@ -591,6 +591,9 @@ gpio!(GPIOB, gpiob, gpiob, gpioben, gpiobrst, PBx, [
     PB9: (pb9, 9, Input<Floating>, AFRH),
     PB10: (pb10, 10, Input<Floating>, AFRH),
     PB11: (pb11, 11, Input<Floating>, AFRH),
+    PB12: (pb12, 12, Input<Floating>, AFRH),
+    PB13: (pb13, 13, Input<Floating>, AFRH),
+    PB14: (pb14, 14, Input<Floating>, AFRH),
 ]);
 
 gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, [
