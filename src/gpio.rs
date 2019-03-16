@@ -509,6 +509,7 @@ macro_rules! gpio {
 
                         // set pin high/low before activating, to prevent
                         // spurious signals (e.g. LED flash)
+                        // TODO: I still see a flash of LED using this order
                         match initial_state {
                             State::High => res.set_high(),
                             State::Low => res.set_low(),

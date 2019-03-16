@@ -124,8 +124,6 @@ macro_rules! hal {
             {
                 apb.enr().modify(|_, w| w.$timXen().set_bit());
                 apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                // commented line is probably FUD
-                // while apb.rstr().read().$timXrst().bit_is_clear() {}
                 apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                 if PINS::C1 {
