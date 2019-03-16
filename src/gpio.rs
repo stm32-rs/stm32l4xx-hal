@@ -111,7 +111,9 @@ macro_rules! gpio {
 
             use crate::rcc::AHB2;
             use super::{
-                Alternate, AF4, AF5, AF6, AF7, AF8, AF9, Floating, GpioExt, Input, OpenDrain, Output,
+                Alternate,
+                AF1, AF4, AF5, AF6, AF7, AF8, AF9,
+                Floating, GpioExt, Input, OpenDrain, Output,
                 PullDown, PullUp, PushPull, State,
             };
 
@@ -236,6 +238,29 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> $PXi<MODE> {
+                    /// Configures the pin to serve as alternate function 1 (AF1)
+                    pub fn into_af1(
+                        self,
+                        moder: &mut MODER,
+                        afr: &mut $AFR,
+                    ) -> $PXi<Alternate<AF1, MODE>> {
+                        let offset = 2 * $i;
+
+                        // alternate function mode
+                        let mode = 0b10;
+                        moder.moder().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b11 << offset)) | (mode << offset))
+                        });
+
+                        let af = 1;
+                        let offset = 4 * ($i % 8);
+                        afr.afr().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b1111 << offset)) | (af << offset))
+                        });
+
+                        $PXi { _mode: PhantomData }
+                    }
+
                     /// Configures the pin to serve as alternate function 4 (AF4)
                     pub fn into_af4(
                         self,
