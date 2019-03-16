@@ -58,6 +58,8 @@ fn main() -> ! {
     let mut timer = delay::Delay::new(c.SYST, clocks);
     let second: u32 = 100;
 
+    // NB: if the pins are LEDs, brightness is not
+    //     linear in duty value.
     loop {
         pwm.set_duty(max);
         timer.delay_ms(second);

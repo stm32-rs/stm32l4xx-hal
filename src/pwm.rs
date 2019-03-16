@@ -12,7 +12,6 @@ use crate::gpio::gpioa::{PA0, PA1, PA2, PA3};
 use crate::gpio::{Alternate, Output, PushPull, AF1};
 use crate::rcc::{Clocks, /* AHB2, */ APB1R1};
 use crate::time::Hertz;
-// use crate::timer::PclkSrc;
 
 pub trait Pins<TIM> {
     const REMAP: u8;
@@ -23,6 +22,7 @@ pub trait Pins<TIM> {
     type Channels;
 }
 
+/// NB: REMAP is not implemented!
 impl Pins<TIM2>
     for (
         PA0<Alternate<AF1, Output<PushPull>>>,
@@ -39,6 +39,7 @@ impl Pins<TIM2>
     type Channels = (Pwm<TIM2, C1>, Pwm<TIM2, C2>, Pwm<TIM2, C3>, Pwm<TIM2, C4>);
 }
 
+// useful for RGB LED
 impl Pins<TIM2>
     for (
         PA1<Alternate<AF1, Output<PushPull>>>,
@@ -89,7 +90,7 @@ impl PwmExt for TIM2 {
         T: Into<Hertz>,
     {
         // TODO: check if this is really not needed (in the f1xx examples value
-        //       of remap is 0x0. in which case, what's afio.mapr on l4xx?
+        //       of remap is 0x0). if so, what's afio.mapr on l4xx?
         //
         // mapr.mapr()
         //     .modify(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
@@ -123,6 +124,8 @@ macro_rules! hal {
             {
                 apb.enr().modify(|_, w| w.$timXen().set_bit());
                 apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                // commented line is probably FUD
+                // while apb.rstr().read().$timXrst().bit_is_clear() {}
                 apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                 if PINS::C1 {
@@ -144,33 +147,21 @@ macro_rules! hal {
                     tim.ccmr2_output
                         .modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
                 }
-                let clk = clocks.pclk1().0; //$TIMX::get_clk(&clocks).0;
+                let clk = clocks.pclk1().0;
                 let freq = freq.0;
-                // let ticks = clk / freq;
-                let ticks = clk / freq; // TODO check pclk that timer is on
+                let ticks = clk / freq;
 
                 let psc = u16(ticks / (1 << 16)).unwrap();
                 tim.psc.write(|w| unsafe { w.psc().bits(psc) });
                 let arr = u16(ticks / u32(psc + 1)).unwrap();
                 tim.arr.write(|w| { w.arr().bits(u32(arr)) });
 
-                    // let psc = u16((ticks - 1) / (1 << 16)).unwrap();
-
-                    // self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
-
-                    // let arr = u16(ticks / u32(psc + 1)).unwrap();
-
-                    // self.tim.arr.write(|w| unsafe { w.bits(u32(arr)) });
-
                 tim.cr1.write(|w| unsafe {
                     w.cms()
                         .bits(0b00)
-                        .dir()
-                        .clear_bit()
-                        .opm()
-                        .clear_bit()
-                        .cen()
-                        .set_bit()
+                        .dir().clear_bit()
+                        .opm().clear_bit()
+                        .cen().set_bit()
                 });
 
                 unsafe { mem::uninitialized() }
@@ -188,17 +179,14 @@ macro_rules! hal {
                 }
 
                 fn get_duty(&self) -> u16 {
-                    // unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() }
                     unsafe { u16((*$TIMX::ptr()).ccr1.read().ccr1().bits()).unwrap() }
                 }
 
                 fn get_max_duty(&self) -> u16 {
-                    // unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
                     unsafe { u16((*$TIMX::ptr()).arr.read().arr().bits()).unwrap() }
                 }
 
                 fn set_duty(&mut self, duty: u16) {
-                    // unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) }
                     unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr1().bits(u32(duty))) }
                 }
             }
