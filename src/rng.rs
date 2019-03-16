@@ -115,7 +115,7 @@ impl crate::hal::blocking::rng::Read for Rng {
         let mut i = 0usize;
         while i < buffer.len() {
             let random_word: u32 = self.get_random_data();
-            let bytes = unsafe { transmute::<u32, [u8; 4]>(random_word) };
+            let bytes: [u8; 4] = random_word.to_ne_bytes();
             let n = cmp::min(4, buffer.len() - i);
             buffer[i..i + n].copy_from_slice(&bytes[..n]);
             i += n;
