@@ -591,6 +591,10 @@ gpio!(GPIOB, gpiob, gpiob, gpioben, gpiobrst, PBx, [
     PB9: (pb9, 9, Input<Floating>, AFRH),
     PB10: (pb10, 10, Input<Floating>, AFRH),
     PB11: (pb11, 11, Input<Floating>, AFRH),
+    PB12: (pb12, 12, Input<Floating>, AFRH),
+    PB13: (pb13, 13, Input<Floating>, AFRH),
+    PB14: (pb14, 14, Input<Floating>, AFRH),
+    PB15: (pb15, 15, Input<Floating>, AFRH),
 ]);
 
 gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, [
@@ -603,6 +607,13 @@ gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, [
     PD6: (pd6, 6, Input<Floating>, AFRL),
     PD7: (pd7, 7, Input<Floating>, AFRL),
     PD8: (pd8, 8, Input<Floating>, AFRH),
+    PD9: (pd9, 9, Input<Floating>, AFRH),
+    PD10: (pd10, 10, Input<Floating>, AFRH),
+    PD11: (pd11, 11, Input<Floating>, AFRH),
+    PD12: (pd12, 12, Input<Floating>, AFRH),
+    PD13: (pd13, 13, Input<Floating>, AFRH),
+    PD14: (pd14, 14, Input<Floating>, AFRH),
+    PD15: (pd15, 15, Input<Floating>, AFRH),
 ]);
 
 gpio!(GPIOE, gpioe, gpioc, gpioeen, gpioerst, PEx, [
@@ -615,4 +626,11 @@ gpio!(GPIOE, gpioe, gpioc, gpioeen, gpioerst, PEx, [
     PE6: (pe6, 6, Input<Floating>, AFRL),
     PE7: (pe7, 7, Input<Floating>, AFRL),
     PE8: (pe8, 8, Input<Floating>, AFRH),
+    PE9: (pe9, 9, Input<Floating>, AFRH),
+    PE10: (pe10, 10, Input<Floating>, AFRH),
+    PE11: (pe11, 11, Input<Floating>, AFRH),
+    PE12: (pe12, 12, Input<Floating>, AFRH),
+    PE13: (pe13, 13, Input<Floating>, AFRH),
+    PE14: (pe14, 14, Input<Floating>, AFRH),
+    PE15: (pe15, 15, Input<Floating>, AFRH),
 ]);
