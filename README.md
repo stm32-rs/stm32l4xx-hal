@@ -4,7 +4,7 @@ _formerly [MabezDev/stm32l4xx-hal](https://github.com/mabezdev/stm32l4xx-hal)_
 
 > [HAL] for the STM32L4xx family of microcontrollers
 
-- *Note: this HAL is a work in progress, contributions are appreciated :)*
+- *Note: this HAL is a work in progress, contributions are appreciated :). If you have a L4 device that is currently unsupported see [#29](https://github.com/stm32-rs/stm32l4xx-hal/issues/29)*
 
 [HAL]: https://crates.io/crates/embedded-hal
 
