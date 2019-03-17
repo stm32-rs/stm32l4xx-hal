@@ -70,7 +70,6 @@ impl ChannelPin<TSC> for PB7<Alternate<AF9, Output<PushPull>>> {
     const OFFSET: u32 = 3;
 }
 
-#[derive(Debug)]
 pub struct Tsc<SPIN> {
     sample_pin: SPIN,
     tsc: TSC

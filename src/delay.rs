@@ -8,7 +8,6 @@ use crate::hal::blocking::delay::{DelayMs, DelayUs};
 use crate::rcc::Clocks;
 
 /// System timer (SysTick) as a delay provider
-#[derive(Debug)]
 pub struct Delay {
     clocks: Clocks,
     syst: SYST,

@@ -24,22 +24,25 @@ pub use embedded_hal as hal;
 
 pub use stm32l4;
 #[cfg(feature = "stm32l4x1")]
-pub use stm32l4::stm32l4x1 as stm32;
+pub use stm32l4::stm32l4x1 as pac;
 
 #[cfg(feature = "stm32l4x2")]
-pub use stm32l4::stm32l4x2 as stm32;
+pub use stm32l4::stm32l4x2 as pac;
 
 #[cfg(feature = "stm32l4x3")]
-pub use stm32l4::stm32l4x3 as stm32;
+pub use stm32l4::stm32l4x3 as pac;
 
 #[cfg(feature = "stm32l4x5")]
-pub use stm32l4::stm32l4x5 as stm32;
+pub use stm32l4::stm32l4x5 as pac;
 
 #[cfg(feature = "stm32l4x6")]
-pub use stm32l4::stm32l4x6 as stm32;
+pub use stm32l4::stm32l4x6 as pac;
 
 #[cfg(feature = "rt")]
-pub use self::stm32::interrupt;
+pub use self::pac::interrupt;
+
+pub use crate::pac as device;
+pub use crate::pac as stm32;
 
 pub mod datetime;
 #[cfg(any(
