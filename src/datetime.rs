@@ -1,35 +1,35 @@
 //! Date and timer units & helper functions
 
 /// Seconds
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Second(pub u32);
 
 /// Minutes
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Minute(pub u32);
 
 /// Hours
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Hour(pub u32);
 
 /// Day (1-7)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Day(pub u32);
 
 /// Date (1-31)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DateInMonth(pub u32);
 
 /// Week (1-52)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Week(pub u32);
 
 /// Month (1-12)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Month(pub u32);
 
 /// Year
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Year(pub u32);
 
 /// Extension trait that adds convenience methods to the `u32` type
@@ -80,7 +80,7 @@ impl U32Ext for u32 {
     }
 }
 
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Time {
     pub hours: u32,
     pub minutes: u32,
@@ -99,7 +99,7 @@ impl Time {
     }
 }
 
-#[derive(Clone,Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Date {
     pub day: u32,
     pub date: u32,

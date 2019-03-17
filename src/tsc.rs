@@ -12,7 +12,7 @@ use crate::stm32::{TSC};
 use crate::gpio::gpiob::{PB4, PB5, PB6, PB7};
 use crate::gpio::{AF9, Alternate, Output, OpenDrain, PushPull};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Event {
     /// Max count error
     MaxCountError,
@@ -20,7 +20,7 @@ pub enum Event {
     EndOfAcquisition
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Error {
     /// Max count error
     MaxCountError,
@@ -70,13 +70,12 @@ impl ChannelPin<TSC> for PB7<Alternate<AF9, Output<PushPull>>> {
     const OFFSET: u32 = 3;
 }
 
-
 pub struct Tsc<SPIN> {
     sample_pin: SPIN,
     tsc: TSC
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
     pub clock_prescale: Option<ClockPrescaler>,
     pub max_count_error: Option<MaxCountError>,
@@ -84,7 +83,7 @@ pub struct Config {
     pub charge_transfer_low: Option<ChargeDischargeTime>,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ClockPrescaler {
     Hclk = 0b000,
     HclkDiv2 = 0b001,
@@ -96,7 +95,7 @@ pub enum ClockPrescaler {
     HclkDiv128 = 0b111,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MaxCountError {
     /// 000: 255
     U255 = 000,
@@ -114,7 +113,7 @@ pub enum MaxCountError {
     U16383 = 110
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 /// How many tsc cycles are spent charging / discharging
 pub enum ChargeDischargeTime {
     C1 = 0b0000,

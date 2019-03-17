@@ -1,6 +1,6 @@
 //! General Purpose Input / Output
 
-// Based on (ripped)
+// Based on
 // https://github.com/japaric/stm32f30x-hal/blob/master/src/gpio.rs
 
 use core::marker::PhantomData;
