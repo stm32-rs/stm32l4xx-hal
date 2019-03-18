@@ -45,6 +45,11 @@ pub struct Alternate<AF, MODE>
     _mode: PhantomData<MODE>,
 }
 
+pub enum State {
+    High,
+    Low,
+}
+
 /// Alternate function 0 (type state)
 pub struct AF0;
 
@@ -106,8 +111,10 @@ macro_rules! gpio {
 
             use crate::rcc::AHB2;
             use super::{
-                Alternate, AF4, AF5, AF6, AF7, AF8, AF9, Floating, GpioExt, Input, OpenDrain, Output,
-                PullDown, PullUp, PushPull,
+                Alternate,
+                AF1, AF4, AF5, AF6, AF7, AF8, AF9,
+                Floating, GpioExt, Input, OpenDrain, Output,
+                PullDown, PullUp, PushPull, State,
             };
 
             /// GPIO parts
@@ -231,6 +238,29 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> $PXi<MODE> {
+                    /// Configures the pin to serve as alternate function 1 (AF1)
+                    pub fn into_af1(
+                        self,
+                        moder: &mut MODER,
+                        afr: &mut $AFR,
+                    ) -> $PXi<Alternate<AF1, MODE>> {
+                        let offset = 2 * $i;
+
+                        // alternate function mode
+                        let mode = 0b10;
+                        moder.moder().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b11 << offset)) | (mode << offset))
+                        });
+
+                        let af = 1;
+                        let offset = 4 * ($i % 8);
+                        afr.afr().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b1111 << offset)) | (af << offset))
+                        });
+
+                        $PXi { _mode: PhantomData }
+                    }
+
                     /// Configures the pin to serve as alternate function 4 (AF4)
                     pub fn into_af4(
                         self,
@@ -458,11 +488,33 @@ macro_rules! gpio {
                     }
 
                     /// Configures the pin to operate as an push pull output pin
+                    /// Initial state will be low
                     pub fn into_push_pull_output(
                         self,
                         moder: &mut MODER,
                         otyper: &mut OTYPER,
                     ) -> $PXi<Output<PushPull>> {
+                        self.into_push_pull_output_with_state(moder, otyper, State::Low)
+                    }
+
+                    /// Configures the pin to operate as an push pull output pin
+                    /// Initial state can be chosen to be high or low
+                    pub fn into_push_pull_output_with_state(
+                        self,
+                        moder: &mut MODER,
+                        otyper: &mut OTYPER,
+                        initial_state: State,
+                    ) -> $PXi<Output<PushPull>> {
+                        let mut res = $PXi { _mode: PhantomData };
+
+                        // set pin high/low before activating, to prevent
+                        // spurious signals (e.g. LED flash)
+                        // TODO: I still see a flash of LED using this order
+                        match initial_state {
+                            State::High => res.set_high(),
+                            State::Low => res.set_low(),
+                        }
+
                         let offset = 2 * $i;
 
                         // general purpose output mode
@@ -476,7 +528,7 @@ macro_rules! gpio {
                             .otyper()
                             .modify(|r, w| unsafe { w.bits(r.bits() & !(0b1 << $i)) });
 
-                        $PXi { _mode: PhantomData }
+                        res
                     }
 
                     /// Configures the pin to operate as an touch sample

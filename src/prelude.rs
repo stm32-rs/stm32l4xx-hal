@@ -10,3 +10,4 @@ pub use crate::datetime::U32Ext as _stm32l4_hal_datetime_U32Ext;
 pub use crate::dma::DmaExt as _stm32l4_hal_DmaExt;
 pub use crate::pwr::PwrExt as _stm32l4_hal_PwrExt;
 pub use crate::rng::RngExt as _stm32l4_hal_RngExt;
+pub use crate::pwm::PwmExt as _stm32l4_hal_PwmExt;
