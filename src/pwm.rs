@@ -1,20 +1,20 @@
 //! # Pulse Width Modulation
 
+use cast::{u16, u32};
 use core::marker::PhantomData;
 use core::mem;
 
-use cast::{u16, u32};
 use crate::hal;
 use crate::stm32::TIM2;
 
-use crate::bb;
 use crate::gpio::gpioa::{PA0, PA1, PA2, PA3};
 use crate::gpio::{Alternate, Output, PushPull, AF1};
-use crate::rcc::{Clocks, /* AHB2, */ APB1R1};
+use crate::rcc::{Clocks, APB1R1};
 use crate::time::Hertz;
 
+// NB: REMAP is not implemented!
 pub trait Pins<TIM> {
-    const REMAP: u8;
+    // const REMAP: u8;
     const C1: bool;
     const C2: bool;
     const C3: bool;
@@ -22,7 +22,6 @@ pub trait Pins<TIM> {
     type Channels;
 }
 
-/// NB: REMAP is not implemented!
 impl Pins<TIM2>
     for (
         PA0<Alternate<AF1, Output<PushPull>>>,
@@ -31,7 +30,6 @@ impl Pins<TIM2>
         PA3<Alternate<AF1, Output<PushPull>>>,
     )
 {
-    const REMAP: u8 = 0b00;
     const C1: bool = true;
     const C2: bool = true;
     const C3: bool = true;
@@ -42,26 +40,48 @@ impl Pins<TIM2>
 // useful for RGB LED
 impl Pins<TIM2>
     for (
-        PA1<Alternate<AF1, Output<PushPull>>>,
         PA2<Alternate<AF1, Output<PushPull>>>,
         PA3<Alternate<AF1, Output<PushPull>>>,
+        PA1<Alternate<AF1, Output<PushPull>>>,
     )
 {
-    const REMAP: u8 = 0b00;
-    const C1: bool = true;
+    const C1: bool = false;
     const C2: bool = true;
     const C3: bool = true;
-    const C4: bool = false;
-    type Channels = (Pwm<TIM2, C1>, Pwm<TIM2, C2>, Pwm<TIM2, C3>);
+    const C4: bool = true;
+    type Channels = (Pwm<TIM2, C3>, Pwm<TIM2, C4>, Pwm<TIM2, C2>);
 }
 
 impl Pins<TIM2> for PA0<Alternate<AF1, Output<PushPull>>> {
-    const REMAP: u8 = 0b00;
     const C1: bool = true;
     const C2: bool = false;
     const C3: bool = false;
     const C4: bool = false;
     type Channels = Pwm<TIM2, C1>;
+}
+
+impl Pins<TIM2> for PA1<Alternate<AF1, Output<PushPull>>> {
+    const C1: bool = false;
+    const C2: bool = true;
+    const C3: bool = false;
+    const C4: bool = false;
+    type Channels = Pwm<TIM2, C2>;
+}
+
+impl Pins<TIM2> for PA2<Alternate<AF1, Output<PushPull>>> {
+    const C1: bool = false;
+    const C2: bool = false;
+    const C3: bool = true;
+    const C4: bool = false;
+    type Channels = Pwm<TIM2, C3>;
+}
+
+impl Pins<TIM2> for PA3<Alternate<AF1, Output<PushPull>>> {
+    const C1: bool = false;
+    const C2: bool = false;
+    const C3: bool = false;
+    const C4: bool = true;
+    type Channels = Pwm<TIM2, C4>;
 }
 
 pub trait PwmExt: Sized {
@@ -78,13 +98,7 @@ pub trait PwmExt: Sized {
 }
 
 impl PwmExt for TIM2 {
-    fn pwm<PINS, T>(
-        self,
-        _pins: PINS,
-        freq: T,
-        clocks: Clocks,
-        apb: &mut APB1R1,
-    ) -> PINS::Channels
+    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB1R1) -> PINS::Channels
     where
         PINS: Pins<Self>,
         T: Into<Hertz>,
@@ -149,6 +163,7 @@ macro_rules! hal {
                 let freq = freq.0;
                 let ticks = clk / freq;
 
+                // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
                 let psc = u16(ticks / (1 << 16)).unwrap();
                 tim.psc.write(|w| unsafe { w.psc().bits(psc) });
                 let arr = u16(ticks / u32(psc + 1)).unwrap();
@@ -169,11 +184,11 @@ macro_rules! hal {
                 type Duty = u32;
 
                 fn disable(&mut self) {
-                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 0) }
+                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc1e().clear_bit()) }
                 }
 
                 fn enable(&mut self) {
-                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 0) }
+                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc1e().set_bit()) }
                 }
 
                 fn get_duty(&self) -> Self::Duty {
@@ -193,11 +208,11 @@ macro_rules! hal {
                 type Duty = u32;
 
                 fn disable(&mut self) {
-                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 4) }
+                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc2e().clear_bit()) }
                 }
 
                 fn enable(&mut self) {
-                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 4) }
+                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc2e().set_bit()) }
                 }
 
                 fn get_duty(&self) -> Self::Duty {
@@ -217,11 +232,11 @@ macro_rules! hal {
                 type Duty = u32;
 
                 fn disable(&mut self) {
-                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 8) }
+                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc3e().clear_bit()) }
                 }
 
                 fn enable(&mut self) {
-                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 8) }
+                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc3e().set_bit()) }
                 }
 
                 fn get_duty(&self) -> Self::Duty {
@@ -241,11 +256,11 @@ macro_rules! hal {
                 type Duty = u32;
 
                 fn disable(&mut self) {
-                    unsafe { bb::clear(&(*$TIMX::ptr()).ccer, 12) }
+                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc4e().clear_bit()) }
                 }
 
                 fn enable(&mut self) {
-                    unsafe { bb::set(&(*$TIMX::ptr()).ccer, 12) }
+                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc4e().set_bit()) }
                 }
 
                 fn get_duty(&self) -> Self::Duty {
