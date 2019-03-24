@@ -81,6 +81,8 @@ pub struct Config {
     pub max_count_error: Option<MaxCountError>,
     pub charge_transfer_high: Option<ChargeDischargeTime>,
     pub charge_transfer_low: Option<ChargeDischargeTime>,
+    /// Spread spectrum deviation - a value between 0 and 128
+    pub spread_spectrum_deviation: Option<u8>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -147,7 +149,8 @@ impl<SPIN> Tsc<SPIN> {
             clock_prescale: None,
             max_count_error: None,
             charge_transfer_high: None,
-            charge_transfer_low: None
+            charge_transfer_low: None,
+            spread_spectrum_deviation: None
         });
 
         tsc.cr.write(|w| unsafe {
@@ -155,15 +158,14 @@ impl<SPIN> Tsc<SPIN> {
                 .bits(config.charge_transfer_high.unwrap_or(ChargeDischargeTime::C2) as u8)
                 .ctpl()
                 .bits(config.charge_transfer_low.unwrap_or(ChargeDischargeTime::C2) as u8)
-                // TODO configure sse?
-                .sse()
-                .set_bit()
-                .ssd()
-                .bits(16)
                 .pgpsc()
                 .bits(config.clock_prescale.unwrap_or(ClockPrescaler::Hclk) as u8)
                 .mcv()
                 .bits(config.max_count_error.unwrap_or(MaxCountError::U8191) as u8)
+                .sse()
+                .bit(config.spread_spectrum_deviation.is_some())
+                .ssd()
+                .bits(config.spread_spectrum_deviation.unwrap_or(0u8))
                 .tsce()
                 .set_bit()
         });
