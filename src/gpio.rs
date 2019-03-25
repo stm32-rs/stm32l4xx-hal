@@ -649,6 +649,25 @@ gpio!(GPIOB, gpiob, gpiob, gpioben, gpiobrst, PBx, [
     PB15: (pb15, 15, Input<Floating>, AFRH),
 ]);
 
+gpio!(GPIOC, gpioc, gpioc, gpiocen, gpiocrst, PCx, [
+    PC0: (pc0, 0, Input<Floating>, AFRL),
+    PC1: (pc1, 1, Input<Floating>, AFRL),
+    PC2: (pc2, 2, Input<Floating>, AFRL),
+    PC3: (pc3, 3, Input<Floating>, AFRL),
+    PC4: (pc4, 4, Input<Floating>, AFRL),
+    PC5: (pc5, 5, Input<Floating>, AFRL),
+    PC6: (pc6, 6, Input<Floating>, AFRL),
+    PC7: (pc7, 7, Input<Floating>, AFRL),
+    PC8: (pc8, 8, Input<Floating>, AFRH),
+    PC9: (pc9, 9, Input<Floating>, AFRH),
+    PC10: (pc10, 10, Input<Floating>, AFRH),
+    PC11: (pc11, 11, Input<Floating>, AFRH),
+    PC12: (pc12, 12, Input<Floating>, AFRH),
+    PC13: (pc13, 13, Input<Floating>, AFRH),
+    PC14: (pc14, 14, Input<Floating>, AFRH),
+    PC15: (pc15, 15, Input<Floating>, AFRH),
+]);
+
 gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, [
     PD0: (pd0, 0, Input<Floating>, AFRL),
     PD1: (pd1, 1, Input<Floating>, AFRL),
