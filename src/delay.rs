@@ -1,10 +1,12 @@
 //! Delays
 
-use cast::u32;
+
+use cast::{u64, u32};
+use core::time::Duration;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 
-use crate::hal::blocking::delay::{DelayMs, DelayUs};
+use ticklock::timer::{Timer, TimerInstant};
 use crate::rcc::Clocks;
 
 /// System timer (SysTick) as a delay provider
@@ -27,48 +29,67 @@ impl Delay {
     }
 }
 
-impl DelayMs<u32> for Delay {
-    fn delay_ms(&mut self, ms: u32) {
-        self.delay_us(ms * 1_000);
+impl Timer for Delay {
+
+    type U = u32;
+
+    fn delay(&mut self, d: Duration) {
+        let mut ticks = self.clocks.sysclk().ticks_in(d);
+        while ticks != 0 {
+            let current_rvr = if ticks <= self.limit_value() {
+                u32(ticks)
+            } else {
+                self.limit_value()
+            };
+
+            self.syst.set_reload(current_rvr);
+            self.syst.clear_current();
+            self.syst.enable_counter();
+
+            // Update the tracking variable while we are waiting...
+            ticks -= u64(current_rvr);
+
+            while !self.has_wrapped() {}
+
+            self.syst.disable_counter();
+        }
     }
-}
 
-impl DelayMs<u16> for Delay {
-    fn delay_ms(&mut self, ms: u16) {
-        self.delay_ms(u32(ms));
-    }
-}
 
-impl DelayMs<u8> for Delay {
-    fn delay_ms(&mut self, ms: u8) {
-        self.delay_ms(u32(ms));
-    }
-}
-
-impl DelayUs<u32> for Delay {
-    fn delay_us(&mut self, us: u32) {
-        let rvr = us * (self.clocks.sysclk().0 / 1_000_000);
-
-        // assert!(rvr < (1 << 24)); //TODO fix this assertion
-
-        self.syst.set_reload(rvr);
+    fn start(self) ->  TimerInstant<Self> {
+        self.syst.set_reload(self.limit_value());
         self.syst.clear_current();
         self.syst.enable_counter();
+        TimerInstant::now(self)
+    }
 
-        while !self.syst.has_wrapped() {}
-
+    /// Stop the counting timer.
+    /// This method is only used by `TimerInstant` to release the timer.
+    fn stop(self) -> Self {
         self.syst.disable_counter();
+        self
     }
-}
 
-impl DelayUs<u16> for Delay {
-    fn delay_us(&mut self, us: u16) {
-        self.delay_us(u32(us))
+    /// Test if the counter has wrapped to its initial value
+    fn has_wrapped(&mut self) -> bool {
+        self.syst.has_wrapped()
     }
-}
 
-impl DelayUs<u8> for Delay {
-    fn delay_us(&mut self, us: u8) {
-        self.delay_us(u32(us))
+    /// The maximum / minimum value.
+    /// For count down timer this should be the maximum value. Or the reload value.
+    /// For count up limit_value should return 0.
+    fn limit_value(&self) ->  u32 {
+        // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
+        0x00FF_FFFF
+    }
+
+    /// Return the current counter value.
+    fn get_current(&mut self) -> u32 {
+        self.syst.get_current()
+    }
+
+    /// Return the duration between 2 counted value.
+    fn tick(&mut self) -> Duration {
+        self.clocks.sysclk().tick()
     }
 }

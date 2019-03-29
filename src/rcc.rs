@@ -1,10 +1,7 @@
 //! Reset and Clock Control
 
-use core::cmp;
-
-use cast::u32;
 use crate::stm32::{rcc, RCC};
-use crate::ticklock::clock::{Frequency, U32Ext};
+use ticklock::clock::{Frequency, U32Ext};
 use crate::flash::ACR;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -252,7 +249,7 @@ impl APB2 {
     }
 }
 
-const HSI: Frequency = 16.mhz;
+const HSI: Frequency = 16.mhz();
 
 /// Clock configuration
 pub struct CFGR {
@@ -295,11 +292,9 @@ impl CFGR {
     }
 
     /// Sets a frequency for the APB1 bus
-    pub fn pclk1<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
+    pub fn pclk1(mut self, freq: Frequency) -> Self
     {
-        self.pclk1 = Some(freq.into().0);
+        self.pclk1 = Some(freq);
         self
     }
 
@@ -311,9 +306,9 @@ impl CFGR {
     }
 
     /// Sets the system (core) frequency
-    pub fn sysclk<F>(mut self, freq: F) -> Self
+    pub fn sysclk(mut self, freq: Frequency) -> Self
     {
-        self.sysclk = Some(freq.into().0);
+        self.sysclk = Some(freq);
         self
     }
 
@@ -385,7 +380,7 @@ impl CFGR {
             })
             .unwrap_or((0b000, 1));
 
-        let pclk1 = hclk / u32(ppre1);
+        let pclk1 = hclk / ppre1;
 
         assert!(pclk1 <= sysclk);
 
@@ -401,16 +396,16 @@ impl CFGR {
             })
             .unwrap_or((0b000, 1));
 
-        let pclk2 = hclk / u32(ppre2);
+        let pclk2 = hclk / ppre2;
 
         assert!(pclk2 <= sysclk);
 
         // adjust flash wait states
         unsafe {
             acr.acr().write(|w| {
-                w.latency().bits(if sysclk <= 24_000_000 {
+                w.latency().bits(if sysclk <= 24.mhz() {
                     0b000
-                } else if sysclk <= 48_000_000 {
+                } else if sysclk <= 48.mhz() {
                     0b001
                 } else {
                     0b010
@@ -502,21 +497,22 @@ impl CFGR {
         }
 
         // Select MSI as clock source for usb48, rng ...
-        if let Some(MsiFreq::RANGE48M) = self.msi {
+        // Only if hsi48 is running.
+        if let (Some(MsiFreq::RANGE48M), false) = (self.msi, self.hsi48) {
             unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(MsiFreq::RANGE48M as u8)) };
         }
         //TODO proper clk48sel and other selects
 
         Clocks {
-            hclk: Hertz(hclk),
+            hclk: hclk,
             lsi: self.lsi,
             msi: self.msi,
             hsi48: self.hsi48,
-            pclk1: Hertz(pclk1),
-            pclk2: Hertz(pclk2),
+            pclk1: pclk1,
+            pclk2: pclk2,
             ppre1: ppre1,
             ppre2: ppre2,
-            sysclk: Hertz(sysclk),
+            sysclk: sysclk,
         }
     }
 
