@@ -1,6 +1,7 @@
 //! Delays
 
-
+use nb;
+use void::Void;
 use cast::{u64, u32};
 use core::time::Duration;
 use cortex_m::peripheral::syst::SystClkSource;
@@ -36,8 +37,8 @@ impl Timer for Delay {
     fn delay(&mut self, d: Duration) {
         let mut ticks = self.clocks.sysclk().ticks_in(d);
         while ticks != 0 {
-            let current_rvr = if ticks <= self.limit_value() {
-                u32(ticks)
+            let current_rvr = if ticks <= u64(self.limit_value()) {
+                u32(ticks).unwrap()
             } else {
                 self.limit_value()
             };
@@ -55,6 +56,13 @@ impl Timer for Delay {
         }
     }
 
+    fn wait(&mut self, d: Duration) -> nb::Result<(), Void> {
+        if self.has_wrapped() {
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
 
     fn start(self) ->  TimerInstant<Self> {
         self.syst.set_reload(self.limit_value());
@@ -85,7 +93,7 @@ impl Timer for Delay {
 
     /// Return the current counter value.
     fn get_current(&mut self) -> u32 {
-        self.syst.get_current()
+        SYST::get_current()
     }
 
     /// Return the duration between 2 counted value.

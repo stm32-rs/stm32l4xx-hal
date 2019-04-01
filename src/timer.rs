@@ -7,13 +7,12 @@ use crate::stm32::{TIM2, TIM6, TIM7, TIM15, TIM16};
 use void::Void;
 
 use crate::rcc::{APB1R1, Clocks, APB2};
-use crate::time::Hertz;
 
 /// Hardware timers
 pub struct Timer<TIM> {
     clocks: Clocks,
     tim: TIM,
-    timeout: Hertz,
+    timeout: u32,
 }
 
 /// Interrupt events

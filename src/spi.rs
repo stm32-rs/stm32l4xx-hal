@@ -1,6 +1,7 @@
 //! Serial Peripheral Interface (SPI) bus
 
 use core::ptr;
+use ticklock::clock::Frequency;
 
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use nb;
@@ -9,7 +10,6 @@ use crate::stm32::{SPI1, /* TODO SPI2, */ SPI3};
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::{AF5, Input, Floating, Alternate};
 use crate::rcc::{APB1R1, APB2, Clocks};
-use crate::time::Hertz;
 
 /// SPI error
 #[derive(Debug)]
@@ -49,16 +49,15 @@ macro_rules! hal {
         $(
             impl<PINS> Spi<$SPIX, PINS> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
-                pub fn $spiX<F>(
+                pub fn $spiX(
                     spi: $SPIX,
                     pins: PINS,
                     mode: Mode,
-                    freq: F,
+                    freq: Frequency,
                     clocks: Clocks,
                     apb2: &mut $APBX,
                 ) -> Self
                 where
-                    F: Into<Hertz>,
                     PINS: Pins<$SPIX>
                 {
                     // enable or reset $SPIX
@@ -75,7 +74,7 @@ macro_rules! hal {
                             w.frxth().set_bit().ds().bits(0b111).ssoe().clear_bit()
                         });
 
-                    let br = match clocks.$pclkX().0 / freq.into().0 {
+                    let br = match clocks.$pclkX() / freq {
                         0 => unreachable!(),
                         1...2 => 0b000,
                         3...5 => 0b001,

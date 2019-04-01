@@ -510,8 +510,6 @@ impl CFGR {
             hsi48: self.hsi48,
             pclk1: pclk1,
             pclk2: pclk2,
-            ppre1: ppre1,
-            ppre2: ppre2,
             sysclk: sysclk,
         }
     }
@@ -540,10 +538,6 @@ pub struct Clocks {
     lsi: bool,
     pclk1: Frequency,
     pclk2: Frequency,
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    ppre1: u8,
-    ppre2: u8,
     sysclk: Frequency,
 }
 
@@ -578,19 +572,16 @@ impl Clocks {
         self.pclk2
     }
 
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn ppre1(&self) -> u8 {
-        self.ppre1
-    }
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn ppre2(&self) -> u8 {
-        self.ppre2
-    }
-
     /// Returns the system (core) frequency
     pub fn sysclk(&self) -> Frequency {
         self.sysclk
+    }
+
+    pub const fn is_pclk1_pre(&self) -> bool {
+        self.sysclk > self.pclk1
+    }
+
+    pub const fn is_pclk2_pre(&self) -> bool {
+        self.sysclk > self.pclk2
     }
 }

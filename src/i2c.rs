@@ -8,7 +8,7 @@ use crate::gpio::gpiob::{PB6, PB7, PB10, PB11};
 use crate::gpio::{AF4, Alternate, OpenDrain, Output};
 use crate::hal::blocking::i2c::{Write, WriteRead, Read};
 use crate::rcc::{APB1R1, Clocks};
-use crate::time::Hertz;
+use ticklock::clock::{Frequency, U32Ext};
 
 /// I2C error
 #[derive(Debug)]
@@ -73,14 +73,13 @@ macro_rules! hal {
         $(
             impl<SCL, SDA> I2c<$I2CX, (SCL, SDA)> {
                 /// Configures the I2C peripheral to work in master mode
-                pub fn $i2cX<F>(
+                pub fn $i2cX(
                     i2c: $I2CX,
                     pins: (SCL, SDA),
-                    freq: F,
+                    freq: Frequency,
                     clocks: Clocks,
                     apb1: &mut APB1R1,
                 ) -> Self where
-                    F: Into<Hertz>,
                     SCL: SclPin<$I2CX>,
                     SDA: SdaPin<$I2CX>,
                 {
@@ -88,9 +87,7 @@ macro_rules! hal {
                     apb1.rstr().modify(|_, w| w.$i2cXrst().set_bit());
                     apb1.rstr().modify(|_, w| w.$i2cXrst().clear_bit());
 
-                    let freq = freq.into().0;
-
-                    assert!(freq <= 1_000_000);
+                    assert!(freq <= 1.mhz());
 
                     // TODO review compliance with the timing requirements of I2C
                     // t_I2CCLK = 1 / PCLK1
@@ -100,9 +97,9 @@ macro_rules! hal {
                     //
                     // t_SYNC1 + t_SYNC2 > 4 * t_I2CCLK
                     // t_SCL ~= t_SYNC1 + t_SYNC2 + t_SCLL + t_SCLH
-                    let i2cclk = clocks.pclk1().0;
+                    let i2cclk = clocks.pclk1();
                     let ratio = i2cclk / freq - 4;
-                    let (presc, scll, sclh, sdadel, scldel) = if freq >= 100_000 {
+                    let (presc, scll, sclh, sdadel, scldel) = if freq >= 100.khz() {
                         // fast-mode or fast-mode plus
                         // here we pick SCLL + 1 = 2 * (SCLH + 1)
                         let presc = ratio / 387;
@@ -110,16 +107,16 @@ macro_rules! hal {
                         let sclh = ((ratio / (presc + 1)) - 3) / 3;
                         let scll = 2 * (sclh + 1) - 1;
 
-                        let (sdadel, scldel) = if freq > 400_000 {
+                        let (sdadel, scldel) = if freq > 400.khz() {
                             // fast-mode plus
                             let sdadel = 0;
-                            let scldel = i2cclk / 4_000_000 / (presc + 1) - 1;
+                            let scldel = i2cclk / 4.mhz() / (presc + 1) - 1;
 
                             (sdadel, scldel)
                         } else {
                             // fast-mode
-                            let sdadel = i2cclk / 8_000_000 / (presc + 1);
-                            let scldel = i2cclk / 2_000_000 / (presc + 1) - 1;
+                            let sdadel = i2cclk / 8.mhz() / (presc + 1);
+                            let scldel = i2cclk / 2.mhz() / (presc + 1) - 1;
 
                             (sdadel, scldel)
                         };
@@ -133,8 +130,8 @@ macro_rules! hal {
                         let sclh = ((ratio / (presc + 1)) - 2) / 2;
                         let scll = sclh;
 
-                        let sdadel = i2cclk / 2_000_000 / (presc + 1);
-                        let scldel = i2cclk / 800_000 / (presc + 1) - 1;
+                        let sdadel = i2cclk / 2.mhz() / (presc + 1);
+                        let scldel = i2cclk / 800.khz() / (presc + 1) - 1;
 
                         (presc, scll, sclh, sdadel, scldel)
                     };

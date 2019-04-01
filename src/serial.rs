@@ -8,6 +8,7 @@ use core::ops::DerefMut;
 use stable_deref_trait::StableDeref;
 use as_slice::AsMutSlice;
 use cast::u16;
+use ticklock::clock::{U32Ext};
 
 use crate::hal::serial::{self, Write};
 use nb;
@@ -113,7 +114,7 @@ macro_rules! hal {
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit()); // enable DMA transfers
                     //usart.cr3.write(|w| w.onebit().set_bit());
 
-                    let brr = clocks.$pclkX().0 / baud_rate.0;
+                    let brr = clocks.$pclkX() / baud_rate.0.hz();
                     assert!(brr >= 16, "impossible baud rate");
                     usart.brr.write(|w| unsafe { w.bits(brr) });
 
