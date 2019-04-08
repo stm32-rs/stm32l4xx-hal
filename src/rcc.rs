@@ -249,7 +249,8 @@ impl APB2 {
     }
 }
 
-const HSI: Frequency = 16.mhz();
+/// Frequency in mhz
+const HSI: u32 = 16;
 
 /// Clock configuration
 pub struct CFGR {
@@ -324,7 +325,7 @@ impl CFGR {
     pub fn freeze(&self, acr: &mut ACR) -> Clocks {
 
         let pllconf = if self.pllcfg.is_none() {
-            let plln = (2 * self.sysclk.unwrap_or(HSI)) / HSI;
+            let plln = (2 * self.sysclk.unwrap_or(HSI.mhz())) / HSI.mhz();
             let plln = plln.clamp(2, 16);
             if plln == 2 {
                 None
@@ -344,7 +345,7 @@ impl CFGR {
             Some(conf)
         };
 
-        let sysclk = self.sysclk.unwrap_or(HSI);
+        let sysclk = self.sysclk.unwrap_or(HSI.mhz());
 
         assert!(sysclk <= 80.mhz());
 
@@ -577,11 +578,11 @@ impl Clocks {
         self.sysclk
     }
 
-    pub const fn is_pclk1_pre(&self) -> bool {
+    pub fn is_pclk1_pre(&self) -> bool {
         self.sysclk > self.pclk1
     }
 
-    pub const fn is_pclk2_pre(&self) -> bool {
+    pub fn is_pclk2_pre(&self) -> bool {
         self.sysclk > self.pclk2
     }
 }

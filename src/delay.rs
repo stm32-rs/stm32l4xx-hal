@@ -1,7 +1,5 @@
 //! Delays
 
-use nb;
-use void::Void;
 use cast::{u64, u32};
 use core::time::Duration;
 use cortex_m::peripheral::syst::SystClkSource;
@@ -56,15 +54,7 @@ impl Timer for Delay {
         }
     }
 
-    fn wait(&mut self, d: Duration) -> nb::Result<(), Void> {
-        if self.has_wrapped() {
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
-    }
-
-    fn start(self) ->  TimerInstant<Self> {
+    fn start(mut self) ->  TimerInstant<Self> {
         self.syst.set_reload(self.limit_value());
         self.syst.clear_current();
         self.syst.enable_counter();
@@ -73,7 +63,7 @@ impl Timer for Delay {
 
     /// Stop the counting timer.
     /// This method is only used by `TimerInstant` to release the timer.
-    fn stop(self) -> Self {
+    fn stop(mut self) -> Self {
         self.syst.disable_counter();
         self
     }

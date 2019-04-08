@@ -3,6 +3,7 @@
 use cast::{u16, u32};
 use core::marker::PhantomData;
 use core::mem;
+use ticklock::clock::Frequency;
 
 use crate::hal;
 use crate::stm32::TIM2;
@@ -10,7 +11,6 @@ use crate::stm32::TIM2;
 use crate::gpio::gpioa::{PA0, PA1, PA2, PA3};
 use crate::gpio::{Alternate, Output, PushPull, AF1};
 use crate::rcc::{Clocks, APB1R1};
-use crate::time::Hertz;
 
 // NB: REMAP is not implemented!
 pub trait Pins<TIM> {
@@ -85,23 +85,21 @@ impl Pins<TIM2> for PA3<Alternate<AF1, Output<PushPull>>> {
 }
 
 pub trait PwmExt: Sized {
-    fn pwm<PINS, T>(
+    fn pwm<PINS>(
         self,
         _: PINS,
-        frequency: T,
+        frequency: Frequency,
         clocks: Clocks,
         apb: &mut APB1R1,
     ) -> PINS::Channels
     where
-        PINS: Pins<Self>,
-        T: Into<Hertz>;
+        PINS: Pins<Self>;
 }
 
 impl PwmExt for TIM2 {
-    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB1R1) -> PINS::Channels
+    fn pwm<PINS>(self, _pins: PINS, freq: Frequency, clocks: Clocks, apb: &mut APB1R1) -> PINS::Channels
     where
         PINS: Pins<Self>,
-        T: Into<Hertz>,
     {
         // TODO: check if this is really not needed (in the f1xx examples value
         //       of remap is 0x0). if so, what's afio.mapr on l4xx?
@@ -109,7 +107,7 @@ impl PwmExt for TIM2 {
         // mapr.mapr()
         //     .modify(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
 
-        tim2(self, _pins, freq.into(), clocks, apb)
+        tim2(self, _pins, freq, clocks, apb)
     }
 }
 
@@ -129,7 +127,7 @@ macro_rules! hal {
             fn $timX<PINS>(
                 tim: $TIMX,
                 _pins: PINS,
-                freq: Hertz,
+                freq: Frequency,
                 clocks: Clocks,
                 apb: &mut $apb,
             ) -> PINS::Channels
@@ -159,8 +157,8 @@ macro_rules! hal {
                     tim.ccmr2_output
                         .modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
                 }
-                let clk = clocks.pclk1().0;
-                let freq = freq.0;
+                let clk = clocks.pclk1();
+                let freq = freq;
                 let ticks = clk / freq;
 
                 // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
