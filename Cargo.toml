@@ -23,7 +23,7 @@ edition = "2018"
 [dependencies]
 cortex-m = "0.5.8"
 nb = "0.1.1"
-stm32l4 = "0.6.0"
+stm32l4 = { version = "0.6.0", git = "https://github.com/MabezDev/stm32l4-pac" }
 as-slice = "0.1"
 
 [dependencies.cast]
