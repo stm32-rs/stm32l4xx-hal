@@ -5,14 +5,26 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.4.0] - 2019-05-08
+
+### Added
+
+    - PWM support for select timers
+    - More GPIO support
+
+### Fixed
+
+    - More debug and Eq derives where appropriate
+    - Updated to stm32-rs v0.7.0 which fixes [#32](https://github.com/stm32-rs/stm32l4xx-hal/issues/32) for stm32l4x5 and stm32l4x6 devices
+
 ## [v0.3.6] - 2019-02-11
 
-## Added
+### Added
 
     - GPIOE Support
     - MSI Clock support
 
-## Fixed
+### Fixed
 
     - The TSC `aquire` did not reset the channel select register after aquisition
     - The default charge high and charge low time for the TSC were fixed at the max, this now has a sane default and can be configured with the TSC config.
@@ -129,7 +141,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.4.0...HEAD
+[v0.4.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.6...v0.4.0
 [v0.3.6]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.5...v0.3.6
 [v0.3.5]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.4...v0.3.5
 [v0.3.4]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.3...v0.3.4
