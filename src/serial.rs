@@ -11,16 +11,17 @@ use cast::u16;
 
 use crate::hal::serial::{self, Write};
 use nb;
-use crate::stm32::{USART1, USART2};
+use crate::stm32::{USART1, USART2, USART3, UART4};
 use void::Void;
 
-use crate::gpio::gpioa::{PA10, PA2, PA3, PA9};
-use crate::gpio::gpiod::{PD5, PD6};
-use crate::gpio::gpiob::{PB6, PB7};
-use crate::gpio::{AF7, Alternate, Input, Floating};
+use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA9, PA10};
+use crate::gpio::gpiob::{PB6, PB7, PB10, PB11};
+use crate::gpio::gpioc::{PC10, PC11};
+use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
+use crate::gpio::{AF7, AF8, Alternate, Input, Floating};
 use crate::rcc::{APB1R1, APB2, Clocks};
 use crate::time::Bps;
-use crate::dma::{dma1, CircBuffer};
+use crate::dma::{dma1, dma2, CircBuffer};
 
 /// Interrupt event
 pub enum Event {
@@ -64,6 +65,26 @@ impl Pins<USART2> for (PA2<Alternate<AF7, Input<Floating>>>, PA3<Alternate<AF7, 
 }
 
 impl Pins<USART2> for (PD5<Alternate<AF7, Input<Floating>>>, PD6<Alternate<AF7, Input<Floating>>>) {
+    const REMAP: u8 = 0;
+}
+
+impl Pins<USART3> for (PB10<Alternate<AF7, Input<Floating>>>, PB11<Alternate<AF7, Input<Floating>>>) {
+    const REMAP: u8 = 0;
+}
+
+impl Pins<USART3> for (PD8<Alternate<AF7, Input<Floating>>>, PD9<Alternate<AF7, Input<Floating>>>) {
+    const REMAP: u8 = 0;
+}
+
+impl Pins<USART3> for (PC10<Alternate<AF7, Input<Floating>>>, PC11<Alternate<AF7, Input<Floating>>>) {
+    const REMAP: u8 = 0;
+}
+
+impl Pins<UART4> for (PA0<Alternate<AF8, Input<Floating>>>, PA1<Alternate<AF8, Input<Floating>>>) {
+    const REMAP: u8 = 0;
+}
+
+impl Pins<UART4> for (PC10<Alternate<AF8, Input<Floating>>>, PC11<Alternate<AF8, Input<Floating>>>) {
     const REMAP: u8 = 0;
 }
 
@@ -321,6 +342,8 @@ macro_rules! hal {
 hal! {
     USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
     USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
+    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
+    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (c3s, dma2::C3), rx: (c5s, dma2::C5)),
 }
 
 impl<USART> fmt::Write for Tx<USART>
