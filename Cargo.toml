@@ -21,9 +21,9 @@ exclude = [
 edition = "2018"
 
 [dependencies]
-cortex-m = "0.5.8"
-nb = "0.1.1"
-stm32l4 = "0.7.0"
+cortex-m = "0.6.0"
+nb = "0.1.2"
+stm32l4 = "0.7.1"
 as-slice = "0.1"
 
 [dependencies.cast]
@@ -39,7 +39,7 @@ default-features = false
 version = "1.1"
 
 [dependencies.embedded-hal]
-version = "0.2.2"
+version = "0.2.3"
 features = ["unproven"]
 
 [package.metadata.docs.rs]
@@ -56,9 +56,9 @@ unproven = ["embedded-hal/unproven"]
 
 [dev-dependencies]
 panic-halt = "0.2.0"
-panic-semihosting = "0.5.0"
-cortex-m-semihosting = "0.3.1"
-cortex-m-rt = "0.6.6"
+panic-semihosting = "0.5.2"
+cortex-m-semihosting = "0.3.3"
+cortex-m-rt = "0.6.8"
 
 [profile.dev]
 incremental = false

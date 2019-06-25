@@ -1,6 +1,7 @@
 //! Prelude - Include traits for hal
 
 pub use crate::hal::prelude::*; // embedded hal traits
+pub use crate::hal::digital::v2::{OutputPin, InputPin};
 
 pub use crate::rcc::RccExt as _stm32l4_hal_RccExt;
 pub use crate::flash::FlashExt as _stm32l4_hal_FlashExt;
