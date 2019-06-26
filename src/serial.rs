@@ -306,10 +306,6 @@ macro_rules! hal {
                 pub fn release(self) -> $USARTX {
                     self.usart
                 }
-
-                // pub fn free(self) -> ($USARTX, PINS) {
-                //     (self.usart, self.pins)
-                // }
             }
 
             impl serial::Read<u8> for Serial<$USARTX> {

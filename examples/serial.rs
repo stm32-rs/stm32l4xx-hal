@@ -47,7 +47,13 @@ fn main() -> ! {
     // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
-    let serial = Serial::usart2(p.USART2, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb1r1);
+    let serial = Serial::usart2(
+        p.USART2,
+        (tx, rx),
+        Config::default().baudrate(9_600.bps()),
+        clocks,
+        &mut rcc.apb1r1
+    );
     let (mut tx, mut rx) = serial.split();
 
     let sent = b'X';
