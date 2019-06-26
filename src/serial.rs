@@ -11,17 +11,89 @@ use cast::u16;
 
 use crate::hal::serial::{self, Write};
 use nb;
-use crate::stm32::{USART1, USART2, USART3, UART4};
-use void::Void;
 
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA3, PA9, PA10};
-use crate::gpio::gpiob::{PB6, PB7, PB10, PB11};
+use crate::stm32::{USART1, USART2};
+
+// TODO USART3RST is missing atm in stm32l4x1 & stm32l4x2 crate
+// Related issue: https://github.com/stm32-rs/stm32-rs/issues/243
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::stm32::{USART3};
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::stm32::{UART4};
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::stm32::{UART5};
+
+use crate::gpio::gpioa::{PA2, PA3, PA9, PA10};
+use crate::gpio::gpiob::{PB6, PB7};
+use crate::gpio::gpiod::{PD5, PD6};
+use crate::gpio::{AF7, Alternate, Input, Floating};
+
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::gpiob::{PB10, PB11};
+
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::gpiod::{PD8, PD9};
+
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 use crate::gpio::gpioc::{PC10, PC11};
-use crate::gpio::gpiod::{PD5, PD6, PD8, PD9};
-use crate::gpio::{AF7, AF8, Alternate, Input, Floating};
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::gpioa::{PA0, PA1};
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::gpioc::{PC12};
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::gpiod::{PD2};
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::{AF8};
+
 use crate::rcc::{APB1R1, APB2, Clocks};
 use crate::time::{U32Ext, Bps};
-use crate::dma::{dma1, dma2, CircBuffer};
+use crate::dma::{dma1, CircBuffer};
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::dma::dma2;
 
 /// Interrupt event
 pub enum Event {
@@ -68,23 +140,54 @@ impl Pins<USART2> for (PD5<Alternate<AF7, Input<Floating>>>, PD6<Alternate<AF7, 
     const REMAP: u8 = 0;
 }
 
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 impl Pins<USART3> for (PB10<Alternate<AF7, Input<Floating>>>, PB11<Alternate<AF7, Input<Floating>>>) {
     const REMAP: u8 = 0;
 }
 
-impl Pins<USART3> for (PD8<Alternate<AF7, Input<Floating>>>, PD9<Alternate<AF7, Input<Floating>>>) {
-    const REMAP: u8 = 0;
-}
-
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 impl Pins<USART3> for (PC10<Alternate<AF7, Input<Floating>>>, PC11<Alternate<AF7, Input<Floating>>>) {
     const REMAP: u8 = 0;
 }
 
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+impl Pins<USART3> for (PD8<Alternate<AF7, Input<Floating>>>, PD9<Alternate<AF7, Input<Floating>>>) {
+    const REMAP: u8 = 0;
+}
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 impl Pins<UART4> for (PA0<Alternate<AF8, Input<Floating>>>, PA1<Alternate<AF8, Input<Floating>>>) {
     const REMAP: u8 = 0;
 }
 
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 impl Pins<UART4> for (PC10<Alternate<AF8, Input<Floating>>>, PC11<Alternate<AF8, Input<Floating>>>) {
+    const REMAP: u8 = 0;
+}
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+impl Pins<UART5> for (PC12<Alternate<AF8, Input<Floating>>>, PD2<Alternate<AF8, Input<Floating>>>) {
     const REMAP: u8 = 0;
 }
 
@@ -150,10 +253,9 @@ impl Default for Config {
 }
 
 /// Serial abstraction
-pub struct Serial<USART> {
+pub struct Serial<USART, PINS> {
     usart: USART,
-    rx: Rx<USART>,
-    tx: Tx<USART>,
+    pins: PINS,
 }
 
 /// Serial receiver
@@ -180,7 +282,7 @@ macro_rules! hal {
         ),
     )+) => {
         $(
-            impl Serial<$USARTX> {
+            impl<PINS> Serial<$USARTX, PINS> {
                 /// Configures the serial interface and creates the interface
                 /// struct.
                 ///
@@ -196,7 +298,7 @@ macro_rules! hal {
                 /// `MAPR` and `APBX` are register handles which are passed for
                 /// configuration. (`MAPR` is used to map the USART to the
                 /// corresponding pins. `APBX` is used to reset the USART.)
-                pub fn $usartX<PINS>(
+                pub fn $usartX(
                     usart: $USARTX,
                     pins: PINS,
                     config: Config,
@@ -260,11 +362,7 @@ macro_rules! hal {
                         .cr1
                         .write(|w| w.ue().set_bit().re().set_bit().te().set_bit());
 
-                    Serial {
-                        usart,
-                        tx: Tx { _usart: PhantomData },
-                        rx: Rx { _usart: PhantomData },
-                    }
+                    Serial { usart, pins }
                 }
 
                 /// Starts listening for an interrupt event
@@ -299,32 +397,30 @@ macro_rules! hal {
 
                 /// Splits the `Serial` abstraction into a transmitter and a receiver half
                 pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>) {
-                    (self.tx, self.rx)
+                    (
+                        Tx {
+                            _usart: PhantomData,
+                        },
+                        Rx {
+                            _usart: PhantomData,
+                        },
+                    )
                 }
 
                 /// Frees the USART peripheral
-                pub fn release(self) -> $USARTX {
-                    self.usart
+                pub fn release(self) -> ($USARTX, PINS) {
+                    (self.usart, self.pins)
                 }
             }
 
-            impl serial::Read<u8> for Serial<$USARTX> {
+            impl<PINS> serial::Read<u8> for Serial<$USARTX, PINS> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
-                    self.rx.read()
-                }
-            }
-
-             impl serial::Write<u8> for Serial<$USARTX> {
-                type Error = Void;
-
-                fn flush(&mut self) -> nb::Result<(), Void> {
-                    self.tx.flush()
-                }
-
-                fn write(&mut self, byte: u8) -> nb::Result<(), Void> {
-                    self.tx.write(byte)
+                    let mut rx: Rx<$USARTX> = Rx {
+                        _usart: PhantomData,
+                    };
+                    rx.read()
                 }
             }
 
@@ -354,14 +450,32 @@ macro_rules! hal {
                 }
             }
 
+            impl<PINS> serial::Write<u8> for Serial<$USARTX, PINS> {
+                type Error = Error;
+
+                fn flush(&mut self) -> nb::Result<(), Error> {
+                    let mut tx: Tx<$USARTX> = Tx {
+                        _usart: PhantomData,
+                    };
+                    tx.flush()
+                }
+
+                fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
+                    let mut tx: Tx<$USARTX> = Tx {
+                        _usart: PhantomData,
+                    };
+                    tx.write(byte)
+                }
+            }
+
             impl serial::Write<u8> for Tx<$USARTX> {
                 // NOTE(Void) See section "29.7 USART interrupts"; the only possible errors during
                 // transmission are: clear to send (which is disabled in this case) errors and
                 // framing errors (which only occur in SmartCard mode); neither of these apply to
                 // our hardware configuration
-                type Error = Void;
+                type Error = Error;
 
-                fn flush(&mut self) -> nb::Result<(), Void> {
+                fn flush(&mut self) -> nb::Result<(), Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -372,7 +486,7 @@ macro_rules! hal {
                     }
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Void> {
+                fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -474,13 +588,38 @@ macro_rules! hal {
 hal! {
     USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
     USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
+}
+
+// TODO USART3RST is missing atm in stm32l4x1 & stm32l4x2 crate
+// Related issue: https://github.com/stm32-rs/stm32-rs/issues/243
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+hal! {
     USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
+}
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+hal! {
     UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (c3s, dma2::C3), rx: (c5s, dma2::C5)),
 }
 
-impl<USART> fmt::Write for Serial<USART>
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+hal! {
+    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (c1s, dma2::C1), rx: (c2s, dma2::C2)),
+}
+
+impl<USART, PINS> fmt::Write for Serial<USART, PINS>
 where
-    Serial<USART>: crate::hal::serial::Write<u8>,
+    Serial<USART, PINS>: crate::hal::serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s
@@ -488,9 +627,6 @@ where
             .into_iter()
             .map(|c| nb::block!(self.write(*c)))
             .last();
-
-        self.flush();
-
         Ok(())
     }
 }
@@ -505,9 +641,6 @@ where
             .into_iter()
             .map(|c| nb::block!(self.write(*c)))
             .last();
-
-        self.flush();
-
         Ok(())
     }
 }
