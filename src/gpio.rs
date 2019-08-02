@@ -554,7 +554,7 @@ gpio!(GPIOC, gpioc, gpioc, gpiocen, gpiocrst, PCx, [
     PC15: (pc15, 15, Input<Floating>, AFRH),
 ]);
 
-gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, [
+gpio!(GPIOD, gpiod, gpiod, gpioden, gpiodrst, PDx, [
     PD0: (pd0, 0, Input<Floating>, AFRL),
     PD1: (pd1, 1, Input<Floating>, AFRL),
     PD2: (pd2, 2, Input<Floating>, AFRL),
@@ -573,7 +573,7 @@ gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, [
     PD15: (pd15, 15, Input<Floating>, AFRH),
 ]);
 
-gpio!(GPIOE, gpioe, gpioc, gpioeen, gpioerst, PEx, [
+gpio!(GPIOE, gpioe, gpioe, gpioeen, gpioerst, PEx, [
     PE0: (pe0, 0, Input<Floating>, AFRL),
     PE1: (pe1, 1, Input<Floating>, AFRL),
     PE2: (pe2, 2, Input<Floating>, AFRL),
