@@ -213,7 +213,7 @@ fn byte_to_bcd2(byte: u8) -> (u8, u8){
     (bcd_high, ((bcd_high << 4) | value) as u8)
 }
 
-fn bcd2_to_byte(bcd: (u8, u8)) -> u8 { // TODO fix this
+fn bcd2_to_byte(bcd: (u8, u8)) -> u8 {
     let value = bcd.1 | bcd.0 << 4;
     
     let tmp = ((value & 0xF0) >> 0x4) * 10;

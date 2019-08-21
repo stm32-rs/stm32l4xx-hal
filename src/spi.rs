@@ -4,7 +4,6 @@ use core::ptr;
 
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use nb;
-use crate::stm32::{SPI1, /* TODO SPI2, */ SPI3};
 
 use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::{AF5, Input, Floating, Alternate};
@@ -178,8 +177,50 @@ macro_rules! hal {
     }
 }
 
+
+use crate::stm32::SPI1;
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
 hal! {
     SPI1: (spi1, APB2, spi1en, spi1rst, pclk2),
-    // SPI2: (spi2, APB1R1, spi2en, spi2rst, pclk1), // NOT Avail on 32k(b|c)
+}
+
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::stm32::SPI3;
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+hal! {
     SPI3: (spi3, APB1R1, spi3en, spi3rst, pclk1),
+}
+
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::stm32::SPI2;
+
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+hal! {
+    SPI2: (spi2, APB1R1, spi2en, spi2rst, pclk1),
 }
