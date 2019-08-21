@@ -30,7 +30,8 @@ def main():
 
     features = ["{},rt".format(x)
             for x in crate_info["features"].keys()
-            if x != "rt"]
+            if x != "rt"
+            if x != "unproven"]
 
     if 'size_check' in sys.argv:
         cargo_cmd = ['cargo', 'build', '--release']

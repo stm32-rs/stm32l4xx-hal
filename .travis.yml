@@ -15,6 +15,6 @@ matrix:
   fast_finish: true
 
 install:
-  - rustup target add thumbv7em-none-eabihf
+  - rustup target add thumbv7em-none-eabi
 
 script: tools/check.py $COMMAND
