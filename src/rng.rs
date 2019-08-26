@@ -1,8 +1,6 @@
 extern crate core;
 #[cfg(feature = "unproven")]
 use core::cmp;
-#[cfg(feature = "unproven")]
-use core::mem::transmute;
 
 use crate::rcc::{AHB2, Clocks};
 use crate::stm32::RNG;
