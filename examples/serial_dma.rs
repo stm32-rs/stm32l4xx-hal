@@ -21,7 +21,7 @@ extern crate stm32l4xx_hal as hal;
 use cortex_m::asm;
 use crate::hal::dma::Half;
 use crate::hal::prelude::*;
-use crate::hal::serial::Serial;
+use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
 
 #[entry]
@@ -48,7 +48,13 @@ fn main() -> ! {
     // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
-    let serial = Serial::usart1(p.USART1, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb2);
+    let serial = Serial::usart1(
+        p.USART1,
+        (tx, rx),
+        Config::default().baudrate(9_600.bps()),
+        clocks,
+        &mut rcc.apb2
+    );
     let (mut tx, rx) = serial.split();
 
     let sent = b'X';
