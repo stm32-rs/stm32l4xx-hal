@@ -136,6 +136,7 @@ impl Pins<USART2> for (PA2<Alternate<AF7, Input<Floating>>>, PA3<Alternate<AF7, 
     const REMAP: u8 = 0;
 }
 
+
 impl Pins<USART2> for (PD5<Alternate<AF7, Input<Floating>>>, PD6<Alternate<AF7, Input<Floating>>>) {
     const REMAP: u8 = 0;
 }

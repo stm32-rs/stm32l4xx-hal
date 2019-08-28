@@ -1,6 +1,6 @@
 [package]
 name = "stm32l4xx-hal"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Scott Mabin <MabezDev@gmail.com>"]
 description = "Hardware abstraction layer for the stm32l4xx chips"
 keywords = ["no-std", "stm32l4xx", "stm32l4", "embedded", "embedded-hal"]
@@ -21,9 +21,9 @@ exclude = [
 edition = "2018"
 
 [dependencies]
-cortex-m = "0.5.8"
+cortex-m = "0.6.1"
 nb = "0.1.1"
-stm32l4 = "0.7.0"
+stm32l4 = "0.8.0"
 as-slice = "0.1"
 
 [dependencies.cast]
