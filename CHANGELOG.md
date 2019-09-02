@@ -5,6 +5,19 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.5.0] - 2019-09-02
+
+### Added
+
+    - DMA2
+
+### Breaking
+
+    - Serial ports now use a config, instead of just the baudrate.
+    - Upgraded embedded-hal, gpio method signitures are now fallible
+    - Bumped cortex-m
+
+
 ## [v0.4.0] - 2019-05-08
 
 ### Added
