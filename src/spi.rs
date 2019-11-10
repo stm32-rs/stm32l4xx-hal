@@ -5,7 +5,6 @@ use core::ptr;
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use nb;
 
-use crate::gpio::gpioa::{PA5, PA6, PA7};
 use crate::gpio::{AF5, Input, Floating, Alternate};
 use crate::rcc::{APB1R1, APB2, Clocks};
 use crate::time::Hertz;
@@ -23,18 +22,33 @@ pub enum Error {
     _Extensible,
 }
 
-pub trait Pins<SPI> {
-    const REMAP: bool;
+#[doc(hidden)]
+mod private {
+    pub trait Sealed {}
 }
 
-impl Pins<SPI1>
-    for (
-        PA5<Alternate<AF5, Input<Floating>>>,
-        PA6<Alternate<AF5, Input<Floating>>>,
-        PA7<Alternate<AF5, Input<Floating>>>,
-    )
-{
-    const REMAP: bool = false; // TODO REMAP
+/// SCK pin. This trait is sealed and cannot be implemented.
+pub trait SckPin<SPI>: private::Sealed {}
+/// MISO pin. This trait is sealed and cannot be implemented.
+pub trait MisoPin<SPI>: private::Sealed {}
+/// MOSI pin. This trait is sealed and cannot be implemented.
+pub trait MosiPin<SPI>: private::Sealed {}
+
+macro_rules! pins {
+    ($spi:ident, $af:ident, SCK: [$($sck:ident),*], MISO: [$($miso:ident),*], MOSI: [$($mosi:ident),*]) => {
+        $(
+            impl private::Sealed for $sck<Alternate<$af, Input<Floating>>> {}
+            impl SckPin<$spi> for $sck<Alternate<$af, Input<Floating>>> {}
+        )*
+        $(
+            impl private::Sealed for $miso<Alternate<$af, Input<Floating>>> {}
+            impl MisoPin<$spi> for $miso<Alternate<$af, Input<Floating>>> {}
+        )*
+        $(
+            impl private::Sealed for $mosi<Alternate<$af, Input<Floating>>> {}
+            impl MosiPin<$spi> for $mosi<Alternate<$af, Input<Floating>>> {}
+        )*
+    }
 }
 
 /// SPI peripheral operating in full duplex master mode
@@ -46,11 +60,11 @@ pub struct Spi<SPI, PINS> {
 macro_rules! hal {
     ($($SPIX:ident: ($spiX:ident, $APBX:ident, $spiXen:ident, $spiXrst:ident, $pclkX:ident),)+) => {
         $(
-            impl<PINS> Spi<$SPIX, PINS> {
+            impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
                 pub fn $spiX<F>(
                     spi: $SPIX,
-                    pins: PINS,
+                    pins: (SCK, MISO, MOSI),
                     mode: Mode,
                     freq: F,
                     clocks: Clocks,
@@ -58,7 +72,9 @@ macro_rules! hal {
                 ) -> Self
                 where
                     F: Into<Hertz>,
-                    PINS: Pins<$SPIX>
+                    SCK: SckPin<$SPIX>,
+                    MISO: MisoPin<$SPIX>,
+                    MOSI: MosiPin<$SPIX>,
                 {
                     // enable or reset $SPIX
                     apb2.enr().modify(|_, w| w.$spiXen().set_bit());
@@ -123,7 +139,7 @@ macro_rules! hal {
                 }
 
                 /// Releases the SPI peripheral and associated pins
-                pub fn free(self) -> ($SPIX, PINS) {
+                pub fn free(self) -> ($SPIX, (SCK, MISO, MOSI)) {
                     (self.spi, self.pins)
                 }
             }
@@ -177,6 +193,18 @@ macro_rules! hal {
     }
 }
 
+use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::gpiod::*;
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+use crate::gpio::gpiog::*;
 
 use crate::stm32::SPI1;
 #[cfg(any(
@@ -190,6 +218,26 @@ hal! {
     SPI1: (spi1, APB2, spi1en, spi1rst, pclk2),
 }
 
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+pins!(SPI1, AF5,
+    SCK: [PA5, PB3, PE13],
+    MISO: [PA6, PB4, PE14],
+    MOSI: [PA7, PB5, PE15]);
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+pins!(SPI1, AF5,
+    SCK: [PG2],
+    MISO: [PG3],
+    MOSI: [PG4]);
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -197,7 +245,7 @@ hal! {
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
-use crate::stm32::SPI3;
+use crate::{stm32::SPI3, gpio::AF6};
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -208,6 +256,26 @@ use crate::stm32::SPI3;
 hal! {
     SPI3: (spi3, APB1R1, spi3en, spi3rst, pclk1),
 }
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+pins!(SPI3, AF6,
+    SCK: [PB3, PC10],
+    MISO: [PB4, PC11],
+    MOSI: [PB5, PC12]);
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+pins!(SPI3, AF6,
+    SCK: [PG9],
+    MISO: [PG10],
+    MOSI: [PG11]);
 
 #[cfg(any(
     feature = "stm32l4x3",
@@ -224,3 +292,13 @@ use crate::stm32::SPI2;
 hal! {
     SPI2: (spi2, APB1R1, spi2en, spi2rst, pclk1),
 }
+
+#[cfg(any(
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+pins!(SPI2, AF5,
+    SCK: [PB13, PB10, PD1],
+    MISO: [PB14, PC2, PD3],
+    MOSI: [PB15, PC3, PD4]);

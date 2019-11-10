@@ -129,6 +129,10 @@ macro_rules! impl_into_af {
     }
 }
 
+// In general, each parameter should use the same identifying letter. The third parameter, $gpioy,
+// is an exception: it refers to the path to the RegisterBlock trait, which is sometimes reused. To
+// find out which $gpioy to use, search in the stm32l4 documentation for the GPIOX struct, click on
+// the RegisterBlock return value of the ptr() method, and check which gpioy is in its ::-path.
 macro_rules! gpio {
     ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $iopxenr:ident, $iopxrst:ident, $PXx:ident, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $AFR:ident),)+
@@ -602,3 +606,48 @@ gpio!(GPIOE, gpioe, gpioc, gpioeen, gpioerst, PEx, [
     PE15: (pe15, 15, Input<Floating>, AFRH),
 ]);
 
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+gpio!(GPIOF, gpiof, gpioc, gpiofen, gpiofrst, PFx, [
+    PF0: (pf0, 0, Input<Floating>, AFRL),
+    PF1: (pf1, 1, Input<Floating>, AFRL),
+    PF2: (pf2, 2, Input<Floating>, AFRL),
+    PF3: (pf3, 3, Input<Floating>, AFRL),
+    PF4: (pf4, 4, Input<Floating>, AFRL),
+    PF5: (pf5, 5, Input<Floating>, AFRL),
+    PF6: (pf6, 6, Input<Floating>, AFRL),
+    PF7: (pf7, 7, Input<Floating>, AFRL),
+    PF8: (pf8, 8, Input<Floating>, AFRH),
+    PF9: (pf9, 9, Input<Floating>, AFRH),
+    PF10: (pf10, 10, Input<Floating>, AFRH),
+    PF11: (pf11, 11, Input<Floating>, AFRH),
+    PF12: (pf12, 12, Input<Floating>, AFRH),
+    PF13: (pf13, 13, Input<Floating>, AFRH),
+    PF14: (pf14, 14, Input<Floating>, AFRH),
+    PF15: (pf15, 15, Input<Floating>, AFRH),
+]);
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+gpio!(GPIOG, gpiog, gpioc, gpiogen, gpiogrst, PGx, [
+    PG0: (pg0, 0, Input<Floating>, AFRL),
+    PG1: (pg1, 1, Input<Floating>, AFRL),
+    PG2: (pg2, 2, Input<Floating>, AFRL),
+    PG3: (pg3, 3, Input<Floating>, AFRL),
+    PG4: (pg4, 4, Input<Floating>, AFRL),
+    PG5: (pg5, 5, Input<Floating>, AFRL),
+    PG6: (pg6, 6, Input<Floating>, AFRL),
+    PG7: (pg7, 7, Input<Floating>, AFRL),
+    PG8: (pg8, 8, Input<Floating>, AFRH),
+    PG9: (pg9, 9, Input<Floating>, AFRH),
+    PG10: (pg10, 10, Input<Floating>, AFRH),
+    PG11: (pg11, 11, Input<Floating>, AFRH),
+    PG12: (pg12, 12, Input<Floating>, AFRH),
+    PG13: (pg13, 13, Input<Floating>, AFRH),
+    PG14: (pg14, 14, Input<Floating>, AFRH),
+    PG15: (pg15, 15, Input<Floating>, AFRH),
+]);
