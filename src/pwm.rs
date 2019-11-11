@@ -180,11 +180,11 @@ macro_rules! hal {
                 type Duty = u32;
 
                 fn disable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc1e().clear_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc1e().clear_bit()) }
                 }
 
                 fn enable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc1e().set_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc1e().set_bit()) }
                 }
 
                 fn get_duty(&self) -> Self::Duty {
@@ -204,11 +204,11 @@ macro_rules! hal {
                 type Duty = u32;
 
                 fn disable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc2e().clear_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc2e().clear_bit()) }
                 }
 
                 fn enable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc2e().set_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc2e().set_bit()) }
                 }
 
                 fn get_duty(&self) -> Self::Duty {
@@ -228,11 +228,11 @@ macro_rules! hal {
                 type Duty = u32;
 
                 fn disable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc3e().clear_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc3e().clear_bit()) }
                 }
 
                 fn enable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc3e().set_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc3e().set_bit()) }
                 }
 
                 fn get_duty(&self) -> Self::Duty {
@@ -252,11 +252,11 @@ macro_rules! hal {
                 type Duty = u32;
 
                 fn disable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc4e().clear_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc4e().clear_bit()) }
                 }
 
                 fn enable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.write(|w| w.cc4e().set_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc4e().set_bit()) }
                 }
 
                 fn get_duty(&self) -> Self::Duty {
