@@ -512,7 +512,7 @@ impl CFGR {
 
         // Select MSI as clock source for usb48, rng ...
         if let Some(MsiFreq::RANGE48M) = self.msi {
-            unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(MsiFreq::RANGE48M as u8)) };
+            unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b11)) };
         }
         //TODO proper clk48sel and other selects
 
