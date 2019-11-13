@@ -48,7 +48,7 @@ features = ["ram_access_2x16"]
 optional = true
 
 [package.metadata.docs.rs]
-features = ["rt", "stm32l4x2"]
+features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [features]
 rt = ["stm32l4/rt"]
