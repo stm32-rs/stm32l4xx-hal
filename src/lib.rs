@@ -179,6 +179,11 @@ pub mod timer;
     feature = "stm32l4x6"
 ))]
 pub mod tsc;
+#[cfg(all(
+    feature = "stm32-usbd",
+    any(feature = "stm32l4x2", feature = "stm32l4x3")
+))]
+pub mod usb;
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
