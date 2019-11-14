@@ -140,6 +140,7 @@ macro_rules! gpio {
         /// GPIO
         pub mod $gpiox {
             use core::marker::PhantomData;
+            use core::convert::Infallible;
 
             use crate::hal::digital::v2::{OutputPin, InputPin};
             use crate::stm32::{$gpioy, $GPIOX};
@@ -253,7 +254,7 @@ macro_rules! gpio {
             }
 
             impl<MODE> OutputPin for $PXx<Output<MODE>> {
-                type Error = ();
+                type Error = Infallible;
 
                 fn set_high(&mut self) -> Result<(), Self::Error> {
                     // NOTE(unsafe) atomic write to a stateless register
@@ -458,7 +459,7 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> OutputPin for $PXi<Output<MODE>> {
-                    type Error = ();
+                    type Error = Infallible;
                     
                     fn set_high(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
@@ -474,7 +475,7 @@ macro_rules! gpio {
                 }
 
                 impl<MODE> InputPin for $PXi<Input<MODE>> {
-                    type Error = ();
+                    type Error = Infallible;
 
                     fn is_high(&self) -> Result<bool, Self::Error> {
                         Ok(!self.is_low().unwrap())
