@@ -5,6 +5,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+    - Added USB driver for `stm32l4x2` and `stm32l4x3` devices
+
 ## [v0.5.0] - 2019-09-02
 
 ### Added

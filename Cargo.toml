@@ -42,8 +42,13 @@ version = "1.1"
 version = "0.2.3"
 features = ["unproven"]
 
+[dependencies.stm32-usbd]
+version = "0.5.0"
+features = ["ram_access_2x16"]
+optional = true
+
 [package.metadata.docs.rs]
-features = ["rt", "stm32l4x2"]
+features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [features]
 rt = ["stm32l4/rt"]
@@ -59,6 +64,8 @@ panic-halt = "0.2.0"
 panic-semihosting = "0.5.0"
 cortex-m-semihosting = "0.3.1"
 cortex-m-rt = "0.6.6"
+usb-device = "0.2.3"
+usbd-serial = "0.1.0"
 
 [profile.dev]
 incremental = false
@@ -68,3 +75,7 @@ codegen-units = 1
 codegen-units = 1
 debug = true
 lto = true
+
+[[example]]
+name = "usb_serial"
+required-features = ["rt", "stm32l4x2", "stm32-usbd"]
