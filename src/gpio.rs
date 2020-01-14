@@ -98,6 +98,24 @@ pub struct AF14;
 /// Alternate function 15 (type state)
 pub struct AF15;
 
+#[derive(Debug, PartialEq)]
+pub enum Edge {
+    RISING,
+    FALLING,
+    RISING_FALLING,
+}
+
+/// External Interrupt Pin
+pub trait ExtiPin {
+    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG);
+    fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
+    fn enable_interrupt(&mut self, exti: &mut EXTI);
+    fn disable_interrupt(&mut self, exti: &mut EXTI);
+    fn clear_interrupt_pending_bit(&mut self);
+    fn check_interrupt(&mut self) -> bool;
+}
+
+
 macro_rules! doc_comment {
     ($x:expr, $($tt:tt)*) => {
         #[doc = $x]
@@ -134,8 +152,8 @@ macro_rules! impl_into_af {
 // find out which $gpioy to use, search in the stm32l4 documentation for the GPIOX struct, click on
 // the RegisterBlock return value of the ptr() method, and check which gpioy is in its ::-path.
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $iopxenr:ident, $iopxrst:ident, $PXx:ident, [
-        $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $AFR:ident),)+
+    ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $iopxenr:ident, $iopxrst:ident, $PXx:ident, $extigpionr:expr, [
+        $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $AFR:ident, $exticri:ident),)+
     ]) => {
         /// GPIO
         pub mod $gpiox {
@@ -266,6 +284,74 @@ macro_rules! gpio {
                     // NOTE(unsafe) atomic write to a stateless register
                     unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << (16 + self.i))) }
                     Ok(())
+                }
+            }
+
+            impl<MODE> ExtiPin for $PXx<Input<MODE>> {
+                /// Make corresponding EXTI line sensitive to this pin
+                fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG) {
+                    let offset = 4 * (self.i % 4);
+                    match self.i {
+                        0..=3 => {
+                            syscfg.exticr1.modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                            });
+                        },
+                        4..=7 => {
+                            syscfg.exticr2.modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                            });
+                        },
+                        8..=11 => {
+                            syscfg.exticr3.modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                            });
+                        },
+                        12..=15 => {
+                            syscfg.exticr4.modify(|r, w| unsafe {
+                                w.bits((r.bits() & !(0xf << offset)) | ($extigpionr << offset))
+                            });
+                        },
+                        _ => {}
+                    }
+                }
+
+                /// Generate interrupt on rising edge, falling edge or both
+                fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
+                    match edge {
+                        Edge::RISING => {
+                            exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                            exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                        },
+                        Edge::FALLING => {
+                            exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                            exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                        },
+                        Edge::RISING_FALLING => {
+                            exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                            exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                        }
+                    }
+                }
+
+                /// Enable external interrupts from this pin.
+                fn enable_interrupt(&mut self, exti: &mut EXTI) {
+                    exti.imr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
+                }
+
+                /// Disable external interrupts from this pin
+                fn disable_interrupt(&mut self, exti: &mut EXTI) {
+                    exti.imr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
+                }
+
+                /// Clear the interrupt pending bit for this pin
+                fn clear_interrupt_pending_bit(&mut self) {
+                    unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << self.i) ) };
+                }
+
+                /// Reads the interrupt pending bit for this pin
+                fn check_interrupt(&mut self) -> bool {
+                    unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << self.i)) != 0 }
                 }
             }
 
@@ -460,7 +546,7 @@ macro_rules! gpio {
 
                 impl<MODE> OutputPin for $PXi<Output<MODE>> {
                     type Error = Infallible;
-                    
+
                     fn set_high(&mut self) -> Result<(), Self::Error> {
                         // NOTE(unsafe) atomic write to a stateless register
                         unsafe { (*$GPIOX::ptr()).bsrr.write(|w| w.bits(1 << $i)) }
@@ -484,6 +570,56 @@ macro_rules! gpio {
                     fn is_low(&self) -> Result<bool, Self::Error> {
                         // NOTE(unsafe) atomic read with no side effects
                         Ok(unsafe { (*$GPIOX::ptr()).idr.read().bits() & (1 << $i) == 0 })
+                    }
+                }
+
+                impl<MODE> ExtiPin for $PXi<Input<MODE>> {
+                    /// Configure EXTI Line $i to trigger from this pin.
+                    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG) {
+                        let offset = 4 * ($i % 4);
+                        syscfg.$exticri.modify(|r, w| unsafe {
+                            let mut exticr = r.bits();
+                            exticr = (exticr & !(0xf << offset)) | ($extigpionr << offset);
+                            w.bits(exticr)
+                        });
+                    }
+
+                    /// Generate interrupt on rising edge, falling edge or both
+                    fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
+                        match edge {
+                            Edge::RISING => {
+                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                            },
+                            Edge::FALLING => {
+                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                            },
+                            Edge::RISING_FALLING => {
+                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                            }
+                        }
+                    }
+
+                    /// Enable external interrupts from this pin.
+                    fn enable_interrupt(&mut self, exti: &mut EXTI) {
+                        exti.imr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                    }
+
+                    /// Disable external interrupts from this pin
+                    fn disable_interrupt(&mut self, exti: &mut EXTI) {
+                        exti.imr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                    }
+
+                    /// Clear the interrupt pending bit for this pin
+                    fn clear_interrupt_pending_bit(&mut self) {
+                        unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << $i) ) };
+                    }
+
+                    /// Reads the interrupt pending bit for this pin
+                    fn check_interrupt(&mut self) -> bool {
+                        unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << $i)) != 0 }
                     }
                 }
 
@@ -512,143 +648,143 @@ macro_rules! gpio {
     }
 }
 
-gpio!(GPIOA, gpioa, gpioa, gpioaen, gpioarst, PAx, [
-    PA0: (pa0, 0, Input<Floating>, AFRL),
-    PA1: (pa1, 1, Input<Floating>, AFRL),
-    PA2: (pa2, 2, Input<Floating>, AFRL),
-    PA3: (pa3, 3, Input<Floating>, AFRL),
-    PA4: (pa4, 4, Input<Floating>, AFRL),
-    PA5: (pa5, 5, Input<Floating>, AFRL),
-    PA6: (pa6, 6, Input<Floating>, AFRL),
-    PA7: (pa7, 7, Input<Floating>, AFRL),
-    PA8: (pa8, 8, Input<Floating>, AFRH),
-    PA9: (pa9, 9, Input<Floating>, AFRH),
-    PA10: (pa10, 10, Input<Floating>, AFRH),
-    PA11: (pa11, 11, Input<Floating>, AFRH),
-    PA12: (pa12, 12, Input<Floating>, AFRH),
-    PA13: (pa13, 13, Input<Floating>, AFRH),
-    PA14: (pa14, 14, Input<Floating>, AFRH),
-    PA15: (pa15, 15, Input<Floating>, AFRH),
+gpio!(GPIOA, gpioa, gpioa, gpioaen, gpioarst, PAx, 0, [
+    PA0: (pa0, 0, Input<Floating>, AFRL, exticr1),
+    PA1: (pa1, 1, Input<Floating>, AFRL, exticr1),
+    PA2: (pa2, 2, Input<Floating>, AFRL, exticr1),
+    PA3: (pa3, 3, Input<Floating>, AFRL, exticr1),
+    PA4: (pa4, 4, Input<Floating>, AFRL, exticr2),
+    PA5: (pa5, 5, Input<Floating>, AFRL, exticr2),
+    PA6: (pa6, 6, Input<Floating>, AFRL, exticr2),
+    PA7: (pa7, 7, Input<Floating>, AFRL, exticr2),
+    PA8: (pa8, 8, Input<Floating>, AFRH, exticr3),
+    PA9: (pa9, 9, Input<Floating>, AFRH, exticr3),
+    PA10: (pa10, 10, Input<Floating>, AFRH, exticr3),
+    PA11: (pa11, 11, Input<Floating>, AFRH, exticr3),
+    PA12: (pa12, 12, Input<Floating>, AFRH, exticr4),
+    PA13: (pa13, 13, Input<Floating>, AFRH, exticr4),
+    PA14: (pa14, 14, Input<Floating>, AFRH, exticr4),
+    PA15: (pa15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
-gpio!(GPIOB, gpiob, gpiob, gpioben, gpiobrst, PBx, [
-    PB0: (pb0, 0, Input<Floating>, AFRL),
-    PB1: (pb1, 1, Input<Floating>, AFRL),
-    PB2: (pb2, 2, Input<Floating>, AFRL),
-    PB3: (pb3, 3, Input<Floating>, AFRL),
-    PB4: (pb4, 4, Input<Floating>, AFRL),
-    PB5: (pb5, 5, Input<Floating>, AFRL),
-    PB6: (pb6, 6, Input<Floating>, AFRL),
-    PB7: (pb7, 7, Input<Floating>, AFRL),
-    PB8: (pb8, 8, Input<Floating>, AFRH),
-    PB9: (pb9, 9, Input<Floating>, AFRH),
-    PB10: (pb10, 10, Input<Floating>, AFRH),
-    PB11: (pb11, 11, Input<Floating>, AFRH),
-    PB12: (pb12, 12, Input<Floating>, AFRH),
-    PB13: (pb13, 13, Input<Floating>, AFRH),
-    PB14: (pb14, 14, Input<Floating>, AFRH),
-    PB15: (pb15, 15, Input<Floating>, AFRH),
+gpio!(GPIOB, gpiob, gpiob, gpioben, gpiobrst, PBx, 1, [
+    PB0: (pb0, 0, Input<Floating>, AFRL, exticr1),
+    PB1: (pb1, 1, Input<Floating>, AFRL, exticr1),
+    PB2: (pb2, 2, Input<Floating>, AFRL, exticr1),
+    PB3: (pb3, 3, Input<Floating>, AFRL, exticr1),
+    PB4: (pb4, 4, Input<Floating>, AFRL, exticr2),
+    PB5: (pb5, 5, Input<Floating>, AFRL, exticr2),
+    PB6: (pb6, 6, Input<Floating>, AFRL, exticr2),
+    PB7: (pb7, 7, Input<Floating>, AFRL, exticr2),
+    PB8: (pb8, 8, Input<Floating>, AFRH, exticr3),
+    PB9: (pb9, 9, Input<Floating>, AFRH, exticr3),
+    PB10: (pb10, 10, Input<Floating>, AFRH, exticr3),
+    PB11: (pb11, 11, Input<Floating>, AFRH, exticr3),
+    PB12: (pb12, 12, Input<Floating>, AFRH, exticr4),
+    PB13: (pb13, 13, Input<Floating>, AFRH, exticr4),
+    PB14: (pb14, 14, Input<Floating>, AFRH, exticr4),
+    PB15: (pb15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
-gpio!(GPIOC, gpioc, gpioc, gpiocen, gpiocrst, PCx, [
-    PC0: (pc0, 0, Input<Floating>, AFRL),
-    PC1: (pc1, 1, Input<Floating>, AFRL),
-    PC2: (pc2, 2, Input<Floating>, AFRL),
-    PC3: (pc3, 3, Input<Floating>, AFRL),
-    PC4: (pc4, 4, Input<Floating>, AFRL),
-    PC5: (pc5, 5, Input<Floating>, AFRL),
-    PC6: (pc6, 6, Input<Floating>, AFRL),
-    PC7: (pc7, 7, Input<Floating>, AFRL),
-    PC8: (pc8, 8, Input<Floating>, AFRH),
-    PC9: (pc9, 9, Input<Floating>, AFRH),
-    PC10: (pc10, 10, Input<Floating>, AFRH),
-    PC11: (pc11, 11, Input<Floating>, AFRH),
-    PC12: (pc12, 12, Input<Floating>, AFRH),
-    PC13: (pc13, 13, Input<Floating>, AFRH),
-    PC14: (pc14, 14, Input<Floating>, AFRH),
-    PC15: (pc15, 15, Input<Floating>, AFRH),
+gpio!(GPIOC, gpioc, gpioc, gpiocen, gpiocrst, PCx, 2, [
+    PC0: (pc0, 0, Input<Floating>, AFRL, exticr1),
+    PC1: (pc1, 1, Input<Floating>, AFRL, exticr1),
+    PC2: (pc2, 2, Input<Floating>, AFRL, exticr1),
+    PC3: (pc3, 3, Input<Floating>, AFRL, exticr1),
+    PC4: (pc4, 4, Input<Floating>, AFRL, exticr2),
+    PC5: (pc5, 5, Input<Floating>, AFRL, exticr2),
+    PC6: (pc6, 6, Input<Floating>, AFRL, exticr2),
+    PC7: (pc7, 7, Input<Floating>, AFRL, exticr2),
+    PC8: (pc8, 8, Input<Floating>, AFRH, exticr3),
+    PC9: (pc9, 9, Input<Floating>, AFRH, exticr3),
+    PC10: (pc10, 10, Input<Floating>, AFRH, exticr3),
+    PC11: (pc11, 11, Input<Floating>, AFRH, exticr3),
+    PC12: (pc12, 12, Input<Floating>, AFRH, exticr4),
+    PC13: (pc13, 13, Input<Floating>, AFRH, exticr4),
+    PC14: (pc14, 14, Input<Floating>, AFRH, exticr4),
+    PC15: (pc15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
-gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, [
-    PD0: (pd0, 0, Input<Floating>, AFRL),
-    PD1: (pd1, 1, Input<Floating>, AFRL),
-    PD2: (pd2, 2, Input<Floating>, AFRL),
-    PD3: (pd3, 3, Input<Floating>, AFRL),
-    PD4: (pd4, 4, Input<Floating>, AFRL),
-    PD5: (pd5, 5, Input<Floating>, AFRL),
-    PD6: (pd6, 6, Input<Floating>, AFRL),
-    PD7: (pd7, 7, Input<Floating>, AFRL),
-    PD8: (pd8, 8, Input<Floating>, AFRH),
-    PD9: (pd9, 9, Input<Floating>, AFRH),
-    PD10: (pd10, 10, Input<Floating>, AFRH),
-    PD11: (pd11, 11, Input<Floating>, AFRH),
-    PD12: (pd12, 12, Input<Floating>, AFRH),
-    PD13: (pd13, 13, Input<Floating>, AFRH),
-    PD14: (pd14, 14, Input<Floating>, AFRH),
-    PD15: (pd15, 15, Input<Floating>, AFRH),
+gpio!(GPIOD, gpiod, gpioc, gpioden, gpiodrst, PDx, 3, [
+    PD0: (pd0, 0, Input<Floating>, AFRL, exticr1),
+    PD1: (pd1, 1, Input<Floating>, AFRL, exticr1),
+    PD2: (pd2, 2, Input<Floating>, AFRL, exticr1),
+    PD3: (pd3, 3, Input<Floating>, AFRL, exticr1),
+    PD4: (pd4, 4, Input<Floating>, AFRL, exticr2),
+    PD5: (pd5, 5, Input<Floating>, AFRL, exticr2),
+    PD6: (pd6, 6, Input<Floating>, AFRL, exticr2),
+    PD7: (pd7, 7, Input<Floating>, AFRL, exticr2),
+    PD8: (pd8, 8, Input<Floating>, AFRH, exticr3),
+    PD9: (pd9, 9, Input<Floating>, AFRH, exticr3),
+    PD10: (pd10, 10, Input<Floating>, AFRH, exticr3),
+    PD11: (pd11, 11, Input<Floating>, AFRH, exticr3),
+    PD12: (pd12, 12, Input<Floating>, AFRH, exticr4),
+    PD13: (pd13, 13, Input<Floating>, AFRH, exticr4),
+    PD14: (pd14, 14, Input<Floating>, AFRH, exticr4),
+    PD15: (pd15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
-gpio!(GPIOE, gpioe, gpioc, gpioeen, gpioerst, PEx, [
-    PE0: (pe0, 0, Input<Floating>, AFRL),
-    PE1: (pe1, 1, Input<Floating>, AFRL),
-    PE2: (pe2, 2, Input<Floating>, AFRL),
-    PE3: (pe3, 3, Input<Floating>, AFRL),
-    PE4: (pe4, 4, Input<Floating>, AFRL),
-    PE5: (pe5, 5, Input<Floating>, AFRL),
-    PE6: (pe6, 6, Input<Floating>, AFRL),
-    PE7: (pe7, 7, Input<Floating>, AFRL),
-    PE8: (pe8, 8, Input<Floating>, AFRH),
-    PE9: (pe9, 9, Input<Floating>, AFRH),
-    PE10: (pe10, 10, Input<Floating>, AFRH),
-    PE11: (pe11, 11, Input<Floating>, AFRH),
-    PE12: (pe12, 12, Input<Floating>, AFRH),
-    PE13: (pe13, 13, Input<Floating>, AFRH),
-    PE14: (pe14, 14, Input<Floating>, AFRH),
-    PE15: (pe15, 15, Input<Floating>, AFRH),
-]);
-
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
-gpio!(GPIOF, gpiof, gpioc, gpiofen, gpiofrst, PFx, [
-    PF0: (pf0, 0, Input<Floating>, AFRL),
-    PF1: (pf1, 1, Input<Floating>, AFRL),
-    PF2: (pf2, 2, Input<Floating>, AFRL),
-    PF3: (pf3, 3, Input<Floating>, AFRL),
-    PF4: (pf4, 4, Input<Floating>, AFRL),
-    PF5: (pf5, 5, Input<Floating>, AFRL),
-    PF6: (pf6, 6, Input<Floating>, AFRL),
-    PF7: (pf7, 7, Input<Floating>, AFRL),
-    PF8: (pf8, 8, Input<Floating>, AFRH),
-    PF9: (pf9, 9, Input<Floating>, AFRH),
-    PF10: (pf10, 10, Input<Floating>, AFRH),
-    PF11: (pf11, 11, Input<Floating>, AFRH),
-    PF12: (pf12, 12, Input<Floating>, AFRH),
-    PF13: (pf13, 13, Input<Floating>, AFRH),
-    PF14: (pf14, 14, Input<Floating>, AFRH),
-    PF15: (pf15, 15, Input<Floating>, AFRH),
+gpio!(GPIOE, gpioe, gpioc, gpioeen, gpioerst, PEx, 4, [
+    PE0: (pe0, 0, Input<Floating>, AFRL, exticr1),
+    PE1: (pe1, 1, Input<Floating>, AFRL, exticr1),
+    PE2: (pe2, 2, Input<Floating>, AFRL, exticr1),
+    PE3: (pe3, 3, Input<Floating>, AFRL, exticr1),
+    PE4: (pe4, 4, Input<Floating>, AFRL, exticr2),
+    PE5: (pe5, 5, Input<Floating>, AFRL, exticr2),
+    PE6: (pe6, 6, Input<Floating>, AFRL, exticr2),
+    PE7: (pe7, 7, Input<Floating>, AFRL, exticr2),
+    PE8: (pe8, 8, Input<Floating>, AFRH, exticr3),
+    PE9: (pe9, 9, Input<Floating>, AFRH, exticr3),
+    PE10: (pe10, 10, Input<Floating>, AFRH, exticr3),
+    PE11: (pe11, 11, Input<Floating>, AFRH, exticr3),
+    PE12: (pe12, 12, Input<Floating>, AFRH, exticr4),
+    PE13: (pe13, 13, Input<Floating>, AFRH, exticr4),
+    PE14: (pe14, 14, Input<Floating>, AFRH, exticr4),
+    PE15: (pe15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
 #[cfg(any(
     feature = "stm32l4x5",
     feature = "stm32l4x6"
 ))]
-gpio!(GPIOG, gpiog, gpioc, gpiogen, gpiogrst, PGx, [
-    PG0: (pg0, 0, Input<Floating>, AFRL),
-    PG1: (pg1, 1, Input<Floating>, AFRL),
-    PG2: (pg2, 2, Input<Floating>, AFRL),
-    PG3: (pg3, 3, Input<Floating>, AFRL),
-    PG4: (pg4, 4, Input<Floating>, AFRL),
-    PG5: (pg5, 5, Input<Floating>, AFRL),
-    PG6: (pg6, 6, Input<Floating>, AFRL),
-    PG7: (pg7, 7, Input<Floating>, AFRL),
-    PG8: (pg8, 8, Input<Floating>, AFRH),
-    PG9: (pg9, 9, Input<Floating>, AFRH),
-    PG10: (pg10, 10, Input<Floating>, AFRH),
-    PG11: (pg11, 11, Input<Floating>, AFRH),
-    PG12: (pg12, 12, Input<Floating>, AFRH),
-    PG13: (pg13, 13, Input<Floating>, AFRH),
-    PG14: (pg14, 14, Input<Floating>, AFRH),
-    PG15: (pg15, 15, Input<Floating>, AFRH),
+gpio!(GPIOF, gpiof, gpioc, gpiofen, gpiofrst, PFx, 5, [
+    PF0: (pf0, 0, Input<Floating>, AFRL, exticr1),
+    PF1: (pf1, 1, Input<Floating>, AFRL, exticr1),
+    PF2: (pf2, 2, Input<Floating>, AFRL, exticr1),
+    PF3: (pf3, 3, Input<Floating>, AFRL, exticr1),
+    PF4: (pf4, 4, Input<Floating>, AFRL, exticr2),
+    PF5: (pf5, 5, Input<Floating>, AFRL, exticr2),
+    PF6: (pf6, 6, Input<Floating>, AFRL, exticr2),
+    PF7: (pf7, 7, Input<Floating>, AFRL, exticr2),
+    PF8: (pf8, 8, Input<Floating>, AFRH, exticr3),
+    PF9: (pf9, 9, Input<Floating>, AFRH, exticr3),
+    PF10: (pf10, 10, Input<Floating>, AFRH, exticr3),
+    PF11: (pf11, 11, Input<Floating>, AFRH, exticr3),
+    PF12: (pf12, 12, Input<Floating>, AFRH, exticr4),
+    PF13: (pf13, 13, Input<Floating>, AFRH, exticr4),
+    PF14: (pf14, 14, Input<Floating>, AFRH, exticr4),
+    PF15: (pf15, 15, Input<Floating>, AFRH, exticr4),
+]);
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+gpio!(GPIOG, gpiog, gpioc, gpiogen, gpiogrst, PGx, 6, [
+    PG0: (pg0, 0, Input<Floating>, AFRL, exticr1),
+    PG1: (pg1, 1, Input<Floating>, AFRL, exticr1),
+    PG2: (pg2, 2, Input<Floating>, AFRL, exticr1),
+    PG3: (pg3, 3, Input<Floating>, AFRL, exticr1),
+    PG4: (pg4, 4, Input<Floating>, AFRL, exticr2),
+    PG5: (pg5, 5, Input<Floating>, AFRL, exticr2),
+    PG6: (pg6, 6, Input<Floating>, AFRL, exticr2),
+    PG7: (pg7, 7, Input<Floating>, AFRL, exticr2),
+    PG8: (pg8, 8, Input<Floating>, AFRH, exticr3),
+    PG9: (pg9, 9, Input<Floating>, AFRH, exticr3),
+    PG10: (pg10, 10, Input<Floating>, AFRH, exticr3),
+    PG11: (pg11, 11, Input<Floating>, AFRH, exticr3),
+    PG12: (pg12, 12, Input<Floating>, AFRH, exticr4),
+    PG13: (pg13, 13, Input<Floating>, AFRH, exticr4),
+    PG14: (pg14, 14, Input<Floating>, AFRH, exticr4),
+    PG15: (pg15, 15, Input<Floating>, AFRH, exticr4),
 ]);
