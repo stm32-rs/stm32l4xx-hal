@@ -71,6 +71,16 @@ impl Into<KiloHertz> for MegaHertz {
     }
 }
 
+impl From<u32> for Hertz {
+    fn from(ms: u32) -> Self {
+        if ms >= 1000 {
+            Hertz(1/(ms/1000))
+        } else {
+            Hertz(1)
+        }
+    }
+}
+
 /// A monotonic nondecreasing timer
 #[derive(Clone, Copy, Debug)]
 pub struct MonoTimer {

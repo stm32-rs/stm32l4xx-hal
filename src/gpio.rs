@@ -6,6 +6,8 @@
 use core::marker::PhantomData;
 
 use crate::rcc::AHB2;
+use crate::stm32::{EXTI, SYSCFG};
+
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
@@ -39,8 +41,7 @@ pub struct PushPull;
 pub struct OpenDrain;
 
 /// Alternate mode (type state)
-pub struct Alternate<AF, MODE>
-{
+pub struct Alternate<AF, MODE> {
     _af: PhantomData<AF>,
     _mode: PhantomData<MODE>,
 }
@@ -98,6 +99,9 @@ pub struct AF14;
 /// Alternate function 15 (type state)
 pub struct AF15;
 
+// Using SCREAMING_SNAKE_CASE to be consistent with other HALs
+// see 59b2740 and #125 for motivation
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub enum Edge {
     RISING,
@@ -114,7 +118,6 @@ pub trait ExtiPin {
     fn clear_interrupt_pending_bit(&mut self);
     fn check_interrupt(&mut self) -> bool;
 }
-
 
 macro_rules! doc_comment {
     ($x:expr, $($tt:tt)*) => {
@@ -161,13 +164,13 @@ macro_rules! gpio {
             use core::convert::Infallible;
 
             use crate::hal::digital::v2::{OutputPin, InputPin};
-            use crate::stm32::{$gpioy, $GPIOX};
+            use crate::stm32::{$gpioy, $GPIOX, EXTI, SYSCFG};
 
             use crate::rcc::AHB2;
             use super::{
                 Alternate,
                 AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
-                Floating, GpioExt, Input, OpenDrain, Output,
+                Floating, GpioExt, Input, OpenDrain, Output, Edge, ExtiPin,
                 PullDown, PullUp, PushPull, State,
             };
 
@@ -346,12 +349,12 @@ macro_rules! gpio {
 
                 /// Clear the interrupt pending bit for this pin
                 fn clear_interrupt_pending_bit(&mut self) {
-                    unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << self.i) ) };
+                    unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << self.i) ) };
                 }
 
                 /// Reads the interrupt pending bit for this pin
                 fn check_interrupt(&mut self) -> bool {
-                    unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << self.i)) != 0 }
+                    unsafe { ((*EXTI::ptr()).pr1.read().bits() & (1 << self.i)) != 0 }
                 }
             }
 
@@ -588,38 +591,38 @@ macro_rules! gpio {
                     fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
                         match edge {
                             Edge::RISING => {
-                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                                exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                                exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                             },
                             Edge::FALLING => {
-                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                                exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                                exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                             },
                             Edge::RISING_FALLING => {
-                                exti.rtsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
-                                exti.ftsr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                                exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                                exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                             }
                         }
                     }
 
                     /// Enable external interrupts from this pin.
                     fn enable_interrupt(&mut self, exti: &mut EXTI) {
-                        exti.imr.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
+                        exti.imr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                     }
 
                     /// Disable external interrupts from this pin
                     fn disable_interrupt(&mut self, exti: &mut EXTI) {
-                        exti.imr.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
+                        exti.imr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                     }
 
                     /// Clear the interrupt pending bit for this pin
                     fn clear_interrupt_pending_bit(&mut self) {
-                        unsafe { (*EXTI::ptr()).pr.write(|w| w.bits(1 << $i) ) };
+                        unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << $i) ) };
                     }
 
                     /// Reads the interrupt pending bit for this pin
                     fn check_interrupt(&mut self) -> bool {
-                        unsafe { ((*EXTI::ptr()).pr.read().bits() & (1 << $i)) != 0 }
+                        unsafe { ((*EXTI::ptr()).pr1.read().bits() & (1 << $i)) != 0 }
                     }
                 }
 
@@ -743,10 +746,7 @@ gpio!(GPIOE, gpioe, gpioc, gpioeen, gpioerst, PEx, 4, [
     PE15: (pe15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 gpio!(GPIOF, gpiof, gpioc, gpiofen, gpiofrst, PFx, 5, [
     PF0: (pf0, 0, Input<Floating>, AFRL, exticr1),
     PF1: (pf1, 1, Input<Floating>, AFRL, exticr1),
@@ -766,10 +766,7 @@ gpio!(GPIOF, gpiof, gpioc, gpiofen, gpiofrst, PFx, 5, [
     PF15: (pf15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 gpio!(GPIOG, gpiog, gpioc, gpiogen, gpiogrst, PGx, 6, [
     PG0: (pg0, 0, Input<Floating>, AFRL, exticr1),
     PG1: (pg1, 1, Input<Floating>, AFRL, exticr1),
