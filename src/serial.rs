@@ -312,18 +312,18 @@ pins! {
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     // UART4: (tx: (PA0, PC10), rx: (PA1, PC11), rts: (PA15), cts: (PB7), AF8),
-    UART4: (PA0, PA1, AF7),
-    UART4: (PC10, PA1, AF7),
-    UART4: (PA0, PC11, AF7),
-    UART4: (PC10, PC11, AF7),
+    UART4: (PA0, PA1, AF8),
+    UART4: (PC10, PA1, AF8),
+    UART4: (PA0, PC11, AF8),
+    UART4: (PC10, PC11, AF8),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
-    UART4: (PA0, PA1, PA15, PB7, AF7),
-    UART4: (PC10, PA1, PA15, PB7, AF7),
-    UART4: (PA0, PC11, PA15, PB7, AF7),
-    UART4: (PC10, PC11, PA15, PB7, AF7),
+    UART4: (PA0, PA1, PA15, PB7, AF8),
+    UART4: (PC10, PA1, PA15, PB7, AF8),
+    UART4: (PA0, PC11, PA15, PB7, AF8),
+    UART4: (PC10, PC11, PA15, PB7, AF8),
 }
 
 // UART 5
