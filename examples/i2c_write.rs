@@ -13,7 +13,6 @@ extern crate panic_semihosting;
 extern crate stm32l4xx_hal as hal;
 
 use crate::hal::prelude::*;
-use crate::hal::stm32l4::stm32l4x2;
 
 use crate::hal::i2c::I2c;
 use crate::rt::ExceptionFrame;
@@ -30,7 +29,7 @@ fn main() -> ! {
     // writeln!(hstdout, "Hello, world!").unwrap();
 
     // let cp = cortex_m::Peripherals::take().unwrap();
-    let dp = stm32l4x2::Peripherals::take().unwrap();
+    let dp = hal::stm32::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
@@ -46,7 +45,7 @@ fn main() -> ! {
     let mut sda = gpioa.pa10.into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
     sda.internal_pull_up(&mut gpioa.pupdr, true);
     let sda = sda.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
-    
+
     let mut i2c = I2c::i2c1(dp.I2C1, (scl, sda), 100.khz(), clocks, &mut rcc.apb1r1);
 
     // i2c.write(0x3C, &[0xCC, 0xAA]).unwrap();

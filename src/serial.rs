@@ -1,13 +1,13 @@
 //! Serial
 
-use core::fmt;
-use core::marker::PhantomData;
-use core::ptr;
-use core::sync::atomic::{self, Ordering};
-use core::ops::DerefMut;
-use stable_deref_trait::StableDeref;
 use as_slice::AsMutSlice;
 use cast::u16;
+use core::fmt;
+use core::marker::PhantomData;
+use core::ops::DerefMut;
+use core::ptr;
+use core::sync::atomic::{self, Ordering};
+use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 use nb;
@@ -16,83 +16,49 @@ use crate::stm32::{USART1, USART2};
 
 // TODO USART3RST is missing atm in stm32l4x1 & stm32l4x2 crate
 // Related issue: https://github.com/stm32-rs/stm32-rs/issues/243
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::stm32::{USART3};
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::stm32::USART3;
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::stm32::{UART4};
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::stm32::UART4;
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::stm32::{UART5};
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::stm32::UART5;
 
-use crate::gpio::gpioa::{PA2, PA3, PA9, PA10};
-use crate::gpio::gpiob::{PB6, PB7};
-use crate::gpio::gpiod::{PD5, PD6};
-use crate::gpio::{AF7, Alternate, Input, Floating};
+use crate::gpio::gpioa::{PA10, PA11, PA12, PA0, PA1, PA2, PA3, PA9};
+use crate::gpio::gpiob::{PB3, PB4, PB6, PB7};
+use crate::gpio::gpiod::{PD3, PD4, PD5, PD6};
+use crate::gpio::{Alternate, Floating, Input, AF7};
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpiob::{PB10, PB11};
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::gpio::gpioa::{PA6};
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpiod::{PD8, PD9};
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::gpio::gpiob::{PB1, PB10, PB11, PB13, PB14};
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpioc::{PC10, PC11};
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::gpio::gpiod::{PD2, PD11, PD12};
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpioa::{PA0, PA1};
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::gpio::gpioc::{PC4, PC5, PC10, PC11};
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpioc::{PC12};
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::gpio::gpioa::{PA15};
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpiod::{PD2};
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::gpio::gpiob::{PB5};
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::{AF8};
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::gpio::gpioc::PC12;
 
-use crate::rcc::{APB1R1, APB2, Clocks};
-use crate::time::{U32Ext, Bps};
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::gpio::AF8;
+
 use crate::dma::{dma1, CircBuffer};
+use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::time::{Bps, U32Ext};
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::dma::dma2;
 
 /// Interrupt event
@@ -102,7 +68,7 @@ pub enum Event {
     /// New data can be sent
     Txe,
     /// The line has gone idle
-    Idle
+    Idle,
 }
 
 /// Serial error
@@ -121,75 +87,255 @@ pub enum Error {
 }
 
 pub trait Pins<USART> {
-    const REMAP: u8;
+    const FLOWCTL: bool;
 }
 
-impl Pins<USART1> for (PA9<Alternate<AF7, Input<Floating>>>, PA10<Alternate<AF7, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+macro_rules! pins {
+    // Hardware flow control, Rx+Tx+Rts+Cts
+    ($(
+        $(#[$meta:meta])*
+        $USARTX:ident: (
+            $tx:ident,
+            $rx:ident,
+            $rts:ident,
+            $cts:ident,
+            $af:ident
+        ),
+    )+) => {
+        $(
+            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>, $rts<Alternate<$af, Input<Floating>>>, $cts<Alternate<$af, Input<Floating>>>) {
+                const FLOWCTL: bool = true;
+            }
+        )+
+    };
+    // No flow control, just Rx+Tx
+    ($(
+        $(#[$meta:meta])*
+        $USARTX:ident: (
+            $tx:ident,
+            $rx:ident,
+            $af:ident
+        ),
+    )+) => {
+        $(
+            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>) {
+                const FLOWCTL: bool = false;
+            }
+        )+
+    };
 }
 
-impl Pins<USART1> for (PB6<Alternate<AF7, Input<Floating>>>, PB7<Alternate<AF7, Input<Floating>>>) {
-    const REMAP: u8 = 1;
+// USART 1
+pins! {
+    // USART1: (tx: (PA9, PB6), rx: (PA10, PB7), rts: (PA12, PB3), cts: (PA11, PB4), AF7),
+    USART1: (PA9, PA10, AF7),
+    USART1: (PB6, PA10, AF7),
+    USART1: (PA9, PB7, AF7),
+    USART1: (PB6, PB7, AF7),
 }
 
-impl Pins<USART2> for (PA2<Alternate<AF7, Input<Floating>>>, PA3<Alternate<AF7, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+pins! {
+    USART1: (PA9, PA10, PA12, PA11, AF7),
+    USART1: (PA9, PA10, PA12, PB4, AF7),
+    USART1: (PA9, PA10, PB3, PA11, AF7),
+    USART1: (PA9, PA10, PB3, PB4, AF7),
+    USART1: (PB6, PA10, PA12, PA11, AF7),
+    USART1: (PB6, PA10, PA12, PB4, AF7),
+    USART1: (PB6, PA10, PB3, PA11, AF7),
+    USART1: (PB6, PA10, PB3, PB4, AF7),
+    USART1: (PA9, PB7, PA12, PA11, AF7),
+    USART1: (PA9, PB7, PA12, PB4, AF7),
+    USART1: (PA9, PB7, PB3, PA11, AF7),
+    USART1: (PA9, PB7, PB3, PB4, AF7),
+    USART1: (PB6, PB7, PA12, PA11, AF7),
+    USART1: (PB6, PB7, PA12, PB4, AF7),
+    USART1: (PB6, PB7, PB3, PA11, AF7),
+    USART1: (PB6, PB7, PB3, PB4, AF7),
 }
 
-
-impl Pins<USART2> for (PD5<Alternate<AF7, Input<Floating>>>, PD6<Alternate<AF7, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+// USART 2
+pins! {
+    // USART2: (tx: (PA2, PD5), rx: (PA3, PD6), rts: (PA1, PD4), cts: (PA0, PD3), AF7),
+    USART2: (PA2, PA3, AF7),
+    USART2: (PD5, PA3, AF7),
+    USART2: (PA2, PD6, AF7),
+    USART2: (PD5, PD6, AF7),
 }
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-impl Pins<USART3> for (PB10<Alternate<AF7, Input<Floating>>>, PB11<Alternate<AF7, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+pins! {
+    USART2: (PA2, PA3, PA1, PA0, AF7),
+    USART2: (PA2, PA3, PA1, PD3, AF7),
+    USART2: (PA2, PA3, PD4, PA0, AF7),
+    USART2: (PA2, PA3, PD4, PD3, AF7),
+    USART2: (PD5, PA3, PA1, PA0, AF7),
+    USART2: (PD5, PA3, PA1, PD3, AF7),
+    USART2: (PD5, PA3, PD4, PA0, AF7),
+    USART2: (PD5, PA3, PD4, PD3, AF7),
+    USART2: (PA2, PD6, PA1, PA0, AF7),
+    USART2: (PA2, PD6, PA1, PD3, AF7),
+    USART2: (PA2, PD6, PD4, PA0, AF7),
+    USART2: (PA2, PD6, PD4, PD3, AF7),
+    USART2: (PD5, PD6, PA1, PA0, AF7),
+    USART2: (PD5, PD6, PA1, PD3, AF7),
+    USART2: (PD5, PD6, PD4, PA0, AF7),
+    USART2: (PD5, PD6, PD4, PD3, AF7),
 }
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-impl Pins<USART3> for (PC10<Alternate<AF7, Input<Floating>>>, PC11<Alternate<AF7, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+// USART 3
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    //  USART3: (tx: (PB10, PC4, PC10), rx: (PB11, PC5, PC11), rts: (PB1, PB14, PD2, PD12), cts: (PA6, PB13, PD11), AF7),
+    USART3: (PB10, PB11, AF7),
+    USART3: (PC4, PB11, AF7),
+    USART3: (PC10, PB11, AF7),
+    USART3: (PB10, PC5, AF7),
+    USART3: (PC4, PC5, AF7),
+    USART3: (PC10, PC5, AF7),
+    USART3: (PB10, PC11, AF7),
+    USART3: (PC4, PC11, AF7),
+    USART3: (PC10, PC11, AF7),
 }
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-impl Pins<USART3> for (PD8<Alternate<AF7, Input<Floating>>>, PD9<Alternate<AF7, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    USART3: (PB10, PB11, PB1, PA6, AF7),
+    USART3: (PB10, PB11, PB1, PB13, AF7),
+    USART3: (PB10, PB11, PB1, PD11, AF7),
+    USART3: (PB10, PB11, PB14, PA6, AF7),
+    USART3: (PB10, PB11, PB14, PB13, AF7),
+    USART3: (PB10, PB11, PB14, PD11, AF7),
+    USART3: (PB10, PB11, PD2, PA6, AF7),
+    USART3: (PB10, PB11, PD2, PB13, AF7),
+    USART3: (PB10, PB11, PD2, PD11, AF7),
+    USART3: (PB10, PB11, PD12, PA6, AF7),
+    USART3: (PB10, PB11, PD12, PB13, AF7),
+    USART3: (PB10, PB11, PD12, PD11, AF7),
+    USART3: (PC4, PB11, PB1, PA6, AF7),
+    USART3: (PC4, PB11, PB1, PB13, AF7),
+    USART3: (PC4, PB11, PB1, PD11, AF7),
+    USART3: (PC4, PB11, PB14, PA6, AF7),
+    USART3: (PC4, PB11, PB14, PB13, AF7),
+    USART3: (PC4, PB11, PB14, PD11, AF7),
+    USART3: (PC4, PB11, PD2, PA6, AF7),
+    USART3: (PC4, PB11, PD2, PB13, AF7),
+    USART3: (PC4, PB11, PD2, PD11, AF7),
+    USART3: (PC4, PB11, PD12, PA6, AF7),
+    USART3: (PC4, PB11, PD12, PB13, AF7),
+    USART3: (PC4, PB11, PD12, PD11, AF7),
+    USART3: (PC10, PB11, PB1, PA6, AF7),
+    USART3: (PC10, PB11, PB1, PB13, AF7),
+    USART3: (PC10, PB11, PB1, PD11, AF7),
+    USART3: (PC10, PB11, PB14, PA6, AF7),
+    USART3: (PC10, PB11, PB14, PB13, AF7),
+    USART3: (PC10, PB11, PB14, PD11, AF7),
+    USART3: (PC10, PB11, PD2, PA6, AF7),
+    USART3: (PC10, PB11, PD2, PB13, AF7),
+    USART3: (PC10, PB11, PD2, PD11, AF7),
+    USART3: (PC10, PB11, PD12, PA6, AF7),
+    USART3: (PC10, PB11, PD12, PB13, AF7),
+    USART3: (PC10, PB11, PD12, PD11, AF7),
+    USART3: (PB10, PC5, PB1, PA6, AF7),
+    USART3: (PB10, PC5, PB1, PB13, AF7),
+    USART3: (PB10, PC5, PB1, PD11, AF7),
+    USART3: (PB10, PC5, PB14, PA6, AF7),
+    USART3: (PB10, PC5, PB14, PB13, AF7),
+    USART3: (PB10, PC5, PB14, PD11, AF7),
+    USART3: (PB10, PC5, PD2, PA6, AF7),
+    USART3: (PB10, PC5, PD2, PB13, AF7),
+    USART3: (PB10, PC5, PD2, PD11, AF7),
+    USART3: (PB10, PC5, PD12, PA6, AF7),
+    USART3: (PB10, PC5, PD12, PB13, AF7),
+    USART3: (PB10, PC5, PD12, PD11, AF7),
+    USART3: (PC4, PC5, PB1, PA6, AF7),
+    USART3: (PC4, PC5, PB1, PB13, AF7),
+    USART3: (PC4, PC5, PB1, PD11, AF7),
+    USART3: (PC4, PC5, PB14, PA6, AF7),
+    USART3: (PC4, PC5, PB14, PB13, AF7),
+    USART3: (PC4, PC5, PB14, PD11, AF7),
+    USART3: (PC4, PC5, PD2, PA6, AF7),
+    USART3: (PC4, PC5, PD2, PB13, AF7),
+    USART3: (PC4, PC5, PD2, PD11, AF7),
+    USART3: (PC4, PC5, PD12, PA6, AF7),
+    USART3: (PC4, PC5, PD12, PB13, AF7),
+    USART3: (PC4, PC5, PD12, PD11, AF7),
+    USART3: (PC10, PC5, PB1, PA6, AF7),
+    USART3: (PC10, PC5, PB1, PB13, AF7),
+    USART3: (PC10, PC5, PB1, PD11, AF7),
+    USART3: (PC10, PC5, PB14, PA6, AF7),
+    USART3: (PC10, PC5, PB14, PB13, AF7),
+    USART3: (PC10, PC5, PB14, PD11, AF7),
+    USART3: (PC10, PC5, PD2, PA6, AF7),
+    USART3: (PC10, PC5, PD2, PB13, AF7),
+    USART3: (PC10, PC5, PD2, PD11, AF7),
+    USART3: (PC10, PC5, PD12, PA6, AF7),
+    USART3: (PC10, PC5, PD12, PB13, AF7),
+    USART3: (PC10, PC5, PD12, PD11, AF7),
+    USART3: (PB10, PC11, PB1, PA6, AF7),
+    USART3: (PB10, PC11, PB1, PB13, AF7),
+    USART3: (PB10, PC11, PB1, PD11, AF7),
+    USART3: (PB10, PC11, PB14, PA6, AF7),
+    USART3: (PB10, PC11, PB14, PB13, AF7),
+    USART3: (PB10, PC11, PB14, PD11, AF7),
+    USART3: (PB10, PC11, PD2, PA6, AF7),
+    USART3: (PB10, PC11, PD2, PB13, AF7),
+    USART3: (PB10, PC11, PD2, PD11, AF7),
+    USART3: (PB10, PC11, PD12, PA6, AF7),
+    USART3: (PB10, PC11, PD12, PB13, AF7),
+    USART3: (PB10, PC11, PD12, PD11, AF7),
+    USART3: (PC4, PC11, PB1, PA6, AF7),
+    USART3: (PC4, PC11, PB1, PB13, AF7),
+    USART3: (PC4, PC11, PB1, PD11, AF7),
+    USART3: (PC4, PC11, PB14, PA6, AF7),
+    USART3: (PC4, PC11, PB14, PB13, AF7),
+    USART3: (PC4, PC11, PB14, PD11, AF7),
+    USART3: (PC4, PC11, PD2, PA6, AF7),
+    USART3: (PC4, PC11, PD2, PB13, AF7),
+    USART3: (PC4, PC11, PD2, PD11, AF7),
+    USART3: (PC4, PC11, PD12, PA6, AF7),
+    USART3: (PC4, PC11, PD12, PB13, AF7),
+    USART3: (PC4, PC11, PD12, PD11, AF7),
+    USART3: (PC10, PC11, PB1, PA6, AF7),
+    USART3: (PC10, PC11, PB1, PB13, AF7),
+    USART3: (PC10, PC11, PB1, PD11, AF7),
+    USART3: (PC10, PC11, PB14, PA6, AF7),
+    USART3: (PC10, PC11, PB14, PB13, AF7),
+    USART3: (PC10, PC11, PB14, PD11, AF7),
+    USART3: (PC10, PC11, PD2, PA6, AF7),
+    USART3: (PC10, PC11, PD2, PB13, AF7),
+    USART3: (PC10, PC11, PD2, PD11, AF7),
+    USART3: (PC10, PC11, PD12, PA6, AF7),
+    USART3: (PC10, PC11, PD12, PB13, AF7),
+    USART3: (PC10, PC11, PD12, PD11, AF7),
 }
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-impl Pins<UART4> for (PA0<Alternate<AF8, Input<Floating>>>, PA1<Alternate<AF8, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+// UART 4
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    // UART4: (tx: (PA0, PC10), rx: (PA1, PC11), rts: (PA15), cts: (PB7), AF8),
+    UART4: (PA0, PA1, AF8),
+    UART4: (PC10, PA1, AF8),
+    UART4: (PA0, PC11, AF8),
+    UART4: (PC10, PC11, AF8),
 }
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-impl Pins<UART4> for (PC10<Alternate<AF8, Input<Floating>>>, PC11<Alternate<AF8, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    UART4: (PA0, PA1, PA15, PB7, AF8),
+    UART4: (PC10, PA1, PA15, PB7, AF8),
+    UART4: (PA0, PC11, PA15, PB7, AF8),
+    UART4: (PC10, PC11, PA15, PB7, AF8),
 }
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-impl Pins<UART5> for (PC12<Alternate<AF8, Input<Floating>>>, PD2<Alternate<AF8, Input<Floating>>>) {
-    const REMAP: u8 = 0;
+// UART 5
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    // UART5: (tx: (PC12), rx: (PD2), rts: (PB4), cts: (PB5), AF8),
+    UART5: (PC12, PD2, AF8),
+}
+
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    UART5: (PC12, PD2, PB4, PB5, AF8),
 }
 
 pub enum Parity {
@@ -314,14 +460,18 @@ macro_rules! hal {
                     apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
                     apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
 
-                    // TODO implement pin remaping
-
                     // enable DMA transfers
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
-                    // disable hardware flow control
-                    // usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
-                    // usart.cr3.write(|w| w.onebit().set_bit());
+                    // Configure hardware flow control
+                    if PINS::FLOWCTL {
+                        usart.cr3.write(|w| w.rtse().set_bit().ctse().set_bit());
+                    } else {
+                        usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
+                    }
+
+                    // Enable One bit sampling method
+                    usart.cr3.write(|w| w.onebit().set_bit());
 
                     // Configure baud rate
                     let brr = clocks.$pclkX().0 / config.baudrate.0;
@@ -600,27 +750,17 @@ hal! {
 
 // TODO USART3RST is missing atm in stm32l4x1 & stm32l4x2 crate
 // Related issue: https://github.com/stm32-rs/stm32-rs/issues/243
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
     USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
 }
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
     UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (c3s, dma2::C3), rx: (c5s, dma2::C5)),
 }
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
     UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (c1s, dma2::C1), rx: (c2s, dma2::C2)),
 }

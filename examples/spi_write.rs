@@ -7,15 +7,15 @@
 #[macro_use(entry, exception)]
 extern crate cortex_m_rt as rt;
 extern crate cortex_m;
-extern crate panic_semihosting;
 extern crate embedded_hal as ehal;
+extern crate panic_semihosting;
 extern crate stm32l4xx_hal as hal;
 
-use cortex_m::asm;
+use crate::ehal::spi::{Mode, Phase, Polarity};
 use crate::hal::prelude::*;
 use crate::hal::spi::Spi;
 use crate::rt::ExceptionFrame;
-use crate::ehal::spi::{Mode, Phase, Polarity};
+use cortex_m::asm;
 
 /// SPI mode
 pub const MODE: Mode = Mode {
@@ -32,7 +32,12 @@ fn main() -> ! {
 
     // TRY the other clock configuration
     // let clocks = rcc.cfgr.freeze(&mut flash.acr);
-    let clocks = rcc.cfgr.sysclk(80.mhz()).pclk1(80.mhz()).pclk2(80.mhz()).freeze(&mut flash.acr);
+    let clocks = rcc
+        .cfgr
+        .sysclk(80.mhz())
+        .pclk1(80.mhz())
+        .pclk2(80.mhz())
+        .freeze(&mut flash.acr);
 
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
@@ -44,7 +49,6 @@ fn main() -> ! {
     let mut dc = gpiob
         .pb1
         .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-
 
     // The `L3gd20` abstraction exposed by the `f3` crate requires a specific pin configuration to
     // be used and won't accept any configuration other than the one used here. Trying to use a

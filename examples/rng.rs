@@ -2,15 +2,15 @@
 #![no_main]
 
 extern crate panic_halt;
+extern crate stm32l4xx_hal as hal;
 
 use core::fmt;
 use cortex_m_rt::entry;
 
-use stm32l4xx_hal as hal;
 use crate::hal::stm32;
 use crate::hal::prelude::*;
 use crate::hal::delay::Delay;
-use crate::hal::serial::Serial;
+use crate::hal::serial::{Serial, Config};
 
 macro_rules! uprint {
     ($serial:expr, $($arg:tt)*) => {
@@ -50,7 +50,7 @@ fn main() -> ! {
     let serial = Serial::usart1(
         device.USART1,
         (tx, rx),
-        baud_rate.bps(),
+        Config::default().baudrate(baud_rate.bps()),
         clocks,
         &mut rcc.apb2
     );
@@ -78,4 +78,3 @@ fn main() -> ! {
         timer.delay_ms(some_time);
     }
 }
-
