@@ -540,17 +540,6 @@ impl CFGR {
             // Calculate PLL multiplier and create a best effort pll config, just multiply n
             let plln = (2 * self.sysclk.unwrap_or(HSI)) / clock_speed;
 
-            // Sanity-checks per RM0394, 6.4.4 PLL configuration register (RCC_PLLCFGR)
-            assert!(plln >= 8); // Allowed min multiplier
-            assert!(plln <= 86); // Allowed max multiplier
-            assert!(clock_speed >= 4_000_000); // VCO input clock min
-            assert!(clock_speed <= 16_000_000); // VCO input clock max
-            assert!(clock_speed * plln >= 64_000_000); // VCO output min
-            assert!(clock_speed * plln <= 334_000_000); // VCO output max
-
-            // Check that the requested frequency is correct
-            // assert!(clock_speed / 2 * plln == self.sysclk.unwrap_or(HSI));
-
             Some(PllConfig {
                 m: 0b0,
                 r: 0b0,
@@ -634,6 +623,21 @@ impl CFGR {
 
         let sysclk_src_bits;
         if let Some(pllconf) = pllconf {
+            // Sanity-checks per RM0394, 6.4.4 PLL configuration register (RCC_PLLCFGR)
+            let r = 1 << (pllconf.r + 1);
+            let clock_speed = clock_speed / (pllconf.m as u32 + 1);
+            let vco = clock_speed * pllconf.n as u32;
+            let output_clock = vco / r;
+
+            assert!(r <= 8); // Allowed max output divider
+            assert!(pllconf.n >= 8); // Allowed min multiplier
+            assert!(pllconf.n <= 86); // Allowed max multiplier
+            assert!(clock_speed >= 4_000_000); // VCO input clock min
+            assert!(clock_speed <= 16_000_000); // VCO input clock max
+            assert!(vco >= 64_000_000); // VCO output min
+            assert!(vco <= 334_000_000); // VCO output max
+            assert!(output_clock <= 80_000_000); // Max output clock
+
             // use PLL as source
             sysclk_src_bits = 0b11;
             rcc.cr.modify(|_, w| w.pllon().clear_bit());
