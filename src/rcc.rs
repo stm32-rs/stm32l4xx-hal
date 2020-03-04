@@ -1,7 +1,5 @@
 //! Reset and Clock Control
 
-use core::cmp;
-
 use crate::stm32::{rcc, RCC};
 use cast::u32;
 
@@ -37,7 +35,7 @@ pub enum MsiFreq {
 }
 
 impl MsiFreq {
-    pub fn to_hertz(self) -> Hertz {
+    fn to_hertz(self) -> Hertz {
         Hertz(match self {
             Self::RANGE100K => 100_000,
             Self::RANGE200K => 200_000,
@@ -141,9 +139,12 @@ impl CRRCR {
         unsafe { &(*RCC::ptr()).crrcr }
     }
 
+    /// Checks if the 48 MHz HSI is enabled
     pub fn is_hsi48_on(&mut self) -> bool {
         self.crrcr().read().hsi48on().bit()
     }
+
+    /// Checks if the 48 MHz HSI is ready
     pub fn is_hsi48_ready(&mut self) -> bool {
         self.crrcr().read().hsi48rdy().bit()
     }
@@ -175,6 +176,7 @@ impl AHB1 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb1enr }
     }
+
     // TODO remove `allow`
     #[allow(dead_code)]
     pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
@@ -212,6 +214,7 @@ impl AHB3 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ahb3enr }
     }
+
     // TODO remove `allow`
     #[allow(dead_code)]
     pub(crate) fn rstr(&mut self) -> &rcc::AHB3RSTR {
@@ -346,12 +349,13 @@ impl CFGR {
         self
     }
 
-    /// Enable the 48Mh USB, RNG, SDMMC clock source. Not available on all stm32l4x6 series
+    /// Enable the 48 MHz USB, RNG, SDMMC HSI clock source. Not available on all stm32l4x6 series
     pub fn hsi48(mut self, on: bool) -> Self {
         self.hsi48 = on;
         self
     }
 
+    /// Enables the MSI with the specified speed
     pub fn msi(mut self, range: MsiFreq) -> Self {
         self.msi = Some(range);
         self
@@ -422,12 +426,15 @@ impl CFGR {
         }
 
         if let Some(cfg) = &self.lse {
-            if cfg.bypass == CrystalBypass::Disable {
-                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
-            } else {
-                rcc.bdcr
-                    .modify(|_, w| w.lseon().set_bit().lsebyp().set_bit());
-            }
+            rcc.bdcr.modify(|_, w| {
+                w.lseon().set_bit();
+
+                if cfg.bypass == CrystalBypass::Enable {
+                    w.lsebyp().set_bit();
+                }
+
+                w
+            });
 
             // Wait until LSE is running
             while rcc.bdcr.read().lserdy().bit_is_clear() {}
@@ -435,12 +442,15 @@ impl CFGR {
 
         // If HSE is available, set it up
         if let Some(hse_cfg) = &self.hse {
-            if hse_cfg.bypass == CrystalBypass::Disable {
-                rcc.cr.write(|w| w.hseon().set_bit());
-            } else {
-                // Bypass clock
-                rcc.cr.write(|w| w.hseon().set_bit().hsebyp().set_bit());
-            }
+            rcc.cr.write(|w| {
+                w.hseon().set_bit();
+
+                if hse_cfg.bypass == CrystalBypass::Enable {
+                    w.hsebyp().set_bit();
+                }
+
+                w
+            });
 
             while rcc.cr.read().hserdy().bit_is_clear() {}
         }
@@ -468,7 +478,7 @@ impl CFGR {
             while rcc.cr.read().msirdy().bit_is_clear() {}
         }
 
-        // Turn on USB, RNG Clock using the HSI48 CLK source (default)
+        // Turn on USB, RNG Clock using the HSI48 CLK source
         if self.hsi48 {
             // p. 180 in ref-manual
             rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
@@ -481,8 +491,6 @@ impl CFGR {
         if let Some(MsiFreq::RANGE48M) = self.msi {
             unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b11)) };
         }
-
-        //TODO proper clk48sel and other selects
 
         //
         // 2. Setup PLL
@@ -529,24 +537,27 @@ impl CFGR {
         };
 
         let pllconf = if self.pll_config.is_none() {
+            // Calculate PLL multiplier and create a best effort pll config, just multiply n
             let plln = (2 * self.sysclk.unwrap_or(HSI)) / clock_speed;
-            let plln = cmp::min(cmp::max(plln, 2), 16);
-            if plln == 2 {
-                None
-            } else {
-                // create a best effort pll config, just multiply n
-                // TODO should we reject this configuration as the clocks stored in RCC could cause timing issues?
-                let conf = PllConfig {
-                    m: 0b0,
-                    r: 0b0,
-                    n: plln as u8,
-                };
 
-                Some(conf)
-            }
+            // Sanity-checks per RM0394, 6.4.4 PLL configuration register (RCC_PLLCFGR)
+            assert!(plln >= 8); // Allowed min multiplier
+            assert!(plln <= 86); // Allowed max multiplier
+            assert!(clock_speed >= 4_000_000); // VCO input clock min
+            assert!(clock_speed <= 16_000_000); // VCO input clock max
+            assert!(clock_speed * plln >= 64_000_000); // VCO output min
+            assert!(clock_speed * plln <= 334_000_000); // VCO output max
+
+            // Check that the requested frequency is correct
+            // assert!(clock_speed / 2 * plln == self.sysclk.unwrap_or(HSI));
+
+            Some(PllConfig {
+                m: 0b0,
+                r: 0b0,
+                n: plln as u8,
+            })
         } else {
-            let conf = self.pll_config.unwrap();
-            Some(conf)
+            self.pll_config
         };
 
         let sysclk = self.sysclk.unwrap_or(HSI);
