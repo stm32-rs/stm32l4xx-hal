@@ -4,6 +4,7 @@ use crate::stm32::{rcc, RCC};
 use cast::u32;
 
 use crate::flash::ACR;
+use crate::pwr::Pwr;
 use crate::time::Hertz;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -411,7 +412,7 @@ impl CFGR {
     }
 
     /// Freezes the clock configuration, making it effective
-    pub fn freeze(&self, acr: &mut ACR) -> Clocks {
+    pub fn freeze(&self, acr: &mut ACR, pwr: &mut Pwr) -> Clocks {
         let rcc = unsafe { &*RCC::ptr() };
 
         //
@@ -426,11 +427,21 @@ impl CFGR {
         }
 
         if let Some(cfg) = &self.lse {
+            // TODO: Setup CSS
+
+            // 1. Unlock the backup domain
+            pwr.cr1.reg().modify(|_, w| w.dbp().set_bit());
+
+            // 2. Setup the LSE
             rcc.bdcr.modify(|_, w| {
                 w.lseon().set_bit();
 
                 if cfg.bypass == CrystalBypass::Enable {
                     w.lsebyp().set_bit();
+                } else {
+                    unsafe {
+                        w.lsedrv().bits(0b11);
+                    } // Max drive strength, TODO: should probably be settable
                 }
 
                 w
