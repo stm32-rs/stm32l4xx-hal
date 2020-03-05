@@ -551,11 +551,7 @@ impl CFGR {
             // Calculate PLL multiplier and create a best effort pll config, just multiply n
             let plln = (2 * self.sysclk.unwrap_or(HSI)) / clock_speed;
 
-            Some(PllConfig {
-                m: 0b0,
-                r: 0b0,
-                n: plln as u8,
-            })
+            Some(PllConfig::new(1, plln as u8, PllDivider::Div2))
         } else {
             self.pll_config
         };
@@ -635,7 +631,7 @@ impl CFGR {
         let sysclk_src_bits;
         if let Some(pllconf) = pllconf {
             // Sanity-checks per RM0394, 6.4.4 PLL configuration register (RCC_PLLCFGR)
-            let r = 1 << (pllconf.r + 1);
+            let r = pllconf.r.to_division_factor();
             let clock_speed = clock_speed / (pllconf.m as u32 + 1);
             let vco = clock_speed * pllconf.n as u32;
             let output_clock = vco / r;
@@ -667,7 +663,7 @@ impl CFGR {
                     .pllm()
                     .bits(pllconf.m)
                     .pllr()
-                    .bits(pllconf.r)
+                    .bits(pllconf.r.to_bits())
                     .plln()
                     .bits(pllconf.n)
             });
@@ -727,14 +723,57 @@ impl CFGR {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// PLL output divider options
+pub enum PllDivider {
+    /// Divider PLL output by 2
+    Div2 = 0b00,
+    /// Divider PLL output by 4
+    Div4 = 0b01,
+    /// Divider PLL output by 6
+    Div6 = 0b10,
+    /// Divider PLL output by 8
+    Div8 = 0b11,
+}
+
+impl PllDivider {
+    fn to_bits(self) -> u8 {
+        self as u8
+    }
+
+    fn to_division_factor(self) -> u32 {
+        match self {
+            Self::Div2 => 2,
+            Self::Div4 => 4,
+            Self::Div6 => 6,
+            Self::Div8 => 8,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 /// Pll Configuration - Calculation = ((SourceClk / m) * n) / r
 pub struct PllConfig {
-    /// Main PLL Division factor
-    pub m: u8,
-    /// Main Pll Multiplication factor
-    pub n: u8,
-    /// Main PLL division factor for PLLCLK (system clock)
-    pub r: u8,
+    // Main PLL division factor
+    m: u8,
+    // Main PLL multiplication factor
+    n: u8,
+    // Main PLL division factor for PLLCLK (system clock)
+    r: PllDivider,
+}
+
+impl PllConfig {
+    /// Create a new PLL config from manual settings
+    ///
+    /// PLL calculation = ((SourceClk / input_divider) * multiplier) / output_divider
+    pub fn new(input_divider: u8, multiplier: u8, output_divider: PllDivider) -> Self {
+        assert!(input_divider > 0);
+
+        PllConfig {
+            m: input_divider - 1,
+            n: multiplier,
+            r: output_divider,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -770,8 +809,6 @@ pub struct Clocks {
     lse: bool,
     pclk1: Hertz,
     pclk2: Hertz,
-    // TODO remove `allow`
-    #[allow(dead_code)]
     ppre1: u8,
     ppre2: u8,
     sysclk: Hertz,
