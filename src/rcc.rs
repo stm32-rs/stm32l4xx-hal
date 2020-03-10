@@ -442,12 +442,25 @@ impl CFGR {
         // 1. Setup clocks
         //
 
-        // Turn on the internal 32khz lsi oscillator
-        if self.lsi {
-            rcc.csr.modify(|_, w| w.lsion().set_bit());
-            // Wait until LSI is running
-            while rcc.csr.read().lsirdy().bit_is_clear() {}
-        }
+        // Turn on the internal 32 kHz LSI oscillator
+        let lsi_used = match (self.lsi, &self.lse) {
+            (true, _)
+            | (
+                _,
+                &Some(LseConfig {
+                    bypass: _,
+                    css: ClockSecuritySystem::Enable,
+                }),
+            ) => {
+                rcc.csr.modify(|_, w| w.lsion().set_bit());
+
+                // Wait until LSI is running
+                while rcc.csr.read().lsirdy().bit_is_clear() {}
+
+                true
+            }
+            _ => false,
+        };
 
         if let Some(lse_cfg) = &self.lse {
             // 1. Unlock the backup domain
@@ -475,11 +488,6 @@ impl CFGR {
 
             // Setup CSS
             if lse_cfg.css == ClockSecuritySystem::Enable {
-                // Start LSI if it is not already running
-                rcc.csr.modify(|_, w| w.lsion().set_bit());
-                // Wait until LSI is running
-                while rcc.csr.read().lsirdy().bit_is_clear() {}
-
                 // Enable CSS and interrupt
                 rcc.bdcr.modify(|_, w| w.lsecsson().set_bit());
                 rcc.cier.modify(|_, w| w.lsecssie().set_bit());
@@ -765,7 +773,7 @@ impl CFGR {
 
         Clocks {
             hclk: Hertz(hclk),
-            lsi: self.lsi,
+            lsi: lsi_used,
             lse: self.lse.is_some(),
             msi: self.msi,
             hsi48: self.hsi48,
