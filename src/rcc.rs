@@ -590,8 +590,7 @@ impl CFGR {
                 let plln = (2 * sysclk) / clock_speed;
 
                 Some(PllConfig::new(1, plln as u8, PllDivider::Div2))
-            }
-            else {
+            } else {
                 None
             }
         } else {
@@ -748,6 +747,22 @@ impl CFGR {
         }
 
         while rcc.cfgr.read().sws().bits() != sysclk_src_bits {}
+
+        //
+        // 3. Shutdown unused clocks that have auto-started
+        //
+
+        // MSI always starts on reset
+        if self.msi.is_none() {
+            unsafe {
+                rcc.cr
+                    .modify(|_, w| w.msion().clear_bit().msipllen().clear_bit())
+            }
+        }
+
+        //
+        // 4. Clock setup done!
+        //
 
         Clocks {
             hclk: Hertz(hclk),
