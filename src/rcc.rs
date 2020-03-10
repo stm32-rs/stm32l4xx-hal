@@ -584,6 +584,12 @@ impl CFGR {
             }
         };
 
+        // Check if HSI should be started
+        if pll_source == PllSource::HSI16 || (self.msi.is_none() && self.hse.is_none()) {
+            rcc.cr.write(|w| w.hsion().set_bit());
+            while rcc.cr.read().hsirdy().bit_is_clear() {}
+        }
+
         let pllconf = if self.pll_config.is_none() {
             if let Some(sysclk) = self.sysclk {
                 // Calculate PLL multiplier and create a best effort pll config, just multiply n
@@ -693,11 +699,6 @@ impl CFGR {
 
             let pllsrc_bits = pll_source.to_pllsrc();
 
-            if pll_source == PllSource::HSI16 {
-                rcc.cr.write(|w| w.hsion().set_bit());
-                while rcc.cr.read().hsirdy().bit_is_clear() {}
-            }
-
             rcc.pllcfgr.modify(|_, w| unsafe {
                 w.pllsrc()
                     .bits(pllsrc_bits)
@@ -754,10 +755,8 @@ impl CFGR {
 
         // MSI always starts on reset
         if self.msi.is_none() {
-            unsafe {
-                rcc.cr
-                    .modify(|_, w| w.msion().clear_bit().msipllen().clear_bit())
-            }
+            rcc.cr
+                .modify(|_, w| w.msion().clear_bit().msipllen().clear_bit())
         }
 
         //
@@ -775,6 +774,7 @@ impl CFGR {
             ppre1: ppre1,
             ppre2: ppre2,
             sysclk: Hertz(sysclk),
+            pll_source: pllconf.map(|_| pll_source),
         }
     }
 }
@@ -871,6 +871,7 @@ pub struct Clocks {
     ppre1: u8,
     ppre2: u8,
     sysclk: Hertz,
+    pll_source: Option<PllSource>,
 }
 
 impl Clocks {
