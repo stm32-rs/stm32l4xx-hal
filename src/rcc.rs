@@ -552,22 +552,18 @@ impl CFGR {
         let (clock_speed, pll_source) = if let Some(source) = self.pll_source {
             match source {
                 PllSource::HSE => {
-                    assert!(self.hse.is_some());
-
                     if let Some(hse) = &self.hse {
                         (hse.speed, source)
                     } else {
-                        unreachable!()
+                        panic!("HSE selected as PLL source, but not enabled");
                     }
                 }
                 PllSource::HSI16 => (HSI, source),
                 PllSource::MSI => {
-                    assert!(self.msi.is_some());
-
                     if let Some(msi) = self.msi {
                         (msi.to_hertz().0, source)
                     } else {
-                        unreachable!()
+                        panic!("MSI selected as PLL source, but not enabled");
                     }
                 }
             }
