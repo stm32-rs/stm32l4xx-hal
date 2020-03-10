@@ -25,28 +25,28 @@ use crate::stm32::UART4;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::stm32::UART5;
 
-use crate::gpio::gpioa::{PA10, PA11, PA12, PA0, PA1, PA2, PA3, PA9};
+use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA12, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB3, PB4, PB6, PB7};
 use crate::gpio::gpiod::{PD3, PD4, PD5, PD6};
 use crate::gpio::{Alternate, Floating, Input, AF7};
 
 #[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpioa::{PA6};
+use crate::gpio::gpioa::PA6;
 
 #[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpiob::{PB1, PB10, PB11, PB13, PB14};
 
 #[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpiod::{PD2, PD11, PD12};
+use crate::gpio::gpiod::{PD11, PD12, PD2};
 
 #[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpioc::{PC4, PC5, PC10, PC11};
+use crate::gpio::gpioc::{PC10, PC11, PC4, PC5};
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpioa::{PA15};
+use crate::gpio::gpioa::PA15;
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpiob::{PB5};
+use crate::gpio::gpiob::PB5;
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpioc::PC12;
@@ -460,6 +460,16 @@ macro_rules! hal {
                     apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
                     apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
 
+                    // Reset other registers to disable advanced USART features
+                    usart.cr1.reset();
+                    usart.cr2.reset();
+                    usart.cr3.reset();
+
+                    // Configure baud rate
+                    let brr = clocks.$pclkX().0 / config.baudrate.0;
+                    assert!(brr >= 16, "impossible baud rate");
+                    usart.brr.write(|w| unsafe { w.bits(brr) });
+
                     // enable DMA transfers
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
@@ -473,10 +483,7 @@ macro_rules! hal {
                     // Enable One bit sampling method
                     usart.cr3.write(|w| w.onebit().set_bit());
 
-                    // Configure baud rate
-                    let brr = clocks.$pclkX().0 / config.baudrate.0;
-                    assert!(brr >= 16, "impossible baud rate");
-                    usart.brr.write(|w| unsafe { w.bits(brr) });
+
 
                     // Configure parity and word length
                     // Unlike most uart devices, the "word length" of this usart device refers to
@@ -671,52 +678,40 @@ macro_rules! hal {
                     B: StableDeref<Target = [H; 2]> + DerefMut,
                     H: AsMutSlice<Element = u8>
                 {
-                    {
-                        chan.cmar().write(|w| {
-                            w.ma().bits(buffer[0].as_mut_slice().as_ptr() as usize as u32)
-                        });
-                        chan.cndtr().write(|w|{
-                            w.ndt().bits(u16(buffer[0].as_mut_slice().len() * 2).unwrap())
-                        });
-                        chan.cpar().write(|w| unsafe {
-                            w.pa().bits(&(*$USARTX::ptr()).rdr as *const _ as usize as u32)
-                        });
+                    let buf = buffer[0].as_mut_slice();
+                    chan.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).rdr as *const _ as u32 }, false);
+                    chan.set_memory_address(buf.as_ptr() as u32, true);
+                    chan.set_transfer_length(buf.len() * 2);
 
-                        // Tell DMA to request from serial
-                        chan.cselr().write(|w| {
-                            w.$dmacsr().bits(0b0010)
-                        });
+                    // Tell DMA to request from serial
+                    chan.cselr().write(|w| {
+                        w.$dmacsr().bits(0b0010)
+                    });
 
-                        // TODO can we weaken this compiler barrier?
-                        // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                        // the next statement, which starts the DMA transfer
-                        atomic::compiler_fence(Ordering::SeqCst);
+                    // TODO can we weaken this compiler barrier?
+                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                    // the next statement, which starts the DMA transfer
+                    atomic::compiler_fence(Ordering::SeqCst);
 
-                        chan.ccr().modify(|_, w| unsafe {
-                            w.mem2mem()
-                                .clear_bit()
-                                // 00: Low, 01: Medium, 10: High, 11: Very high
-                                .pl()
-                                .bits(0b01)
-                                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                                .msize()
-                                .bits(0b00)
-                                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                                .psize()
-                                .bits(0b00)
-                                // incr mem address
-                                .minc()
-                                .set_bit()
-                                .pinc()
-                                .clear_bit()
-                                .circ()
-                                .set_bit()
-                                .dir()
-                                .clear_bit()
-                                .en()
-                                .set_bit()
-                        });
-                    }
+                    chan.ccr().modify(|_, w| unsafe {
+                        w.mem2mem()
+                            .clear_bit()
+                            // 00: Low, 01: Medium, 10: High, 11: Very high
+                            .pl()
+                            .bits(0b01)
+                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                            .msize()
+                            .bits(0b00)
+                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                            .psize()
+                            .bits(0b00)
+                            .circ()
+                            .set_bit()
+                            .dir()
+                            .clear_bit()
+                    });
+
+                    chan.start();
 
                     CircBuffer::new(buffer, chan)
                 }

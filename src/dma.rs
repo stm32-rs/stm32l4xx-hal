@@ -140,6 +140,43 @@ macro_rules! dma {
                     pub struct $CX { _0: () }
 
                     impl $CX {
+                        /// Associated peripheral `address`
+                        ///
+                        /// `inc` indicates whether the address will be incremented after every byte transfer
+                        pub fn set_peripheral_address(&mut self, address: u32, inc: bool) {
+                            self.cpar().write(|w| w.pa().bits(address) );
+                            self.ccr().modify(|_, w| w.pinc().bit(inc) );
+                        }
+
+                        /// `address` where from/to data will be read/write
+                        ///
+                        /// `inc` indicates whether the address will be incremented after every byte transfer
+                        pub fn set_memory_address(&mut self, address: u32, inc: bool) {
+                            self.cmar().write(|w| w.ma().bits(address) );
+                            self.ccr().modify(|_, w| w.minc().bit(inc) );
+                        }
+
+                        /// Number of bytes to transfer
+                        pub fn set_transfer_length(&mut self, len: usize) {
+                            self.cndtr().write(|w| w.ndt().bits(cast::u16(len).unwrap()));
+                        }
+
+                        /// Starts the DMA transfer
+                        pub fn start(&mut self) {
+                            self.ccr().modify(|_, w| w.en().set_bit() );
+                        }
+
+                        /// Stops the DMA transfer
+                        pub fn stop(&mut self) {
+                            self.ifcr().write(|w| w.$cgifX().set_bit());
+                            self.ccr().modify(|_, w| w.en().clear_bit() );
+                        }
+
+                        /// Returns `true` if there's a transfer in progress
+                        pub fn in_progress(&self) -> bool {
+                            self.isr().$tcifX().bit_is_clear()
+                        }
+
                         pub fn listen(&mut self, event: Event) {
                             match event {
                                 Event::HalfTransfer => self.ccr().modify(|_, w| w.htie().set_bit()),
