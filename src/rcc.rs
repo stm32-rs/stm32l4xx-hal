@@ -589,10 +589,15 @@ impl CFGR {
         };
 
         let pllconf = if self.pll_config.is_none() {
-            // Calculate PLL multiplier and create a best effort pll config, just multiply n
-            let plln = (2 * self.sysclk.unwrap_or(HSI)) / clock_speed;
+            if let Some(sysclk) = self.sysclk {
+                // Calculate PLL multiplier and create a best effort pll config, just multiply n
+                let plln = (2 * sysclk) / clock_speed;
 
-            Some(PllConfig::new(1, plln as u8, PllDivider::Div2))
+                Some(PllConfig::new(1, plln as u8, PllDivider::Div2))
+            }
+            else {
+                None
+            }
         } else {
             self.pll_config
         };
