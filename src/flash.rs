@@ -1,5 +1,36 @@
-//! Flash memory
+//! Flash memory module
+//!
+//! Example usage of flash programming interface:
+//!
+//! ```
+//! fn program_region(mut flash: flash::Parts) -> Result<(), flash::FlashError> {
+//!     // Unlock the flashing module
+//!     let mut prog = flash.keyr.unlock_flash(&mut flash.sr, &mut flash.cr)?;
+//!
+//!     let page = flash::FlashPage(5);
+//!
+//!     // Perform the erase and programing operation
+//!     prog.erase_page(page)?;
+//!     let data = [
+//!         0x1111_1112_1113_1114,
+//!         0x2221_2222_2223_2224,
+//!         0x3331_3332_3333_3334,
+//!     ];
+//!     prog.program_dword(page.to_address(), &data)?;
+//!
+//!     // Check result (not needed, but done for this example)
+//!     let addr = page.to_address() as *const u64;
+//!     assert!(unsafe { core::ptr::read(addr) } == data[0]);
+//!     assert!(unsafe { core::ptr::read(addr.offset(1)) } == data[1]);
+//!     assert!(unsafe { core::ptr::read(addr.offset(2)) } == data[2]);
+//!
+//!     Ok(())
+//! }
+//! ```
 
+#![deny(missing_docs)]
+
+use crate::rcc::Clocks;
 use crate::stm32::{flash, FLASH};
 use core::{ops::Drop, ptr};
 
@@ -96,7 +127,7 @@ impl KEYR {
         &'a mut self,
         sr: &'a mut SR,
         cr: &'a mut CR,
-    ) -> Result<FlashProgramming<'a>, ()> {
+    ) -> Result<FlashProgramming<'a>, FlashError> {
         let keyr = self.keyr();
         unsafe {
             keyr.write(|w| w.bits(FLASH_KEY1));
@@ -106,16 +137,17 @@ impl KEYR {
         if cr.cr().read().lock().bit_is_clear() {
             Ok(FlashProgramming { sr, cr })
         } else {
-            Err(())
+            Err(FlashError::UnableToUnlock)
         }
     }
 }
 
-/// The flash page
+/// Flash page representation
+#[derive(Copy, Clone, Debug)]
 pub struct FlashPage(pub u8);
 
 impl FlashPage {
-    /// Flash page to physical address
+    /// This gives the starting address of a flash page in physical address
     pub fn to_address(&self) -> usize {
         0x0800_0000 + self.0 as usize * 2048
     }
@@ -154,6 +186,8 @@ impl<'a> FlashProgramming<'a> {
         if sr.bsy().bit_is_set() {
             Err(FlashError::Busy)
         } else if sr.pgaerr().bit_is_set() {
+            Err(FlashError::AlignmentError)
+        } else if sr.progerr().bit_is_set() {
             Err(FlashError::ProgrammingError)
         } else if sr.wrperr().bit_is_set() {
             Err(FlashError::WriteProtectionError)
@@ -178,33 +212,32 @@ impl<'a> FlashProgramming<'a> {
 
     /// Program double-word (64-bit) value at a specified address. `address` must be an address of
     /// a location in the flash memory aligned to 8 bytes.
-    pub fn program_dword(&mut self, address: usize, data: u64) -> Result<(), FlashError> {
-        if address & 0x7 != 0 {
-            return Err(FlashError::AlignmentError);
-        }
-
-        if unsafe { ptr::read(address as *const u64) } != 0xFFFF_FFFF_FFFF_FFFF {
-            return Err(FlashError::ProgrammingError);
-        }
+    pub fn program_dword(&mut self, address: usize, data: &[u64]) -> Result<(), FlashError> {
+        // NB: The check for alignment of the address, and that the flash is erased is made by the
+        // flash controller. The `wait` function will return the proper error codes.
+        let mut address = address as *mut u32;
 
         self.cr.cr().modify(|_, w| w.pg().set_bit());
 
-        unsafe {
-            ptr::write_volatile(address as *mut u32, data as u32);
-            ptr::write_volatile((address + 4) as *mut u32, (data >> 32) as u32);
-        }
+        for dword in data {
+            unsafe {
+                ptr::write_volatile(address, *dword as u32);
+                ptr::write_volatile(address.add(1), (*dword >> 32) as u32);
 
-        let res = self.wait();
+                address = address.add(2);
+            }
+
+            self.wait()?;
+
+            if self.sr.sr().read().eop().bit_is_set() {
+                self.sr.sr().modify(|_, w| w.eop().clear_bit());
+            }
+        }
 
         self.cr.cr().modify(|_, w| w.pg().clear_bit());
 
-        res
+        Ok(())
     }
-
-    // TODO:
-    // pub fn fast_program(&self, address: usize, data: &[u64]) -> Result<(), FlashError> {
-    //     unimplemented!()
-    // }
 
     /// Erase all flash pages
     pub fn erase_all_pages(&mut self) -> Result<(), FlashError> {
@@ -222,8 +255,8 @@ impl<'a> FlashProgramming<'a> {
 /// Flash errors
 #[derive(Copy, Clone, Debug)]
 pub enum FlashError {
-    /// Timeout while waiting for the completion of the operation
-    Timeout,
+    /// The unlock procedure failed
+    UnableToUnlock,
     /// Address to be programmed contains a value different from '0xFFFF_FFFF_FFFF_FFFF'
     /// before programming
     ProgrammingError,
@@ -231,8 +264,6 @@ pub enum FlashError {
     AlignmentError,
     /// Programming a write-protected address of the Flash memory
     WriteProtectionError,
-    // /// Fast programming error
-    // FastProgrammingError,
     /// Programming and erase controller is busy
     Busy,
 }
