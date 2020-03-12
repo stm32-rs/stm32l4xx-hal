@@ -16,7 +16,7 @@
 //!         0x2221_2222_2223_2224,
 //!         0x3331_3332_3333_3334,
 //!     ];
-//!     prog.program_dword(page.to_address(), &data)?;
+//!     prog.program(page.to_address(), &data)?;
 //!
 //!     // Check result (not needed, but done for this example)
 //!     let addr = page.to_address() as *const u64;
@@ -211,9 +211,9 @@ impl<'a> FlashProgramming<'a> {
         res
     }
 
-    /// Program double-word (64-bit) value at a specified address. `address` must be an address of
-    /// a location in the flash memory aligned to 8 bytes.
-    pub fn program_dword(&mut self, address: usize, data: &[u64]) -> Result<(), FlashError> {
+    /// Program a slice of double-words (64-bit) starting at a specified address. `address` must be
+    /// an address of a location in the flash memory aligned to 64-bits.
+    pub fn program(&mut self, address: usize, data: &[u64]) -> Result<(), FlashError> {
         // NB: The check for alignment of the address, and that the flash is erased is made by the
         // flash controller. The `wait` function will return the proper error codes.
         let mut address = address as *mut u32;
