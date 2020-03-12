@@ -142,7 +142,8 @@ impl KEYR {
     }
 }
 
-/// Flash page representation
+/// Flash page representation where each flash page represents a region of 2048 bytes. The flash
+/// controller can only erase on a page basis.
 #[derive(Copy, Clone, Debug)]
 pub struct FlashPage(pub u8);
 
@@ -239,7 +240,8 @@ impl<'a> FlashProgramming<'a> {
         Ok(())
     }
 
-    /// Erase all flash pages
+    /// Erase all flash pages, note that this will erase the current running program if it is not
+    /// called from a program running in RAM.
     pub fn erase_all_pages(&mut self) -> Result<(), FlashError> {
         self.cr.cr().modify(|_, w| w.mer1().set_bit());
         self.cr.cr().modify(|_, w| w.start().set_bit());
@@ -252,7 +254,7 @@ impl<'a> FlashProgramming<'a> {
     }
 }
 
-/// Flash errors
+/// Flash operation errors
 #[derive(Copy, Clone, Debug)]
 pub enum FlashError {
     /// The unlock procedure failed
@@ -260,7 +262,7 @@ pub enum FlashError {
     /// Address to be programmed contains a value different from '0xFFFF_FFFF_FFFF_FFFF'
     /// before programming
     ProgrammingError,
-    /// Alignment error
+    /// Alignment error, i.e. the address is not 64-bit aligned
     AlignmentError,
     /// Programming a write-protected address of the Flash memory
     WriteProtectionError,
