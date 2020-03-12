@@ -149,7 +149,7 @@ pub struct FlashPage(pub u8);
 
 impl FlashPage {
     /// This gives the starting address of a flash page in physical address
-    pub fn to_address(&self) -> usize {
+    pub const fn to_address(&self) -> usize {
         0x0800_0000 + self.0 as usize * 2048
     }
 }
