@@ -1,4 +1,20 @@
 //! CRC calculation unit
+//!
+//! Usage example:
+//! ```
+//! let crc = dp.CRC.constrain(&mut rcc.ahb1);
+//!
+//! // Lets use the CRC-16-CCITT polynomial
+//! let mut crc = crc.polynomial(crc::Polynomial::L16(0x1021)).freeze();
+//!
+//! let data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+//! crc.feed(&data);
+//!
+//! let result = crc.result();
+//! assert!(result == 0x78cb);
+//! ```
+
+#![deny(missing_docs)]
 
 use crate::rcc;
 use crate::stm32::CRC;
@@ -25,20 +41,29 @@ impl CrcExt for CRC {
     }
 }
 
+/// Polynomial settings.
 pub enum Polynomial {
+    /// 7-bit polynomial, only the lowest 7 bits are valid
     L7(u8),
+    /// 8-bit polynomial
     L8(u8),
+    /// 16-bit polynomial
     L16(u16),
+    /// 32-bit polynomial
     L32(u32),
 }
 
+/// Bit reversal settings.
 pub enum BitReversal {
+    /// Reverse bits by byte
     ByByte,
+    /// Reverse bits by half-word
     ByHalfWord,
+    /// Reverse bits by word
     ByWord,
 }
 
-/// CRC configuration
+/// CRC configuration structure, uses builder pattern.
 pub struct Config {
     initial_value: u32,
     polynomial: Polynomial,
@@ -47,38 +72,43 @@ pub struct Config {
 }
 
 impl Config {
+    /// Sets the initial value of the CRC.
     pub fn initial_value(mut self, init: u32) -> Self {
         self.initial_value = init;
 
         self
     }
 
+    /// Sets the polynomial of the CRC.
     pub fn polynomial(mut self, polynomial: Polynomial) -> Self {
         self.polynomial = polynomial;
 
         self
     }
 
+    /// Enables bit reversal of the inputs.
     pub fn input_bit_reversal(mut self, rev: BitReversal) -> Self {
         self.input_bit_reversal = Some(rev);
 
         self
     }
 
+    /// Enables bit reversal of the outputs.
     pub fn output_bit_reversal(mut self, rev: bool) -> Self {
         self.output_bit_reversal = rev;
 
         self
     }
 
+    /// Freezes the peripheral, making the configuration take effect.
     pub fn freeze(self) -> Crc {
         let crc = unsafe { &(*CRC::ptr()) };
 
-        let (poly, poly_bits) = match self.polynomial {
-            Polynomial::L7(val) => ((val & 0x7f) as u32, 0b11),
-            Polynomial::L8(val) => (val as u32, 0b10),
-            Polynomial::L16(val) => (val as u32, 0b01),
-            Polynomial::L32(val) => (val, 0b00),
+        let (poly, poly_bits, init) = match self.polynomial {
+            Polynomial::L7(val) => ((val & 0x7f) as u32, 0b11, self.initial_value & 0x7f),
+            Polynomial::L8(val) => (val as u32, 0b10, self.initial_value & 0xff),
+            Polynomial::L16(val) => (val as u32, 0b01, self.initial_value & 0xffff),
+            Polynomial::L32(val) => (val, 0b00, self.initial_value),
         };
 
         let in_rev_bits = match self.input_bit_reversal {
@@ -88,11 +118,8 @@ impl Config {
             Some(BitReversal::ByWord) => 0b11,
         };
 
-        crc.init
-            .write(|w| unsafe { w.crc_init().bits(self.initial_value) });
-
+        crc.init.write(|w| unsafe { w.crc_init().bits(init) });
         crc.pol.write(|w| unsafe { w.bits(poly) });
-
         crc.cr.write(|w| {
             unsafe {
                 w.rev_in()
@@ -114,52 +141,32 @@ impl Config {
     }
 }
 
-/// Constrained FLASH peripheral
+/// Constrained Crc peripheral.
 pub struct Crc {}
 
 impl Crc {
-    /// This will reset the Crc to its initial condition
+    /// This will reset the Crc to its initial condition.
     #[inline]
     pub fn reset(&mut self) {
         let crc = unsafe { &(*CRC::ptr()) };
 
-        crc.cr.write(|w| w.reset().set_bit());
+        crc.cr.modify(|_, w| w.reset().set_bit());
     }
 
-    /// Feed the Crc with data, this will internally optimize for word writes
+    /// Feed the Crc with data, this will internally optimize for word writes.
     pub fn feed(&mut self, data: &[u8]) {
         let crc = unsafe { &(*CRC::ptr()) };
         for byte in data {
             unsafe {
+                // Workaround with svd2rust, it does not generate the byte interface to the DR
+                // register
                 ptr::write_volatile(&crc.dr as *const _ as *mut u8, *byte);
             }
         }
-
-        // TODO: Why does this corrupt the DWARF output of the generated elf? Ah, compiler bug.
-        // Will be reported.
-        //
-        // let (prefix, words, suffix) = unsafe { data.align_to::<u32>() };
-
-        // // Workaround with svd2rust, it does not generate the byte interface to the DR register
-        // unsafe {
-        //     for byte in prefix {
-        //         ptr::write_volatile(&crc.dr as *const _ as *mut u8, *byte);
-        //     }
-
-        //     for word in words {
-        //         crc.dr.write(|w| w.bits(*word));
-        //     }
-
-        //     for byte in suffix {
-        //         ptr::write_volatile(&crc.dr as *const _ as *mut u8, *byte);
-        //     }
-        // }
     }
 
     /// Get the result of the CRC, depending on the polynomial chosen only a certain amount of the
     /// bits are the result. This will reset the Crc peripheral after use.
-    ///
-    /// TODO: Fix this?
     #[inline]
     pub fn result(&mut self) -> u32 {
         let ret = self.peek_result();
