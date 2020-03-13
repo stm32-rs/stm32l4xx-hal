@@ -20,7 +20,7 @@ use crate::rcc;
 use crate::stm32::CRC;
 use core::ptr;
 
-/// Extension trait to constrain the FLASH peripheral
+/// Extension trait to constrain the FLASH peripheral.
 pub trait CrcExt {
     /// Constrains the CRC peripheral to play nicely with the other abstractions
     fn constrain(self, ahb1: &mut rcc::AHB1) -> Config;
@@ -141,11 +141,11 @@ impl Config {
     }
 }
 
-/// Constrained Crc peripheral.
+/// Constrained CRC peripheral.
 pub struct Crc {}
 
 impl Crc {
-    /// This will reset the Crc to its initial condition.
+    /// This will reset the CRC to its initial condition.
     #[inline]
     pub fn reset(&mut self) {
         let crc = unsafe { &(*CRC::ptr()) };
@@ -153,7 +153,20 @@ impl Crc {
         crc.cr.modify(|_, w| w.reset().set_bit());
     }
 
-    /// Feed the Crc with data, this will internally optimize for word writes.
+    /// This will reset the CRC to its initial condition, however with a specific initial value.
+    /// This is very useful if many task are sharing the CRC peripheral, as one can read out the
+    /// intermediate result, store it until the next time a task runs, and initialize with the
+    /// intermediate result to continue where the task left off.
+    #[inline]
+    pub fn reset_with_inital_value(&mut self, initial_value: u32) {
+        let crc = unsafe { &(*CRC::ptr()) };
+
+        crc.init.write(|w| unsafe { w.crc_init().bits(initial_value) });
+        crc.cr.modify(|_, w| w.reset().set_bit());
+    }
+
+    /// Feed the CRC with data, this will internally optimize for word writes.
+    #[inline]
     pub fn feed(&mut self, data: &[u8]) {
         let crc = unsafe { &(*CRC::ptr()) };
         for byte in data {
@@ -166,7 +179,7 @@ impl Crc {
     }
 
     /// Get the result of the CRC, depending on the polynomial chosen only a certain amount of the
-    /// bits are the result. This will reset the Crc peripheral after use.
+    /// bits are the result. This will reset the CRC peripheral after use.
     #[inline]
     pub fn result(&mut self) -> u32 {
         let ret = self.peek_result();
