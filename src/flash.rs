@@ -169,6 +169,8 @@ impl<'a> Read for FlashProgramming<'a> {
 
     #[inline]
     fn read_native(&self, address: usize, array: &mut [Self::NativeType]) {
+        assert!(address % core::mem::align_of::<Self::NativeType>() == 0);
+
         let mut address = address as *const Self::NativeType;
 
         for data in array {
@@ -213,6 +215,8 @@ impl<'a> WriteErase for FlashProgramming<'a> {
     }
 
     fn write_native(&mut self, address: usize, array: &[Self::NativeType]) -> flash_trait::Result {
+        assert!(address % core::mem::align_of::<Self::NativeType>() == 0);
+
         // NB: The check for alignment of the address, and that the flash is erased is made by the
         // flash controller. The `wait` function will return the proper error codes.
         let mut address = address as *mut u32;
