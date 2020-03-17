@@ -32,8 +32,8 @@
 
 use crate::stm32::{flash, FLASH};
 use crate::traits::flash as flash_trait;
-use core::convert::TryFrom;
-use core::{ops::Drop, ptr};
+use core::convert::{TryFrom, TryInto};
+use core::{mem, ops::Drop, ptr};
 pub use flash_trait::{Error, FlashPage, Read, WriteErase};
 
 /// Extension trait to constrain the FLASH peripheral
@@ -169,8 +169,6 @@ impl<'a> Read for FlashProgramming<'a> {
 
     #[inline]
     fn read_native(&self, address: usize, array: &mut [Self::NativeType]) {
-        assert!(address % core::mem::align_of::<Self::NativeType>() == 0);
-
         let mut address = address as *const Self::NativeType;
 
         for data in array {
@@ -179,6 +177,11 @@ impl<'a> Read for FlashProgramming<'a> {
                 address = address.add(1);
             }
         }
+    }
+
+    #[inline]
+    fn read(&self, address: usize, buf: &mut [u8]) {
+        self.read_native(address, buf);
     }
 }
 
@@ -215,8 +218,6 @@ impl<'a> WriteErase for FlashProgramming<'a> {
     }
 
     fn write_native(&mut self, address: usize, array: &[Self::NativeType]) -> flash_trait::Result {
-        assert!(address % core::mem::align_of::<Self::NativeType>() == 0);
-
         // NB: The check for alignment of the address, and that the flash is erased is made by the
         // flash controller. The `wait` function will return the proper error codes.
         let mut address = address as *mut u32;
@@ -239,6 +240,59 @@ impl<'a> WriteErase for FlashProgramming<'a> {
         }
 
         self.cr.cr().modify(|_, w| w.pg().clear_bit());
+
+        Ok(())
+    }
+
+    fn write(&mut self, address: usize, data: &[u8]) -> flash_trait::Result {
+        let address_offset = address % mem::align_of::<Self::NativeType>();
+        let unaligned_size = (mem::size_of::<Self::NativeType>() - address_offset)
+            % mem::size_of::<Self::NativeType>();
+
+        if unaligned_size > 0 {
+            let unaligned_data = &data[..unaligned_size];
+            // Handle unaligned address data, make it into a native write
+            let mut data = 0xffff_ffff_ffff_ffffu64;
+            for b in unaligned_data {
+                data = (data >> 8) | ((*b as Self::NativeType) << 56);
+            }
+
+            let unaligned_address = address - address_offset;
+            let native = &[data];
+            self.write_native(unaligned_address, native)?;
+        }
+
+        // Handle aligned address data
+        let aligned_data = &data[unaligned_size..];
+        let mut aligned_address = if unaligned_size > 0 {
+            address - address_offset + mem::size_of::<Self::NativeType>()
+        } else {
+            address
+        };
+
+        let mut chunks = aligned_data.chunks_exact(mem::size_of::<Self::NativeType>());
+
+        while let Some(exact_chunk) = chunks.next() {
+            // Write chunks
+            let native = &[Self::NativeType::from_ne_bytes(
+                exact_chunk.try_into().unwrap(),
+            )];
+            self.write_native(aligned_address, native)?;
+            aligned_address += mem::size_of::<Self::NativeType>();
+        }
+
+        let rem = chunks.remainder();
+
+        if rem.len() > 0 {
+            let mut data = 0xffff_ffff_ffff_ffffu64;
+            // Write remainder
+            for b in rem.iter().rev() {
+                data = (data << 8) | *b as Self::NativeType;
+            }
+
+            let native = &[data];
+            self.write_native(aligned_address, native)?;
+        }
 
         Ok(())
     }

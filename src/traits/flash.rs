@@ -20,7 +20,7 @@ pub enum Error {
 pub type Result = core::result::Result<(), Error>;
 
 pub trait Read {
-    /// Native type of the flash for reading with the correct alignment of the memory
+    /// Native type of the flash for reading with the correct alignment of the memory and size
     ///
     /// Can be `u8`, `u16`, `u32`, ..., or any user defined type
     type NativeType;
@@ -28,27 +28,12 @@ pub trait Read {
     /// Read from the flash memory using the native interface
     fn read_native(&self, address: usize, array: &mut [Self::NativeType]);
 
-    // /// read a buffer of bytes from memory
-    // /// checks that the address and buffer size are multiples of native
-    // /// FLASH ReadSize.
-    // fn read(&self, address: usize, buf: &mut [u8]) {
-    //     // TODO: offer a version without restrictions?
-    //     // can round down address, round up buffer length,
-    //     // but where to get the buffer from?
-    //     assert!(buf.len() % ReadSize::to_usize() == 0);
-    //     assert!(address % ReadSize::to_usize() == 0);
-
-    //     for i in (0..buf.len()).step_by(ReadSize::to_usize()) {
-    //         self.read_native(
-    //             address + i,
-    //             GenericArray::from_mut_slice(&mut buf[i..i + ReadSize::to_usize()]),
-    //         );
-    //     }
-    // }
+    /// Read a buffer of bytes from memory
+    fn read(&self, address: usize, buf: &mut [u8]);
 }
 
 pub trait WriteErase {
-    /// Native type of the flash for writing with the correct alignment
+    /// Native type of the flash for writing with the correct alignment and size
     ///
     /// Can be `u8`, `u16`, `u32`, ..., or any user defined type
     type NativeType;
@@ -62,18 +47,7 @@ pub trait WriteErase {
     /// The smallest possible write, depends on platform
     fn write_native(&mut self, address: usize, array: &[Self::NativeType]) -> Result;
 
-    // fn write(&mut self, address: usize, data: &[u8]) -> Result {
-    //     let write_size = WriteSize::to_usize();
-    //     assert!(data.len() % write_size == 0);
-    //     assert!(address % write_size == 0);
-
-    //     for i in (0..data.len()).step_by(write_size) {
-    //         self.write_native(
-    //             address + i,
-    //             GenericArray::from_slice(&data[i..i + write_size]),
-    //             // cs,
-    //         )?;
-    //     }
-    //     Ok(())
-    // }
+    /// Read a buffer of bytes to memory, this uses the native writes internally and if it's not
+    /// the same length and a set of native writes the write will be padded to fill a native write.
+    fn write(&mut self, address: usize, data: &[u8]) -> Result;
 }
