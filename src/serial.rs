@@ -54,7 +54,7 @@ use crate::gpio::gpioc::PC12;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::AF8;
 
-use crate::dma::{dma1, CircBuffer};
+use crate::dma::{dma1, CircBuffer, FrameReader};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
 
@@ -88,13 +88,9 @@ pub enum Error {
     _Extensible,
 }
 
-pub struct FrameReader<BUFFER, CHANNEL> {
-    buffer: BUFFER,
-    channel: CHANNEL,
-}
-
 pub trait Pins<USART> {
     const FLOWCTL: bool;
+    const DEM: bool;
 }
 
 macro_rules! pins {
@@ -112,9 +108,29 @@ macro_rules! pins {
         $(
             impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>, $rts<Alternate<$af, Input<Floating>>>, $cts<Alternate<$af, Input<Floating>>>) {
                 const FLOWCTL: bool = true;
+                const DEM: bool = false;
             }
         )+
     };
+
+    // DEM for RS485 mode
+    ($(
+        $(#[$meta:meta])*
+        $USARTX:ident: (
+            $tx:ident,
+            $rx:ident,
+            $de:ident,
+            $af:ident
+        ),
+    )+) => {
+        $(
+            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>, $de<Alternate<$af, Input<Floating>>>) {
+                const FLOWCTL: bool = false;
+                const DEM: bool = true;
+            }
+        )+
+    };
+
     // No flow control, just Rx+Tx
     ($(
         $(#[$meta:meta])*
@@ -127,6 +143,7 @@ macro_rules! pins {
         $(
             impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>) {
                 const FLOWCTL: bool = false;
+                const DEM: bool = false;
             }
         )+
     };
@@ -160,6 +177,17 @@ pins! {
     USART1: (PB6, PB7, PB3, PB4, AF7),
 }
 
+pins! {
+    USART1: (PA9, PA10, PA12, AF7),
+    USART1: (PA9, PA10, PB3,  AF7),
+    USART1: (PB6, PA10, PA12, AF7),
+    USART1: (PB6, PA10, PB3,  AF7),
+    USART1: (PA9, PB7,  PA12, AF7),
+    USART1: (PA9, PB7,  PB3,  AF7),
+    USART1: (PB6, PB7,  PA12, AF7),
+    USART1: (PB6, PB7,  PB3,  AF7),
+}
+
 // USART 2
 pins! {
     // USART2: (tx: (PA2, PD5), rx: (PA3, PD6), rts: (PA1, PD4), cts: (PA0, PD3), AF7),
@@ -186,6 +214,17 @@ pins! {
     USART2: (PD5, PD6, PA1, PD3, AF7),
     USART2: (PD5, PD6, PD4, PA0, AF7),
     USART2: (PD5, PD6, PD4, PD3, AF7),
+}
+
+pins! {
+    USART2: (PA2, PA3, PA1, AF7),
+    USART2: (PA2, PA3, PD4, AF7),
+    USART2: (PD5, PA3, PA1, AF7),
+    USART2: (PD5, PA3, PD4, AF7),
+    USART2: (PA2, PD6, PA1, AF7),
+    USART2: (PA2, PD6, PD4, AF7),
+    USART2: (PD5, PD6, PA1, AF7),
+    USART2: (PD5, PD6, PD4, AF7),
 }
 
 // USART 3
@@ -315,6 +354,46 @@ pins! {
     USART3: (PC10, PC11, PD12, PD11, AF7),
 }
 
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    USART3: (PB10, PB11, PB1, AF7),
+    USART3: (PB10, PB11, PB14, AF7),
+    USART3: (PB10, PB11, PD2, AF7),
+    USART3: (PB10, PB11, PD12, AF7),
+    USART3: (PC4,  PB11, PB1, AF7),
+    USART3: (PC4,  PB11, PB14, AF7),
+    USART3: (PC4,  PB11, PD2, AF7),
+    USART3: (PC4,  PB11, PD12, AF7),
+    USART3: (PC10, PB11, PB1, AF7),
+    USART3: (PC10, PB11, PB14, AF7),
+    USART3: (PC10, PB11, PD2, AF7),
+    USART3: (PC10, PB11, PD12, AF7),
+    USART3: (PB10, PC5,  PB1, AF7),
+    USART3: (PB10, PC5,  PB14, AF7),
+    USART3: (PB10, PC5,  PD2, AF7),
+    USART3: (PB10, PC5,  PD12, AF7),
+    USART3: (PC4,  PC5,  PB1, AF7),
+    USART3: (PC4,  PC5,  PB14, AF7),
+    USART3: (PC4,  PC5,  PD2, AF7),
+    USART3: (PC4,  PC5,  PD12, AF7),
+    USART3: (PC10, PC5,  PB1, AF7),
+    USART3: (PC10, PC5,  PB14, AF7),
+    USART3: (PC10, PC5,  PD2, AF7),
+    USART3: (PC10, PC5,  PD12, AF7),
+    USART3: (PB10, PC11, PB1, AF7),
+    USART3: (PB10, PC11, PB14, AF7),
+    USART3: (PB10, PC11, PD2, AF7),
+    USART3: (PB10, PC11, PD12, AF7),
+    USART3: (PC4,  PC11, PB1, AF7),
+    USART3: (PC4,  PC11, PB14, AF7),
+    USART3: (PC4,  PC11, PD2, AF7),
+    USART3: (PC4,  PC11, PD12, AF7),
+    USART3: (PC10, PC11, PB1, AF7),
+    USART3: (PC10, PC11, PB14, AF7),
+    USART3: (PC10, PC11, PD2, AF7),
+    USART3: (PC10, PC11, PD12, AF7),
+}
+
 // UART 4
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
@@ -333,6 +412,14 @@ pins! {
     UART4: (PC10, PC11, PA15, PB7, AF8),
 }
 
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    UART4: (PA0, PA1, PA15, AF8),
+    UART4: (PC10, PA1, PA15, AF8),
+    UART4: (PA0, PC11, PA15, AF8),
+    UART4: (PC10, PC11, PA15, AF8),
+}
+
 // UART 5
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
@@ -343,6 +430,11 @@ pins! {
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     UART5: (PC12, PD2, PB4, PB5, AF8),
+}
+
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins! {
+    UART5: (PC12, PD2, PB4, AF8),
 }
 
 pub enum Parity {
@@ -483,6 +575,9 @@ macro_rules! hal {
                     // Configure hardware flow control
                     if PINS::FLOWCTL {
                         usart.cr3.write(|w| w.rtse().set_bit().ctse().set_bit());
+                    } else if PINS::DEM {
+                        usart.cr3.write(|w| w.dem().set_bit());
+                        // TODO: Set sane pre/post emphasis
                     } else {
                         usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
                     }
@@ -779,7 +874,7 @@ macro_rules! hal {
 
                     channel.start();
 
-                    FrameReader { buffer, channel }
+                    FrameReader::new(buffer, channel)
                 }
 
                 /// Checks to see if the usart peripheral has detected an idle line and clears the flag

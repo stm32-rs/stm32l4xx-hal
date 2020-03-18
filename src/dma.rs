@@ -7,6 +7,7 @@ use core::ops;
 
 use crate::rcc::AHB1;
 use stable_deref_trait::StableDeref;
+use as_slice::AsMutSlice;
 
 #[derive(Debug)]
 pub enum Error {
@@ -25,6 +26,23 @@ pub enum Event {
 pub enum Half {
     First,
     Second,
+}
+
+pub struct FrameReader<BUFFER, CHANNEL> {
+    buffer: Option<BUFFER>,
+    channel: CHANNEL,
+}
+
+impl<BUFFER, CHANNEL> FrameReader<BUFFER, CHANNEL> where
+    BUFFER: StableDeref + AsMutSlice<Element = u8> + 'static
+{
+    pub(crate) fn new(buf: BUFFER, chan: CHANNEL) -> Self
+    {
+        FrameReader {
+            buffer: Some(buf),
+            channel: chan,
+        }
+    }
 }
 
 pub struct CircBuffer<BUFFER, CHANNEL>
@@ -131,7 +149,7 @@ macro_rules! dma {
                 use as_slice::AsSlice;
                 use crate::stm32::{$DMAX, dma1};
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
+                use crate::dma::{CircBuffer, DmaExt, Error, Event, FrameReader, Half, Transfer, W};
                 use crate::rcc::AHB1;
 
                 pub struct Channels((), $(pub $CX),+);
@@ -231,6 +249,36 @@ macro_rules! dma {
                             unsafe { (*$DMAX::ptr()).$cndtrX.read().bits() }
                         }
 
+                    }
+
+                    impl<BUFFER> FrameReader<BUFFER, $CX> {
+                        // fn is_transfer_complete(&self) -> bool {
+                        //     self.channel.isr().$tcifX().bit_is_set()
+                        // }
+
+                        // fn get_buffer(&mut self) -> Result<BUFFER, Error> {
+                        //     if self.is_transfer_complete() {
+                        //         if let Some(buf) = self.buffer.take() {
+                        //             return Ok(buf);
+                        //         }
+                        //     }
+
+                        //     Err(Error::BufferError)
+                        // }
+
+                        pub fn character_match_interrupt(&mut self, next_buffer: BUFFER) -> BUFFER {
+                            // 1. If DMA not done, halt transfer
+
+                            // 2. Check DMA race condition by finding matched character
+
+                            // 3. If needed, flush receiver or move some data into the next buffer
+
+                            // 4. Start DMA again
+
+                            // 5. Return full frame
+
+                            unimplemented!()
+                        }
                     }
 
                     impl<B> CircBuffer<B, $CX> {
