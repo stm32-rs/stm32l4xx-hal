@@ -454,10 +454,16 @@ pub enum StopBits {
     STOP1P5,
 }
 
+pub enum Oversampling {
+    Over8,
+    Over16,
+}
+
 pub struct Config {
     pub baudrate: Bps,
     pub parity: Parity,
     pub stopbits: StopBits,
+    pub oversampling: Oversampling,
 }
 
 impl Config {
@@ -485,6 +491,11 @@ impl Config {
         self.stopbits = stopbits;
         self
     }
+
+    pub fn oversampling(mut self, oversampling: Oversampling) -> Self {
+        self.oversampling = oversampling;
+        self
+    }
 }
 
 impl Default for Config {
@@ -494,6 +505,7 @@ impl Default for Config {
             baudrate,
             parity: Parity::ParityNone,
             stopbits: StopBits::STOP1,
+            oversampling: Oversampling::Over16,
         }
     }
 }
@@ -566,24 +578,36 @@ macro_rules! hal {
 
                     // Configure baud rate
                     let brr = clocks.$pclkX().0 / config.baudrate.0;
-                    assert!(brr >= 16, "impossible baud rate");
-                    usart.brr.write(|w| unsafe { w.bits(brr) });
+                    match config.oversampling {
+                        Oversampling::Over8 => {
+                            assert!(brr >= 8, "impossible baud rate");
+                            usart.cr1.modify(|_, w| w.over8().set_bit());
+                            usart.brr.write(|w| unsafe { w.bits(brr) });
+                        }
+                        Oversampling::Over16 => {
+                            assert!(brr >= 16, "impossible baud rate");
+                            usart.brr.write(|w| unsafe { w.bits(brr) });
+                        }
+                    }
 
                     // enable DMA transfers
                     usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
 
-                    // Configure hardware flow control
+                    // Configure hardware flow control (CTS/RTS or RS485 Driver Enable)
                     if PINS::FLOWCTL {
-                        usart.cr3.write(|w| w.rtse().set_bit().ctse().set_bit());
+                        usart.cr3.modify(|_, w| w.rtse().set_bit().ctse().set_bit());
                     } else if PINS::DEM {
-                        usart.cr3.write(|w| w.dem().set_bit());
-                        // TODO: Set sane pre/post emphasis
+                        usart.cr3.modify(|_, w| w.dem().set_bit());
+
+                        // Pre/post driver enable set conservative to the max time
+                        usart.cr1.modify(|_, w| w.deat().bits(0b1111).dedt().bits(0b1111));
                     } else {
-                        usart.cr3.write(|w| w.rtse().clear_bit().ctse().clear_bit());
+                        usart.cr3.modify(|_, w| w.rtse().clear_bit().ctse().clear_bit());
                     }
 
                     // Enable One bit sampling method
-                    usart.cr3.write(|w| w.onebit().set_bit());
+                    usart.cr3.modify(|_, w| w.onebit().set_bit());
+
 
 
 
@@ -825,7 +849,7 @@ macro_rules! hal {
                 }
 
                 pub fn frame_read<B>(
-                    &self,
+                    &mut self,
                     mut channel: $rx_chan,
                     mut buffer: B,
                     frame_delimiter: u8,

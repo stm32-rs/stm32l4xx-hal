@@ -252,21 +252,22 @@ macro_rules! dma {
                     }
 
                     impl<BUFFER> FrameReader<BUFFER, $CX> {
-                        // fn is_transfer_complete(&self) -> bool {
-                        //     self.channel.isr().$tcifX().bit_is_set()
-                        // }
+                        pub fn next_buffer(&mut self, next_buffer: BUFFER) -> Result<(), BUFFER> {
+                            unimplemented!();
+                        }
 
-                        // fn get_buffer(&mut self) -> Result<BUFFER, Error> {
-                        //     if self.is_transfer_complete() {
-                        //         if let Some(buf) = self.buffer.take() {
-                        //             return Ok(buf);
-                        //         }
-                        //     }
+                        pub fn transfer_complete_interrupt(&mut self) -> BUFFER {
+                            unimplemented!();
+                        }
 
-                        //     Err(Error::BufferError)
-                        // }
+                        pub fn character_match_interrupt(&mut self) -> BUFFER {
+                            unimplemented!();
+                        }
 
-                        pub fn character_match_interrupt(&mut self, next_buffer: BUFFER) -> BUFFER {
+                        fn internal_interrupt(&mut self) {
+                            // Clear ISR flag
+                            self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+
                             // 1. If DMA not done, halt transfer
 
                             // 2. Check DMA race condition by finding matched character
