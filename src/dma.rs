@@ -137,7 +137,7 @@ macro_rules! dma {
                 pub struct Channels((), $(pub $CX),+);
 
                 $(
-                    pub struct $CX { _0: () }
+                    pub struct $CX;
 
                     impl $CX {
                         /// Associated peripheral `address`
@@ -380,7 +380,7 @@ macro_rules! dma {
                             self.$ccrX.reset();
                         )+
 
-                        Channels((), $($CX { _0: () }),+)
+                        Channels((), $($CX { }),+)
                     }
                 }
             }

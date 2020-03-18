@@ -69,6 +69,8 @@ pub enum Event {
     Txe,
     /// The line has gone idle
     Idle,
+    /// Character match
+    CharacterMatch,
 }
 
 /// Serial error
@@ -84,6 +86,11 @@ pub enum Error {
     Parity,
     #[doc(hidden)]
     _Extensible,
+}
+
+pub struct FrameReader<BUFFER, CHANNEL> {
+    buffer: BUFFER,
+    channel: CHANNEL,
 }
 
 pub trait Pins<USART> {
@@ -535,6 +542,9 @@ macro_rules! hal {
                         Event::Idle => {
                             self.usart.cr1.modify(|_, w| w.idleie().set_bit())
                         },
+                        Event::CharacterMatch => {
+                            self.usart.cr1.modify(|_, w| w.cmie().set_bit())
+                        },
                     }
                 }
 
@@ -549,6 +559,9 @@ macro_rules! hal {
                         },
                         Event::Idle => {
                             self.usart.cr1.modify(|_, w| w.idleie().clear_bit())
+                        },
+                        Event::CharacterMatch => {
+                            self.usart.cr1.modify(|_, w| w.cmie().clear_bit())
                         },
                     }
                 }
@@ -675,7 +688,7 @@ macro_rules! hal {
                     mut buffer: B,
                 ) -> CircBuffer<B, $rx_chan>
                 where
-                    B: StableDeref<Target = [H; 2]> + DerefMut,
+                    B: StableDeref<Target = [H; 2]> + DerefMut + 'static,
                     H: AsMutSlice<Element = u8>
                 {
                     let buf = buffer[0].as_mut_slice();
@@ -685,7 +698,7 @@ macro_rules! hal {
 
                     // Tell DMA to request from serial
                     chan.cselr().write(|w| {
-                        w.$dmacsr().bits(0b0010)
+                        w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
                     });
 
                     // TODO can we weaken this compiler barrier?
@@ -716,6 +729,59 @@ macro_rules! hal {
                     CircBuffer::new(buffer, chan)
                 }
 
+                pub fn frame_read<B>(
+                    &self,
+                    mut channel: $rx_chan,
+                    mut buffer: B,
+                    frame_delimiter: u8,
+                ) -> FrameReader<B, $rx_chan>
+                    where B: StableDeref + AsMutSlice<Element = u8> + 'static
+                {
+                    let usart = unsafe{ &(*$USARTX::ptr()) };
+
+                    // Setup character match
+                    usart.cr1.modify(|_, w| w.re().clear_bit());
+                    usart
+                        .cr2
+                        .modify(|_, w| w.add().bits(frame_delimiter));
+                    usart.cr1.modify(|_, w| w.re().set_bit());
+
+                    // Setup DMA transfer
+                    let buf = buffer.as_mut_slice();
+                    channel.set_peripheral_address(&usart.rdr as *const _ as u32, false);
+                    channel.set_memory_address(buf.as_ptr() as u32, true);
+                    channel.set_transfer_length(buf.len());
+
+                    // Tell DMA to request from serial
+                    channel.cselr().write(|w| {
+                        w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
+                    });
+
+                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                    // the next statement, which starts the DMA transfer
+                    atomic::compiler_fence(Ordering::SeqCst);
+
+                    channel.ccr().modify(|_, w| unsafe {
+                        w.mem2mem()
+                            .clear_bit()
+                            // 00: Low, 01: Medium, 10: High, 11: Very high
+                            .pl()
+                            .bits(0b01)
+                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                            .msize()
+                            .bits(0b00)
+                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                            .psize()
+                            .bits(0b00)
+                            .dir()
+                            .clear_bit()
+                    });
+
+                    channel.start();
+
+                    FrameReader { buffer, channel }
+                }
+
                 /// Checks to see if the usart peripheral has detected an idle line and clears the flag
                 pub fn is_idle(&mut self, clear: bool) -> bool {
                     let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
@@ -725,6 +791,24 @@ macro_rules! hal {
                         if clear {
                             icr.write(|w| {
                                 w.idlecf()
+                                .set_bit()
+                            });
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                /// Checks to see if the usart peripheral has detected an idle line and clears the flag
+                pub fn is_character_match(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+
+                    if isr.cmf().bit_is_set() {
+                        if clear {
+                            icr.write(|w| {
+                                w.cmcf()
                                 .set_bit()
                             });
                         }
