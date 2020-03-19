@@ -14,7 +14,7 @@ use nb;
 
 use crate::stm32::{USART1, USART2};
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::stm32::USART3;
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
@@ -28,16 +28,16 @@ use crate::gpio::gpiob::{PB3, PB4, PB6, PB7};
 use crate::gpio::gpiod::{PD3, PD4, PD5, PD6};
 use crate::gpio::{Alternate, Floating, Input, AF7};
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpioa::PA6;
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpiob::{PB1, PB10, PB11, PB13, PB14};
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpiod::{PD11, PD12, PD2};
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpioc::{PC10, PC11, PC4, PC5};
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
@@ -226,7 +226,7 @@ pins! {
 }
 
 // USART 3
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     //  USART3: (tx: (PB10, PC4, PC10), rx: (PB11, PC5, PC11), rts: (PB1, PB14, PD2, PD12), cts: (PA6, PB13, PD11), AF7),
     USART3: (PB10, PB11, AF7),
@@ -240,7 +240,7 @@ pins! {
     USART3: (PC10, PC11, AF7),
 }
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     USART3: (PB10, PB11, PB1, PA6, AF7),
     USART3: (PB10, PB11, PB1, PB13, AF7),
@@ -352,7 +352,7 @@ pins! {
     USART3: (PC10, PC11, PD12, PD11, AF7),
 }
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     USART3: (PB10, PB11, PB1, AF7),
     USART3: (PB10, PB11, PB14, AF7),
@@ -575,21 +575,27 @@ macro_rules! hal {
                     usart.cr3.reset();
 
                     // Configure baud rate
-                    let brr = clocks.$pclkX().0 / config.baudrate.0;
                     match config.oversampling {
                         Oversampling::Over8 => {
-                            assert!(brr >= 8, "impossible baud rate");
+                            let uartdiv = 2 * clocks.$pclkX().0 / config.baudrate.0;
+                            assert!(uartdiv >= 16, "impossible baud rate");
+
+                            let lower = (uartdiv & 0xf) >> 1;
+                            let brr = (uartdiv & !0xf) | lower;
+
                             usart.cr1.modify(|_, w| w.over8().set_bit());
                             usart.brr.write(|w| unsafe { w.bits(brr) });
                         }
                         Oversampling::Over16 => {
+                            let brr = clocks.$pclkX().0 / config.baudrate.0;
                             assert!(brr >= 16, "impossible baud rate");
+
                             usart.brr.write(|w| unsafe { w.bits(brr) });
                         }
                     }
 
                     // enable DMA transfers
-                    usart.cr3.write(|w| w.dmat().set_bit().dmar().set_bit());
+                    usart.cr3.modify(|_, w| w.dmat().set_bit().dmar().set_bit());
 
                     // Configure hardware flow control (CTS/RTS or RS485 Driver Enable)
                     if PINS::FLOWCTL {
@@ -642,7 +648,7 @@ macro_rules! hal {
                     // TE: enable transceiver
                     usart
                         .cr1
-                        .write(|w| w.ue().set_bit().re().set_bit().te().set_bit());
+                        .modify(|_, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
                     Serial { usart, pins }
                 }
@@ -944,7 +950,7 @@ hal! {
     USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
 }
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
     USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
 }
