@@ -14,9 +14,7 @@ use nb;
 
 use crate::stm32::{USART1, USART2};
 
-// TODO USART3RST is missing atm in stm32l4x1 & stm32l4x2 crate
-// Related issue: https://github.com/stm32-rs/stm32-rs/issues/243
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::stm32::USART3;
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
@@ -30,16 +28,16 @@ use crate::gpio::gpiob::{PB3, PB4, PB6, PB7};
 use crate::gpio::gpiod::{PD3, PD4, PD5, PD6};
 use crate::gpio::{Alternate, Floating, Input, AF7};
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpioa::PA6;
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpiob::{PB1, PB10, PB11, PB13, PB14};
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpiod::{PD11, PD12, PD2};
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpioc::{PC10, PC11, PC4, PC5};
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
@@ -228,7 +226,7 @@ pins! {
 }
 
 // USART 3
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     //  USART3: (tx: (PB10, PC4, PC10), rx: (PB11, PC5, PC11), rts: (PB1, PB14, PD2, PD12), cts: (PA6, PB13, PD11), AF7),
     USART3: (PB10, PB11, AF7),
@@ -242,7 +240,7 @@ pins! {
     USART3: (PC10, PC11, AF7),
 }
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     USART3: (PB10, PB11, PB1, PA6, AF7),
     USART3: (PB10, PB11, PB1, PB13, AF7),
@@ -354,7 +352,7 @@ pins! {
     USART3: (PC10, PC11, PD12, PD11, AF7),
 }
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     USART3: (PB10, PB11, PB1, AF7),
     USART3: (PB10, PB11, PB14, AF7),
@@ -946,9 +944,7 @@ hal! {
     USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
 }
 
-// TODO USART3RST is missing atm in stm32l4x1 & stm32l4x2 crate
-// Related issue: https://github.com/stm32-rs/stm32-rs/issues/243
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
     USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
 }
