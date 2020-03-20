@@ -462,6 +462,7 @@ pub struct Config {
     pub parity: Parity,
     pub stopbits: StopBits,
     pub oversampling: Oversampling,
+    pub character_match: Option<u8>,
 }
 
 impl Config {
@@ -494,6 +495,11 @@ impl Config {
         self.oversampling = oversampling;
         self
     }
+
+    pub fn character_match(mut self, character_match: u8) -> Self {
+        self.character_match = Some(character_match);
+        self
+    }
 }
 
 impl Default for Config {
@@ -504,6 +510,7 @@ impl Default for Config {
             parity: Parity::ParityNone,
             stopbits: StopBits::STOP1,
             oversampling: Oversampling::Over16,
+            character_match: None,
         }
     }
 }
@@ -642,6 +649,11 @@ macro_rules! hal {
                     usart.cr2.modify(|_r, w| {
                         w.stop().bits(stop_bits)
                     });
+
+                    // Setup character match (if requested)
+                    if let Some(c) = config.character_match {
+                        usart.cr2.modify(|_, w| w.add().bits(c));
+                    }
 
                     // UE: enable USART
                     // RE: enable receiver
@@ -853,21 +865,13 @@ macro_rules! hal {
                 }
 
                 pub fn frame_read<B>(
-                    &mut self,
+                    &self,
                     mut channel: $rx_chan,
                     mut buffer: B,
-                    frame_delimiter: u8,
                 ) -> FrameReader<B, $rx_chan>
-                    where B: StableDeref + AsMutSlice<Element = u8> + 'static
+                    where B: AsMutSlice<Element = u8> + 'static
                 {
                     let usart = unsafe{ &(*$USARTX::ptr()) };
-
-                    // Setup character match
-                    usart.cr1.modify(|_, w| w.re().clear_bit());
-                    usart
-                        .cr2
-                        .modify(|_, w| w.add().bits(frame_delimiter));
-                    usart.cr1.modify(|_, w| w.re().set_bit());
 
                     // Setup DMA transfer
                     let buf = buffer.as_mut_slice();
@@ -902,7 +906,7 @@ macro_rules! hal {
 
                     channel.start();
 
-                    FrameReader::new(buffer, channel)
+                    FrameReader::new(buffer, channel, usart.cr2.read().add().bits())
                 }
 
                 /// Checks to see if the usart peripheral has detected an idle line and clears the flag

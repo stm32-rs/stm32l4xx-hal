@@ -6,8 +6,9 @@ use core::marker::PhantomData;
 use core::ops;
 
 use crate::rcc::AHB1;
-use stable_deref_trait::StableDeref;
 use as_slice::AsMutSlice;
+use stable_deref_trait::StableDeref;
+
 
 #[derive(Debug)]
 pub enum Error {
@@ -29,18 +30,20 @@ pub enum Half {
 }
 
 pub struct FrameReader<BUFFER, CHANNEL> {
-    buffer: Option<BUFFER>,
+    buffer: BUFFER,
     channel: CHANNEL,
+    matching_character: u8,
 }
 
-impl<BUFFER, CHANNEL> FrameReader<BUFFER, CHANNEL> where
-    BUFFER: StableDeref + AsMutSlice<Element = u8> + 'static
+impl<BUFFER, CHANNEL> FrameReader<BUFFER, CHANNEL>
+where
+    BUFFER: AsMutSlice<Element = u8> + 'static,
 {
-    pub(crate) fn new(buf: BUFFER, chan: CHANNEL) -> Self
-    {
+    pub(crate) fn new(buf: BUFFER, chan: CHANNEL, matching_character: u8) -> Self {
         FrameReader {
-            buffer: Some(buf),
+            buffer: buf,
             channel: chan,
+            matching_character: matching_character,
         }
     }
 }
@@ -52,7 +55,7 @@ where
     buffer: BUFFER,
     channel: CHANNEL,
     readable_half: Half,
-    consumed_offset: usize
+    consumed_offset: usize,
 }
 
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
@@ -146,7 +149,7 @@ macro_rules! dma {
             pub mod $dmaX {
                 use core::sync::atomic::{self, Ordering};
                 use stable_deref_trait::StableDeref;
-                use as_slice::AsSlice;
+                use as_slice::{AsSlice, AsMutSlice};
                 use crate::stm32::{$DMAX, dma1};
 
                 use crate::dma::{CircBuffer, DmaExt, Error, Event, FrameReader, Half, Transfer, W};
@@ -251,34 +254,88 @@ macro_rules! dma {
 
                     }
 
-                    impl<BUFFER> FrameReader<BUFFER, $CX> {
-                        pub fn next_buffer(&mut self, next_buffer: BUFFER) -> Result<(), BUFFER> {
-                            unimplemented!();
+
+                    impl<BUFFER> FrameReader<BUFFER, $CX>
+                    where
+                        BUFFER: AsMutSlice<Element = u8> + 'static,
+                    {
+                        pub fn transfer_complete_interrupt(&mut self, next_buffer: BUFFER) -> (BUFFER, usize) {
+                            self.internal_interrupt(next_buffer, false)
                         }
 
-                        pub fn transfer_complete_interrupt(&mut self) -> BUFFER {
-                            unimplemented!();
+                        pub fn character_match_interrupt(&mut self, next_buffer: BUFFER) -> (BUFFER, usize) {
+                            self.internal_interrupt(next_buffer, true)
                         }
 
-                        pub fn character_match_interrupt(&mut self) -> BUFFER {
-                            unimplemented!();
-                        }
+                        fn internal_interrupt(
+                            &mut self,
+                            mut next_buffer: BUFFER,
+                            character_match_interrupt: bool,
+                        ) -> (BUFFER, usize) {
+                            assert!(self.buffer.as_slice().len() == next_buffer.as_slice().len());
 
-                        fn internal_interrupt(&mut self) {
-                            // Clear ISR flag
-                            self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            let old_buf = self.buffer.as_mut_slice();
+                            let new_buf = next_buffer.as_mut_slice();
 
-                            // 1. If DMA not done, halt transfer
+                            // Clear ISR flag (Transfer Complete)
+                            if !self.channel.in_progress() {
+                                self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            } else {
+                                // 1. If DMA not done, let the DMA flush a little and then halt transfer
+                                //
+                                // This is to alleviate the race condition between the character
+                                // match interrupt and the DMA memory transfer.
+                                let left_in_buffer = self.channel.get_cndtr() as usize;
+
+                                for _ in 0..5 {
+                                    let now_left = self.channel.get_cndtr() as usize;
+
+                                    if left_in_buffer - now_left >= 4 {
+                                        // We have gotten 4 extra characters flushed
+                                        break;
+                                    }
+                                }
+                            }
+
+                            self.channel.stop();
+
+                            let left_in_buffer = self.channel.get_cndtr() as usize;
+                            let got_data_len = old_buf.len() - left_in_buffer; // How many bytes we got
 
                             // 2. Check DMA race condition by finding matched character
+                            let len = if character_match_interrupt {
+                                let search_buf = &old_buf[0..old_buf.len() - left_in_buffer];
 
-                            // 3. If needed, flush receiver or move some data into the next buffer
+                                // Search from the end
+                                let ch = self.matching_character;
+                                if let Some(pos) = search_buf.iter().rposition(|&x| x == ch) {
+                                    pos+1
+                                } else {
+                                    panic!("Matching character not found, but got character match interrupt");
+                                }
+                            } else {
+                                old_buf.len()
+                            };
 
-                            // 4. Start DMA again
+                            // 3. Start DMA again
+                            let diff = if len < got_data_len {
+                                // We got some extra characters in the from the new frame, move
+                                // them into the new buffer
+                                let diff = got_data_len - len;
+                                new_buf[0..diff].copy_from_slice(&old_buf[len..got_data_len]);
 
-                            // 5. Return full frame
+                                diff
+                            } else {
+                                0
+                            };
 
-                            unimplemented!()
+                            self.channel.set_memory_address(unsafe { new_buf.as_ptr().add(diff) } as u32, true);
+                            self.channel.set_transfer_length(new_buf.len() - diff);
+                            self.channel.start();
+                            let received_buffer = core::mem::replace(&mut self.buffer, next_buffer);
+
+                            // 4. Return full frame together with the index of the match character
+                            (received_buffer, len)
                         }
                     }
 
