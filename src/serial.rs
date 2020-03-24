@@ -1,13 +1,11 @@
 //! Serial
 
-use as_slice::{AsMutSlice, AsSlice};
-use cast::u16;
+use as_slice::AsMutSlice;
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
-use core::ops::DerefMut;
+use core::ops::{Deref, DerefMut};
 use core::ptr;
-use core::slice;
 use core::sync::atomic::{self, Ordering};
 use generic_array::ArrayLength;
 use stable_deref_trait::StableDeref;
@@ -913,7 +911,7 @@ macro_rules! hal {
                     buffer: BUFFER,
                 ) -> FrameReader<BUFFER, $rx_chan, N>
                     where
-                        BUFFER: Sized + StableDeref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
                     let usart = unsafe{ &(*$USARTX::ptr()) };
