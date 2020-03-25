@@ -870,7 +870,7 @@ macro_rules! hal {
                     let buf = buffer[0].as_mut_slice();
                     chan.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).rdr as *const _ as u32 }, false);
                     chan.set_memory_address(buf.as_ptr() as u32, true);
-                    chan.set_transfer_length(buf.len() * 2);
+                    chan.set_transfer_length((buf.len() * 2) as u16);
 
                     // Tell DMA to request from serial
                     chan.cselr().write(|w| {
@@ -920,16 +920,12 @@ macro_rules! hal {
                     let buf = &*buffer;
                     channel.set_peripheral_address(&usart.rdr as *const _ as u32, false);
                     channel.set_memory_address(unsafe { buf.buffer_address_for_dma() } as u32, true);
-                    channel.set_transfer_length(buf.max_len());
+                    channel.set_transfer_length(buf.max_len() as u16);
 
                     // Tell DMA to request from serial
                     channel.cselr().write(|w| {
                         w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
                     });
-
-                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                    // the next statement, which starts the DMA transfer
-                    atomic::compiler_fence(Ordering::SeqCst);
 
                     channel.ccr().modify(|_, w| unsafe {
                         w.mem2mem()
@@ -946,6 +942,10 @@ macro_rules! hal {
                             .dir()
                             .clear_bit()
                     });
+
+                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                    // the next statement, which starts the DMA transfer
+                    atomic::compiler_fence(Ordering::SeqCst);
 
                     channel.start();
 

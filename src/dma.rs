@@ -327,6 +327,7 @@ macro_rules! dma {
                         /// Associated peripheral `address`
                         ///
                         /// `inc` indicates whether the address will be incremented after every byte transfer
+                        #[inline]
                         pub fn set_peripheral_address(&mut self, address: u32, inc: bool) {
                             self.cpar().write(|w| w.pa().bits(address) );
                             self.ccr().modify(|_, w| w.pinc().bit(inc) );
@@ -335,32 +336,38 @@ macro_rules! dma {
                         /// `address` where from/to data will be read/write
                         ///
                         /// `inc` indicates whether the address will be incremented after every byte transfer
+                        #[inline]
                         pub fn set_memory_address(&mut self, address: u32, inc: bool) {
                             self.cmar().write(|w| w.ma().bits(address) );
                             self.ccr().modify(|_, w| w.minc().bit(inc) );
                         }
 
                         /// Number of bytes to transfer
-                        pub fn set_transfer_length(&mut self, len: usize) {
-                            self.cndtr().write(|w| w.ndt().bits(cast::u16(len).unwrap()));
+                        #[inline]
+                        pub fn set_transfer_length(&mut self, len: u16) {
+                            self.cndtr().write(|w| w.ndt().bits(len));
                         }
 
                         /// Starts the DMA transfer
+                        #[inline]
                         pub fn start(&mut self) {
                             self.ccr().modify(|_, w| w.en().set_bit() );
                         }
 
                         /// Stops the DMA transfer
+                        #[inline]
                         pub fn stop(&mut self) {
                             self.ifcr().write(|w| w.$cgifX().set_bit());
                             self.ccr().modify(|_, w| w.en().clear_bit() );
                         }
 
                         /// Returns `true` if there's a transfer in progress
+                        #[inline]
                         pub fn in_progress(&self) -> bool {
                             self.isr().$tcifX().bit_is_clear()
                         }
 
+                        #[inline]
                         pub fn listen(&mut self, event: Event) {
                             match event {
                                 Event::HalfTransfer => self.ccr().modify(|_, w| w.htie().set_bit()),
@@ -370,6 +377,7 @@ macro_rules! dma {
                             }
                         }
 
+                        #[inline]
                         pub fn unlisten(&mut self, event: Event) {
                             match event {
                                 Event::HalfTransfer => {
@@ -381,35 +389,43 @@ macro_rules! dma {
                             }
                         }
 
+                        #[inline]
                         pub(crate) fn isr(&self) -> dma1::isr::R {
                             // NOTE(unsafe) atomic read with no side effects
                             unsafe { (*$DMAX::ptr()).isr.read() }
                         }
 
+                        #[inline]
                         pub(crate) fn ifcr(&self) -> &dma1::IFCR {
                             unsafe { &(*$DMAX::ptr()).ifcr }
                         }
 
+                        #[inline]
                         pub(crate) fn ccr(&mut self) -> &dma1::$CCRX {
                             unsafe { &(*$DMAX::ptr()).$ccrX }
                         }
 
+                        #[inline]
                         pub(crate) fn cndtr(&mut self) -> &dma1::$CNDTRX {
                             unsafe { &(*$DMAX::ptr()).$cndtrX }
                         }
 
+                        #[inline]
                         pub(crate) fn cpar(&mut self) -> &dma1::$CPARX {
                             unsafe { &(*$DMAX::ptr()).$cparX }
                         }
 
+                        #[inline]
                         pub(crate) fn cmar(&mut self) -> &dma1::$CMARX {
                             unsafe { &(*$DMAX::ptr()).$cmarX }
                         }
 
+                        #[inline]
                         pub(crate) fn cselr(&mut self) -> &dma1::CSELR {
                             unsafe { &(*$DMAX::ptr()).cselr }
                         }
 
+                        #[inline]
                         pub(crate) fn get_cndtr(&self) -> u32 {
                             // NOTE(unsafe) atomic read with no side effects
                             unsafe { (*$DMAX::ptr()).$cndtrX.read().bits() }
@@ -423,10 +439,12 @@ macro_rules! dma {
                         BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                     {
+                        #[inline]
                         pub fn transfer_complete_interrupt(&mut self, next_buffer: BUFFER) -> BUFFER {
                             self.internal_interrupt(next_buffer, false)
                         }
 
+                        #[inline]
                         pub fn character_match_interrupt(&mut self, next_buffer: BUFFER) -> BUFFER {
                             self.internal_interrupt(next_buffer, true)
                         }
@@ -503,7 +521,7 @@ macro_rules! dma {
                             };
 
                             self.channel.set_memory_address(unsafe { new_buf.buffer_as_ptr().add(diff) } as u32, true);
-                            self.channel.set_transfer_length(new_buf.max_len() - diff);
+                            self.channel.set_transfer_length((new_buf.max_len() - diff) as u16);
                             self.channel.start();
                             let received_buffer = core::mem::replace(&mut self.buffer, next_buffer);
 
