@@ -31,7 +31,6 @@ const APP: () = {
         rx: serial::Rx<hal::stm32::USART2>,
         frame_reader: FrameReader<Box<SerialDMAPool>, dma::dma1::C6, consts::U8>,
         frame_sender: FrameSender<Box<SerialDMAPool>, dma::dma1::C7, consts::U8>,
-        nothing: (),
     }
 
     #[init]
@@ -96,7 +95,6 @@ const APP: () = {
             rx: serial_rx,
             frame_reader: fr,
             frame_sender: fs,
-            nothing: (),
         }
     }
 
