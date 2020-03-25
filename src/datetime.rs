@@ -1,5 +1,9 @@
 //! Date and timer units & helper functions
 
+/// SubSeconds
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SubSecondFraction(pub f32);
+
 /// Seconds
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Second(pub u32);
@@ -50,6 +54,11 @@ pub trait U32Ext {
     fn year(self) -> Year;
 }
 
+pub trait F32Ext{
+    /// Seconds
+    fn sub_second_fraction(self) -> SubSecondFraction;
+}
+
 impl U32Ext for u32 {
     fn seconds(self) -> Second {
         Second(self)
@@ -80,21 +89,29 @@ impl U32Ext for u32 {
     }
 }
 
+impl F32Ext for f32 {
+    fn sub_second_fraction(self) -> SubSecondFraction {
+        SubSecondFraction(self)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Time {
     pub hours: u32,
     pub minutes: u32,
     pub seconds: u32,
+    pub sub_second_fraction: f32,
     pub daylight_savings: bool
 }
 
 impl Time {
-    pub fn new(hours: Hour, minutes: Minute, seconds: Second, daylight_savings: bool) -> Self {
+    pub fn new(hours: Hour, minutes: Minute, seconds: Second, sub_second_fraction: SubSecondFraction, daylight_savings: bool) -> Self {
         Self {
             hours: hours.0,
             minutes: minutes.0,
             seconds: seconds.0,
-            daylight_savings: daylight_savings
+            sub_second_fraction : sub_second_fraction.0,
+            daylight_savings
         }
     }
 }
@@ -177,3 +194,15 @@ impl_to_struct!(
     u16: [Hour, Minute, Second, Day, DateInMonth, Month, Year],
     u8: [Hour, Minute, Second, Day, DateInMonth, Month, Year],
 );
+
+impl From<f32> for SubSecondFraction{
+    fn from(sub: f32) -> Self {
+        SubSecondFraction(sub)
+    }
+}
+
+impl From<SubSecondFraction> for f32 {
+    fn from(sub : SubSecondFraction) -> f32 {
+        sub.0
+    }
+}

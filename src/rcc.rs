@@ -468,7 +468,7 @@ impl CFGR {
 
             // 2. Setup the LSE
             rcc.bdcr.modify(|_, w| {
-                unsafe {
+                unsafe { //TODO: fix RTC sel
                     w.lseon().set_bit().rtcsel().bits(0b01); // Enable LSE and use as RTC source
                 }
 

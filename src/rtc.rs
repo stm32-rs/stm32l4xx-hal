@@ -7,37 +7,91 @@ use crate::stm32::{RTC};
 
 /// RTC Abstraction
 pub struct Rtc {
-    rtc: RTC
+    rtc: RTC,
+    rtc_config : RtcConfig
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
+pub enum RtcClockConfig {
+    /// 00: No clock
+    NoClock = 0b00,
+    /// 01: LSE oscillator clock used as RTC clock
+    LSE = 0b01,
+    /// 10: LSI oscillator clock used as RTC clock
+    LSI = 0b10,
+    /// 11: HSE oscillator clock divided by 32 used as RTC clock
+    HSE = 0b11,
+}
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct RtcConfig {
+    clock_config: RtcClockConfig,
+    /// Asynchronous prescaler factor
+    /// This is the asynchronous division factor:
+    /// ck_apre frequency = RTCCLK frequency/(PREDIV_A+1)
+    async_prescaler: u8,
+    /// Synchronous prescaler factor
+    /// This is the synchronous division factor:
+    /// ck_spre frequency = ck_apre frequency/(PREDIV_S+1)
+    sync_prescaler: u16,
+}
+
+impl Default for RtcConfig {
+    /// LSI with prescalers assuming 32.768 kHz.
+    /// Raw sub-seconds in 1/256.
+    fn default() -> Self {
+        RtcConfig{
+            clock_config : RtcClockConfig::LSI,
+            async_prescaler : 127,
+            sync_prescaler : 255,
+        }
+    }
+}
+
+impl RtcConfig {
+    pub fn clock_config(mut self, cfg : RtcClockConfig) -> Self{
+        self.clock_config = cfg;
+        self
+    }
+
+    pub fn async_prescaler(mut self, prescaler : u8) -> Self{
+        self.async_prescaler = prescaler;
+        self
+    }
+
+    pub fn sync_prescaler(mut self, prescaler : u16) -> Self{
+        self.sync_prescaler = prescaler;
+        self
+    }
 }
 
 impl Rtc {
-    pub fn rtc(rtc: RTC, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1, clocks: Clocks) -> Self {
+    pub fn rtc(rtc: RTC, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1, clocks: Clocks, rtc_config : RtcConfig) -> Self {
 
         assert_eq!(clocks.lsi(), true); // make sure LSI is enabled
         // enable peripheral clock for communication
         apb1r1.enr().modify(|_, w| w.rtcapben().set_bit());
         pwrcr1.reg().read(); // read to allow the pwr clock to enable
         
+        // Unlock the backup domain
         pwrcr1.reg().modify(|_, w| w.dbp().set_bit());
         while pwrcr1.reg().read().dbp().bit_is_clear() {}
+
+
+
+        // reset required for clock source change after first setup
         
-        bdcr.enr().modify(|_, w| { w.bdrst().set_bit() }); // reset
-        
+        // bdcr.enr().modify(|_, w| { w.bdrst().set_bit() }); // reset
         bdcr.enr().modify(|_, w| unsafe {
             w.rtcsel()
-                /* 
-                    00: No clock
-                    01: LSE oscillator clock used as RTC clock
-                    10: LSI oscillator clock used as RTC clock
-                    11: HSE oscillator clock divided by 32 used as RTC clock 
-                */
-                .bits(0b10)
+                .bits(rtc_config.clock_config as u8)
                 .rtcen()
                 .set_bit()
-                .bdrst() // reset required for clock source change
-                .clear_bit()
+                // .bdrst() 
+                // .clear_bit()
         });
-
+        // pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
+        
 
        write_protection(&rtc, false);
         {
@@ -60,9 +114,9 @@ impl Rtc {
                 
                 rtc.prer.modify(|_, w| unsafe {
                     w.prediv_s()
-                        .bits(255)
+                        .bits(rtc_config.sync_prescaler)
                         .prediv_a()
-                        .bits(127)
+                        .bits(rtc_config.async_prescaler)
                 });
             }
             init_mode(&rtc, false);
@@ -77,9 +131,13 @@ impl Rtc {
             
         }
         write_protection(&rtc, true);
+        
+        // Relock the backup domain
+        pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
 
         Self {
-            rtc: rtc
+            rtc,
+            rtc_config
         }
     }
 
@@ -118,11 +176,19 @@ impl Rtc {
     pub fn get_time(&self) -> Time {
         let time;
         
+        let sync_p = self.rtc_config.sync_prescaler as f32;
+        let sub_timer = (sync_p - self.rtc.ssr.read().ss().bits() as f32) / (sync_p + 1.0);
         let timer = self.rtc.tr.read();
         let cr = self.rtc.cr.read();
+
+        // Reading either RTC_SSR or RTC_TR locks the values in the higher-order 
+        // calendar shadow registers until RTC_DR is read.
+        let _ = self.rtc.dr.read();
+
         time = Time::new(bcd2_to_byte((timer.ht().bits(), timer.hu().bits())).into(), 
                         bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())).into(),
                         bcd2_to_byte((timer.st().bits(), timer.su().bits())).into(),
+                        sub_timer.into(),
                         cr.fmt().bit());
         
         write_protection(&self.rtc, true);
@@ -168,7 +234,100 @@ impl Rtc {
                         (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16).into());
         date
     }
-    
+
+    pub fn get_config(&self) -> RtcConfig{
+        self.rtc_config
+    }
+
+    pub fn set_config(&self, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1, clocks: Clocks, rtc_config : RtcConfig) {
+        // Unlock the backup domain
+        pwrcr1.reg().modify(|_, w| w.dbp().set_bit());
+        while pwrcr1.reg().read().dbp().bit_is_clear() {}
+
+
+
+        // reset required for clock source change after first setup
+        // take backup of bcdr
+        let temp = bdcr.enr().read();
+        bdcr.enr().modify(|_, w| { w.bdrst().set_bit() }); // reset
+        bdcr.enr().modify(|r, w| unsafe {
+            //Select RTC source
+            w.bdrst() 
+                .clear_bit()
+                .rtcsel()
+                .bits(rtc_config.clock_config as u8)
+                .rtcen()
+                .set_bit();
+            // Restore BCDR
+            if temp.lseon().bit(){
+                unsafe {
+                    w.lseon().set_bit();
+                }
+
+                if temp.lsebyp().bit() {
+                    w.lsebyp().set_bit();
+                } else {
+                    unsafe {
+                        w.lsedrv().bits(0b11);
+                    } //Max drive strength for setup
+                }
+
+                while r.lserdy().bit_is_clear() {}
+
+                unsafe {
+                    w.lsedrv().bits(temp.lsedrv().bits());
+                }//set drive strenght to previous value
+                w.lsecsson().bit(temp.lsecsson().bit());
+            }
+            w.lscosel()
+                .bit(temp.lscosel().bit())
+                .lscoen()
+                .bit(temp.lscoen().bit())
+                
+        });
+
+
+        pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
+
+        write_protection(&self.rtc, false);
+        {
+            init_mode(&self.rtc, true);
+            {
+                self.rtc.cr.modify(|_, w| unsafe {
+                    w.fmt()
+                        .clear_bit() // 24hr
+                        .osel()
+                        /* 
+                            00: Output disabled
+                            01: Alarm A output enabled
+                            10: Alarm B output enabled
+                            11: Wakeup output enabled 
+                        */
+                        .bits(0b00)
+                        .pol()
+                        .clear_bit() // pol high
+                });
+                
+                self.rtc.prer.modify(|_, w| unsafe {
+                    w.prediv_s()
+                        .bits(rtc_config.sync_prescaler)
+                        .prediv_a()
+                        .bits(rtc_config.async_prescaler)
+                });
+            }
+            init_mode(&self.rtc, false);
+
+            // TODO configuration for output pins
+            self.rtc.or.modify(|_, w| {
+                w.rtc_alarm_type()
+                    .clear_bit()
+                    .rtc_out_rmp()
+                    .clear_bit()
+            });
+            
+        }
+        write_protection(&self.rtc, true);
+    }
 }
 
 fn write_protection(rtc: &RTC, enable: bool){
