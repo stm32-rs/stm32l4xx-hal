@@ -1,4 +1,6 @@
-//! Serial
+//! Serial module
+//!
+//! This module support both polling and interrupt based accesses to the serial peripherals.
 
 use as_slice::AsMutSlice;
 use core::fmt;
@@ -78,7 +80,7 @@ use crate::gpio::gpioc::PC12;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::AF8;
 
-use crate::dma::{dma1, CircBuffer, FrameReader, SerialDMAFrame};
+use crate::dma::{dma1, CircBuffer, FrameReader, FrameSender, SerialDMAFrame};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
 
@@ -873,14 +875,9 @@ macro_rules! hal {
                     chan.set_transfer_length((buf.len() * 2) as u16);
 
                     // Tell DMA to request from serial
-                    chan.cselr().write(|w| {
+                    chan.cselr().modify(|_, w| {
                         w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
                     });
-
-                    // TODO can we weaken this compiler barrier?
-                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                    // the next statement, which starts the DMA transfer
-                    atomic::compiler_fence(Ordering::SeqCst);
 
                     chan.ccr().modify(|_, w| unsafe {
                         w.mem2mem()
@@ -900,11 +897,18 @@ macro_rules! hal {
                             .clear_bit()
                     });
 
+                    // TODO can we weaken this compiler barrier?
+                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                    // the next statement, which starts the DMA transfer
+                    atomic::compiler_fence(Ordering::SeqCst);
+
                     chan.start();
 
                     CircBuffer::new(buffer, chan)
                 }
 
+                /// Create a frame reader that can either react on the Character match interrupt or
+                /// Transfer Complete from the DMA.
                 pub fn frame_read<BUFFER, N>(
                     &self,
                     mut channel: $rx_chan,
@@ -923,7 +927,7 @@ macro_rules! hal {
                     channel.set_transfer_length(buf.max_len() as u16);
 
                     // Tell DMA to request from serial
-                    channel.cselr().write(|w| {
+                    channel.cselr().modify(|_, w| {
                         w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
                     });
 
@@ -939,6 +943,7 @@ macro_rules! hal {
                             // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
                             .psize()
                             .bits(0b00)
+                            // Peripheral -> Mem
                             .dir()
                             .clear_bit()
                     });
@@ -986,6 +991,47 @@ macro_rules! hal {
                     } else {
                         false
                     }
+                }
+            }
+
+            impl Tx<$USARTX> {
+                /// Creates a new DMA frame sender
+                pub fn frame_sender<BUFFER, N>(
+                    &self,
+                    mut channel: $tx_chan,
+                ) -> FrameSender<BUFFER, $tx_chan, N>
+                    where
+                        BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+                        N: ArrayLength<MaybeUninit<u8>>,
+                {
+                    let usart = unsafe{ &(*$USARTX::ptr()) };
+
+                    // Setup DMA
+                    channel.set_peripheral_address(&usart.tdr as *const _ as u32, false);
+
+                    // Tell DMA to request from serial
+                    channel.cselr().modify(|_, w| {
+                        w.$dmacst().bits(0b0010) // TODO: Fix this, not valid for DMA2
+                    });
+
+                    channel.ccr().modify(|_, w| unsafe {
+                        w.mem2mem()
+                            .clear_bit()
+                            // 00: Low, 01: Medium, 10: High, 11: Very high
+                            .pl()
+                            .bits(0b01)
+                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                            .msize()
+                            .bits(0b00)
+                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                            .psize()
+                            .bits(0b00)
+                            // Mem -> Peripheral
+                            .dir()
+                            .set_bit()
+                    });
+
+                    FrameSender::new(channel)
                 }
             }
         )+

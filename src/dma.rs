@@ -11,9 +11,9 @@ use core::slice;
 
 use crate::rcc::AHB1;
 use as_slice::AsSlice;
+pub use generic_array::typenum::consts;
 use generic_array::{ArrayLength, GenericArray};
 use stable_deref_trait::StableDeref;
-pub use generic_array::typenum::consts;
 
 #[derive(Debug)]
 pub enum Error {
@@ -34,6 +34,7 @@ pub enum Half {
     Second,
 }
 
+/// Frame reader "worker", access and handling of frame reads is made through this structure.
 pub struct FrameReader<BUFFER, CHANNEL, N>
 where
     BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
@@ -42,9 +43,8 @@ where
     buffer: BUFFER,
     channel: CHANNEL,
     matching_character: u8,
-    _marker: core::marker::PhantomData<N>,
+    _marker: core::marker::PhantomData<N>, // Needed to make the compiler happy
 }
-
 
 impl<BUFFER, CHANNEL, N> FrameReader<BUFFER, CHANNEL, N>
 where
@@ -65,6 +65,38 @@ where
     }
 }
 
+/// Frame sender "worker", access and handling of frame transmissions is made through this
+/// structure.
+pub struct FrameSender<BUFFER, CHANNEL, N>
+where
+    BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    buffer: Option<BUFFER>,
+    channel: CHANNEL,
+    _marker: core::marker::PhantomData<N>,
+}
+
+impl<BUFFER, CHANNEL, N> FrameSender<BUFFER, CHANNEL, N>
+where
+    BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    pub(crate) fn new(channel: CHANNEL) -> FrameSender<BUFFER, CHANNEL, N> {
+        Self {
+            buffer: None,
+            channel,
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+/// Data type for holding data frames for the Serial.
+///
+/// Internally used uninitialized storage, making this storage zero cost to create. It can also be
+/// used with, for example, [`heapless::pool`] to create a pool of serial frames.
+///
+/// [`heapless::pool`]: https://docs.rs/heapless/0.5.3/heapless/pool/index.html
 pub struct SerialDMAFrame<N>
 where
     N: ArrayLength<MaybeUninit<u8>>,
@@ -131,7 +163,7 @@ where
         unsafe {
             ptr::copy_nonoverlapping(
                 buf.as_ptr(),
-                self.buf.as_mut_ptr().offset(self.len as isize) as *mut u8,
+                self.buf.as_mut_ptr().add(self.len.into()) as *mut _,
                 count,
             );
         }
@@ -193,7 +225,6 @@ where
     pub(crate) fn buffer_as_mut_ptr(&mut self) -> *mut MaybeUninit<u8> {
         self.buf.as_mut_ptr()
     }
-
 }
 
 impl<N> AsSlice for SerialDMAFrame<N>
@@ -315,7 +346,7 @@ macro_rules! dma {
                 use core::ops::{Deref, DerefMut};
                 use core::ptr;
 
-                use crate::dma::{CircBuffer, FrameReader, SerialDMAFrame, DmaExt, Error, Event, Half, Transfer, W};
+                use crate::dma::{CircBuffer, FrameReader, FrameSender, SerialDMAFrame, DmaExt, Error, Event, Half, Transfer, W};
                 use crate::rcc::AHB1;
 
                 pub struct Channels((), $(pub $CX),+);
@@ -433,29 +464,95 @@ macro_rules! dma {
 
                     }
 
+                    impl<BUFFER, N> FrameSender<BUFFER, $CX, N>
+                    where
+                        BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+                        N: ArrayLength<MaybeUninit<u8>>,
+                    {
+                        /// This method should be called in the transfer complete interrupt of the
+                        /// DMA, will return the sent frame if the transfer was truly completed.
+                        pub fn transfer_complete_interrupt(
+                            &mut self,
+                        ) -> Option<BUFFER> {
+
+                            // Clear ISR flag (Transfer Complete)
+                            if !self.channel.in_progress() {
+                                self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            } else {
+                                // The old transfer is not complete
+                                return None;
+                            }
+
+                            self.channel.stop();
+
+                            // Return the old buffer for the user to do what they want with it
+                            self.buffer.take()
+                        }
+
+                        /// Returns `true` if there is an ongoing transfer.
+                        #[inline]
+                        pub fn ongoing_transfer(&self) -> bool {
+                            self.buffer.is_some()
+                        }
+
+                        /// Send a frame. Will return `Err(frame)` if there was already an ongoing
+                        /// transaction.
+                        pub fn send(
+                            &mut self,
+                            frame: BUFFER,
+                        ) -> Result<(), BUFFER> {
+                            if self.ongoing_transfer() {
+                                // The old transfer is not complete
+                                return Err(frame);
+                            }
+
+                            let new_buf = &*frame;
+                            self.channel.set_memory_address(new_buf.buffer_as_ptr() as u32, true);
+                            self.channel.set_transfer_length(new_buf.len() as u16);
+
+                            // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                            // the next statement, which starts the DMA transfer
+                            atomic::compiler_fence(Ordering::SeqCst);
+
+                            self.channel.start();
+
+                            self.buffer = Some(frame);
+
+                            Ok(())
+                        }
+                    }
 
                     impl<BUFFER, N> FrameReader<BUFFER, $CX, N>
                     where
                         BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                     {
+                        /// This function should be called from the transfer complete interrupt of
+                        /// the corresponding DMA channel.
+                        ///
+                        /// Returns the full buffer received by the USART.
                         #[inline]
-                        pub fn transfer_complete_interrupt(&mut self, next_buffer: BUFFER) -> BUFFER {
-                            self.internal_interrupt(next_buffer, false)
+                        pub fn transfer_complete_interrupt(&mut self, next_frame: BUFFER) -> BUFFER {
+                            self.internal_interrupt(next_frame, false)
                         }
 
+                        /// This function should be called from the character match interrupt of
+                        /// the corresponding USART
+                        ///
+                        /// Returns the buffer received by the USART, including the matching
+                        /// character.
                         #[inline]
-                        pub fn character_match_interrupt(&mut self, next_buffer: BUFFER) -> BUFFER {
-                            self.internal_interrupt(next_buffer, true)
+                        pub fn character_match_interrupt(&mut self, next_frame: BUFFER) -> BUFFER {
+                            self.internal_interrupt(next_frame, true)
                         }
 
                         fn internal_interrupt(
                             &mut self,
-                            mut next_buffer: BUFFER,
+                            mut next_frame: BUFFER,
                             character_match_interrupt: bool,
                         ) -> BUFFER {
                             let old_buf = &mut *self.buffer;
-                            let new_buf = &mut *next_buffer;
+                            let new_buf = &mut *next_frame;
                             new_buf.clear();
 
                             // Clear ISR flag (Transfer Complete)
@@ -522,8 +619,13 @@ macro_rules! dma {
 
                             self.channel.set_memory_address(unsafe { new_buf.buffer_as_ptr().add(diff) } as u32, true);
                             self.channel.set_transfer_length((new_buf.max_len() - diff) as u16);
+                            let received_buffer = core::mem::replace(&mut self.buffer, next_frame);
+
+                            // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                            // the next statement, which starts the DMA transfer
+                            atomic::compiler_fence(Ordering::SeqCst);
+
                             self.channel.start();
-                            let received_buffer = core::mem::replace(&mut self.buffer, next_buffer);
 
                             // 4. Return full frame
                             received_buffer
