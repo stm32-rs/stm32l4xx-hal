@@ -163,7 +163,7 @@ impl Rtc {
                         bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())).into(),
                         bcd2_to_byte((timer.st().bits(), timer.su().bits())).into(),
                         sub_timer.into(),
-                        cr.fmt().bit());
+                        cr.bkp().bit());
 
         date = Date::new(dater.wdu().bits().into(), 
                         bcd2_to_byte((dater.dt().bits(), dater.du().bits())).into(),
