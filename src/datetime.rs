@@ -1,9 +1,8 @@
 //! Date and timer units & helper functions
 
-/// SubSeconds
+/// Micors
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SubSecondFraction(pub f32);
-
+pub struct Micros(pub u32);
 /// Seconds
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Second(pub u32);
@@ -38,6 +37,8 @@ pub struct Year(pub u32);
 
 /// Extension trait that adds convenience methods to the `u32` type
 pub trait U32Ext {
+    /// Micros
+    fn micros(self) -> Micros;
     /// Seconds
     fn seconds(self) -> Second;
     /// Minutes
@@ -54,12 +55,10 @@ pub trait U32Ext {
     fn year(self) -> Year;
 }
 
-pub trait F32Ext{
-    /// Seconds
-    fn sub_second_fraction(self) -> SubSecondFraction;
-}
-
 impl U32Ext for u32 {
+    fn micros(self) -> Micros{
+        Micros(self)
+    }
     fn seconds(self) -> Second {
         Second(self)
     }
@@ -89,28 +88,23 @@ impl U32Ext for u32 {
     }
 }
 
-impl F32Ext for f32 {
-    fn sub_second_fraction(self) -> SubSecondFraction {
-        SubSecondFraction(self)
-    }
-}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Time {
     pub hours: u32,
     pub minutes: u32,
     pub seconds: u32,
-    pub sub_second_fraction: f32,
+    pub micros: u32,
     pub daylight_savings: bool
 }
 
 impl Time {
-    pub fn new(hours: Hour, minutes: Minute, seconds: Second, sub_second_fraction: SubSecondFraction, daylight_savings: bool) -> Self {
+    pub fn new(hours: Hour, minutes: Minute, seconds: Second, micros: Micros, daylight_savings: bool) -> Self {
         Self {
             hours: hours.0,
             minutes: minutes.0,
             seconds: seconds.0,
-            sub_second_fraction : sub_second_fraction.0,
+            micros: micros.0,
             daylight_savings
         }
     }
@@ -135,6 +129,11 @@ impl Date {
     }
 }
 
+impl Into<Micros> for Second {
+    fn into(self) -> Micros {
+        Micros(self.0 * 1_000_000)
+    }
+}
 impl Into<Second> for Minute {
     fn into(self) -> Second {
         Second(self.0 * 60)
@@ -180,8 +179,9 @@ macro_rules! impl_to_struct {
 }
 
 impl_from_struct!(
-    Hour: [u32, u16, u8],
+    Micros: [u32, u16, u8],
     Second: [u32, u16, u8],
+    Hour: [u32, u16, u8],
     Minute: [u32, u16, u8],
     Day: [u32, u16, u8],
     DateInMonth: [u32, u16, u8],
@@ -190,19 +190,7 @@ impl_from_struct!(
 );
 
 impl_to_struct!(
-    u32: [Hour, Minute, Second, Day, DateInMonth, Month, Year],
-    u16: [Hour, Minute, Second, Day, DateInMonth, Month, Year],
-    u8: [Hour, Minute, Second, Day, DateInMonth, Month, Year],
+    u32: [Hour, Minute, Second, Micros, Day, DateInMonth, Month, Year],
+    u16: [Hour, Minute, Second, Micros, Day, DateInMonth, Month, Year],
+    u8: [Hour, Minute, Second, Micros, Day, DateInMonth, Month, Year],
 );
-
-impl From<f32> for SubSecondFraction{
-    fn from(sub: f32) -> Self {
-        SubSecondFraction(sub)
-    }
-}
-
-impl From<SubSecondFraction> for f32 {
-    fn from(sub : SubSecondFraction) -> f32 {
-        sub.0
-    }
-}
