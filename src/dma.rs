@@ -496,7 +496,7 @@ macro_rules! dma {
                         }
 
                         /// Send a frame. Will return `Err(frame)` if there was already an ongoing
-                        /// transaction.
+                        /// transaction or if the buffer has not been read out.
                         pub fn send(
                             &mut self,
                             frame: BUFFER,
@@ -546,6 +546,15 @@ macro_rules! dma {
                             self.internal_interrupt(next_frame, true)
                         }
 
+                        /// This function should be called from the receiver timeout interrupt of
+                        /// the corresponding USART
+                        ///
+                        /// Returns the buffer received by the USART.
+                        #[inline]
+                        pub fn receiver_timeout_interrupt(&mut self, next_frame: BUFFER) -> BUFFER {
+                            self.internal_interrupt(next_frame, false)
+                        }
+
                         fn internal_interrupt(
                             &mut self,
                             mut next_frame: BUFFER,
@@ -558,8 +567,9 @@ macro_rules! dma {
                             // Clear ISR flag (Transfer Complete)
                             if !self.channel.in_progress() {
                                 self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
-                            } else {
-                                // 1. If DMA not done, let the DMA flush a little and then halt transfer
+                            } else if character_match_interrupt {
+                                // 1. If DMA not done and there was a character match interrupt,
+                                // let the DMA flush a little and then halt transfer.
                                 //
                                 // This is to alleviate the race condition between the character
                                 // match interrupt and the DMA memory transfer.

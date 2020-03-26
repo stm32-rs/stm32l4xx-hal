@@ -97,6 +97,8 @@ pub enum Event {
     Idle,
     /// Character match
     CharacterMatch,
+    /// Receiver timeout
+    ReceiverTimeout,
 }
 
 /// Serial error
@@ -114,6 +116,7 @@ pub enum Error {
     _Extensible,
 }
 
+/// Pins trait for detecting hardware flow control or RS485 mode.
 pub trait Pins<USART> {
     const FLOWCTL: bool;
     const DEM: bool;
@@ -478,69 +481,95 @@ pins! {
     UART5: (PC12, PD2, PB4, AF8),
 }
 
+/// USART parity settings
 pub enum Parity {
+    /// No parity
     ParityNone,
+    /// Even parity
     ParityEven,
+    /// Odd parity
     ParityOdd,
 }
 
+/// USART stopbits settings
 pub enum StopBits {
-    #[doc = "1 stop bit"]
+    /// 1 stop bit
     STOP1,
-    #[doc = "0.5 stop bits"]
+    /// 0.5 stop bits
     STOP0P5,
-    #[doc = "2 stop bits"]
+    /// 2 stop bits
     STOP2,
-    #[doc = "1.5 stop bits"]
+    // 1.5 stop bits
     STOP1P5,
 }
 
+/// USART oversampling settings
 pub enum Oversampling {
+    /// Oversample 8 times (allows for faster data rates)
     Over8,
+    /// Oversample 16 times (higher stability)
     Over16,
 }
 
+/// USART Configuration structure
 pub struct Config {
-    pub baudrate: Bps,
-    pub parity: Parity,
-    pub stopbits: StopBits,
-    pub oversampling: Oversampling,
-    pub character_match: Option<u8>,
+    baudrate: Bps,
+    parity: Parity,
+    stopbits: StopBits,
+    oversampling: Oversampling,
+    character_match: Option<u8>,
+    receiver_timeout: Option<u32>,
 }
 
 impl Config {
+    /// Set the baudrate to a specific value
     pub fn baudrate(mut self, baudrate: Bps) -> Self {
         self.baudrate = baudrate;
         self
     }
 
+    /// Set parity to none
     pub fn parity_none(mut self) -> Self {
         self.parity = Parity::ParityNone;
         self
     }
 
+    /// Set parity to even
     pub fn parity_even(mut self) -> Self {
         self.parity = Parity::ParityEven;
         self
     }
 
+    /// Set parity to odd
     pub fn parity_odd(mut self) -> Self {
         self.parity = Parity::ParityOdd;
         self
     }
 
+    /// Set the number of stopbits
     pub fn stopbits(mut self, stopbits: StopBits) -> Self {
         self.stopbits = stopbits;
         self
     }
 
+    /// Set the oversampling size
     pub fn oversampling(mut self, oversampling: Oversampling) -> Self {
         self.oversampling = oversampling;
         self
     }
 
+    /// Set the character match character
     pub fn character_match(mut self, character_match: u8) -> Self {
         self.character_match = Some(character_match);
+        self
+    }
+
+    /// Set the receiver timeout, the value is the number of bit durations
+    ///
+    /// Note that it only takes 24 bits, using more than this will cause a panic.
+    pub fn receiver_timeout(mut self, receiver_timeout: u32) -> Self {
+        assert!(receiver_timeout < 1 << 24);
+        self.receiver_timeout = Some(receiver_timeout);
         self
     }
 }
@@ -554,6 +583,7 @@ impl Default for Config {
             stopbits: StopBits::STOP1,
             oversampling: Oversampling::Over16,
             character_match: None,
+            receiver_timeout: None,
         }
     }
 }
@@ -644,6 +674,10 @@ macro_rules! hal {
                         }
                     }
 
+                    if let Some(val) = config.receiver_timeout {
+                        usart.rtor.modify(|_, w| w.rto().bits(val));
+                    }
+
                     // enable DMA transfers
                     usart.cr3.modify(|_, w| w.dmat().set_bit().dmar().set_bit());
 
@@ -661,9 +695,6 @@ macro_rules! hal {
 
                     // Enable One bit sampling method
                     usart.cr3.modify(|_, w| w.onebit().set_bit());
-
-
-
 
                     // Configure parity and word length
                     // Unlike most uart devices, the "word length" of this usart device refers to
@@ -690,13 +721,16 @@ macro_rules! hal {
                         StopBits::STOP1P5 => 0b11,
                     };
                     usart.cr2.modify(|_r, w| {
-                        w.stop().bits(stop_bits)
+                        w.stop().bits(stop_bits);
+
+                        // Setup character match (if requested)
+                        if let Some(c) = config.character_match {
+                            w.add().bits(c);
+                        }
+
+                        w
                     });
 
-                    // Setup character match (if requested)
-                    if let Some(c) = config.character_match {
-                        usart.cr2.modify(|_, w| w.add().bits(c));
-                    }
 
                     // UE: enable USART
                     // RE: enable receiver
@@ -723,6 +757,9 @@ macro_rules! hal {
                         Event::CharacterMatch => {
                             self.usart.cr1.modify(|_, w| w.cmie().set_bit())
                         },
+                        Event::ReceiverTimeout => {
+                            self.usart.cr1.modify(|_, w| w.rtoie().set_bit())
+                        },
                     }
                 }
 
@@ -740,6 +777,9 @@ macro_rules! hal {
                         },
                         Event::CharacterMatch => {
                             self.usart.cr1.modify(|_, w| w.cmie().clear_bit())
+                        },
+                        Event::ReceiverTimeout => {
+                            self.usart.cr1.modify(|_, w| w.rtoie().clear_bit())
                         },
                     }
                 }
@@ -957,17 +997,15 @@ macro_rules! hal {
                     FrameReader::new(buffer, channel, usart.cr2.read().add().bits())
                 }
 
-                /// Checks to see if the usart peripheral has detected an idle line and clears the flag
+                /// Checks to see if the USART peripheral has detected an idle line and clears
+                /// the flag
                 pub fn is_idle(&mut self, clear: bool) -> bool {
                     let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
                     let icr = unsafe { &(*$USARTX::ptr()).icr };
 
                     if isr.idle().bit_is_set() {
                         if clear {
-                            icr.write(|w| {
-                                w.idlecf()
-                                .set_bit()
-                            });
+                            icr.write(|w| w.idlecf().set_bit() );
                         }
                         true
                     } else {
@@ -975,17 +1013,31 @@ macro_rules! hal {
                     }
                 }
 
-                /// Checks to see if the usart peripheral has detected an idle line and clears the flag
+                /// Checks to see if the USART peripheral has detected an character match and
+                /// clears the flag
                 pub fn is_character_match(&mut self, clear: bool) -> bool {
                     let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
                     let icr = unsafe { &(*$USARTX::ptr()).icr };
 
                     if isr.cmf().bit_is_set() {
                         if clear {
-                            icr.write(|w| {
-                                w.cmcf()
-                                .set_bit()
-                            });
+                            icr.write(|w| w.cmcf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                /// Checks to see if the USART peripheral has detected an receiver timeout and
+                /// clears the flag
+                pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+
+                    if isr.rtof().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.rtocf().set_bit() );
                         }
                         true
                     } else {
