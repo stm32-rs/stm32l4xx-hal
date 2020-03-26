@@ -150,20 +150,14 @@ where
     ///
     /// If the node is already partially filled, this will continue filling the node.
     pub fn write_slice(&mut self, buf: &[u8]) -> usize {
-        let free = self.free();
-        let input_count = buf.len();
-        let count = if input_count > free {
-            free
-        } else {
-            input_count
-        };
+        let count = buf.len().min(self.free());
 
         // Used to write data into the `MaybeUninit`
         // NOTE(unsafe): Safe based on the size check above
         unsafe {
             ptr::copy_nonoverlapping(
                 buf.as_ptr(),
-                self.buf.as_mut_ptr().add(self.len.into()) as *mut _,
+                (self.buf.as_mut_ptr() as *mut u8).add(self.len.into()),
                 count,
             );
         }
