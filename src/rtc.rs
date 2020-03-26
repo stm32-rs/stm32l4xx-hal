@@ -97,15 +97,15 @@ impl Rtc {
         
     }
 
-    pub fn set_time(&self, time: &Time){
+    pub fn set_time(&self, time: &Time, date: &Date){
         write_protection(&self.rtc, false);
         {
             init_mode(&self.rtc, true);
             {
-                
                 let (ht, hu) = byte_to_bcd2(time.hours as u8);
                 let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
                 let (st, su) = byte_to_bcd2(time.seconds as u8);
+
                 self.rtc.tr.write(|w| unsafe {
                     w.ht().bits(ht)
                         .hu().bits(hu)
@@ -119,18 +119,36 @@ impl Rtc {
                 });
 
                 self.rtc.cr.modify(|_, w| {
-                    w.fmt()
+                    w.bkp()
                         .bit(time.daylight_savings)
-
                 });
+
+                let (dt, du) = byte_to_bcd2(date.date as u8);
+                let (mt, mu) = byte_to_bcd2(date.month as u8);
+                let yr = date.year as u16;
+                let yr_offset = (yr - 1970_u16) as u8;
+                let (yt, yu) = byte_to_bcd2(yr_offset);
+
+                self.rtc.dr.write(|w| unsafe {
+                    w.dt().bits(dt)
+                        .du().bits(du)
+                        .mt().bit(mt > 0)
+                        .mu().bits(mu)
+                        .yt().bits(yt)
+                        .yu().bits(yu)
+                        .wdu().bits(date.day as u8)
+                });
+
+                
             }
             init_mode(&self.rtc, false);
         }
         write_protection(&self.rtc, true);
     }
 
-    pub fn get_time(&self) -> Time {
+    pub fn get_time(&self) -> (Date, Time) {
         let time;
+        let date;
         
         let sync_p = self.rtc_config.sync_prescaler as f32;
         let sub_timer = (sync_p - self.rtc.ssr.read().ss().bits() as f32) / (sync_p + 1.0);
@@ -139,17 +157,21 @@ impl Rtc {
 
         // Reading either RTC_SSR or RTC_TR locks the values in the higher-order 
         // calendar shadow registers until RTC_DR is read.
-        let _ = self.rtc.dr.read();
+        let dater = self.rtc.dr.read();
 
         time = Time::new(bcd2_to_byte((timer.ht().bits(), timer.hu().bits())).into(), 
                         bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())).into(),
                         bcd2_to_byte((timer.st().bits(), timer.su().bits())).into(),
                         sub_timer.into(),
                         cr.fmt().bit());
+
+        date = Date::new(dater.wdu().bits().into(), 
+                        bcd2_to_byte((dater.dt().bits(), dater.du().bits())).into(),
+                        bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())).into(),
+                        (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16).into());
         
-        write_protection(&self.rtc, true);
         
-        time
+        (date, time)
     }
 
     pub fn set_date(&self, date: &Date){
@@ -178,17 +200,6 @@ impl Rtc {
             init_mode(&self.rtc, false);
         }
         write_protection(&self.rtc, true);
-    }
-
-    pub fn get_date(&self) -> Date {
-        let date;
-        
-        let dater = self.rtc.dr.read();
-        date = Date::new(dater.wdu().bits().into(), 
-                        bcd2_to_byte((dater.dt().bits(), dater.du().bits())).into(),
-                        bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())).into(),
-                        (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16).into());
-        date
     }
 
     pub fn get_config(&self) -> RtcConfig{
