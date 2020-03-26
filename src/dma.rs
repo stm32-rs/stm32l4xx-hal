@@ -201,7 +201,7 @@ where
     /// Get the max length of the frame
     #[inline]
     pub fn max_len(&self) -> usize {
-        self.buf.len()
+        N::to_usize()
     }
 
     /// This function is unsafe as it must be used in conjunction with `buffer_address` to
