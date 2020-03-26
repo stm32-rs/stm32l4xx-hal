@@ -8,12 +8,12 @@ use crate::stm32::{RTC, RCC};
 /// RTC Abstraction
 pub struct Rtc {
     rtc: RTC,
-    pub rtc_config : RtcConfig //TODO: remove pub
+    rtc_config : RtcConfig
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
-pub enum RtcClockConfig {
+pub enum RtcClockSource {
     /// 00: No clock
     NoClock = 0b00,
     /// 01: LSE oscillator clock used as RTC clock
@@ -25,7 +25,8 @@ pub enum RtcClockConfig {
 }
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RtcConfig {
-    clock_config: RtcClockConfig,
+    /// RTC clock source
+    clock_config: RtcClockSource,
     /// Asynchronous prescaler factor
     /// This is the asynchronous division factor:
     /// ck_apre frequency = RTCCLK frequency/(PREDIV_A+1)
@@ -41,7 +42,7 @@ impl Default for RtcConfig {
     /// Raw sub-seconds in 1/256.
     fn default() -> Self {
         RtcConfig{
-            clock_config : RtcClockConfig::LSI,
+            clock_config : RtcClockSource::LSI,
             async_prescaler : 127,
             sync_prescaler : 255,
         }
@@ -49,7 +50,7 @@ impl Default for RtcConfig {
 }
 
 impl RtcConfig {
-    pub fn clock_config(mut self, cfg : RtcClockConfig) -> Self{
+    pub fn clock_config(mut self, cfg : RtcClockSource) -> Self{
         self.clock_config = cfg;
         self
     }
@@ -79,18 +80,6 @@ impl Rtc {
         };
         rtc_struct.set_config(apb1r1, bdcr, pwrcr1, clocks, rtc_config);
         
-        let b = bdcr.enr().read();
-        match b.rtcsel().bits() {
-            0b00 => rtc_struct.rtc_config = rtc_struct.rtc_config.clock_config(RtcClockConfig::NoClock).async_prescaler(22),
-            0b01 => rtc_struct.rtc_config = rtc_struct.rtc_config.clock_config(RtcClockConfig::LSE).async_prescaler(22),
-            0b10 => rtc_struct.rtc_config = rtc_struct.rtc_config.clock_config(RtcClockConfig::LSI).async_prescaler(22),
-            0b11 => rtc_struct.rtc_config = rtc_struct.rtc_config.clock_config(RtcClockConfig::HSE).async_prescaler(22),
-            _ => rtc_struct.rtc_config = rtc_struct.rtc_config.async_prescaler(33)
-        };
-
-        if b.lsecsson().bit_is_set(){
-            rtc_struct.rtc_config = rtc_struct.rtc_config.async_prescaler(44);
-        }
         rtc_struct
         
         
@@ -218,18 +207,27 @@ impl Rtc {
         pwrcr1.reg().modify(|_, w| w.dbp().set_bit());
         while pwrcr1.reg().read().dbp().bit_is_clear() {}
 
+        let reg = bdcr.enr().read();
+        assert!(!reg.lsecsson().bit(), "RTC is not compatible with LSE, yet.");
+        bdcr.enr().modify(|r, w| { w.bdrst().set_bit() });
+
         bdcr.enr().modify(|r, w| unsafe {
-            let r =r.bits();
+            
             //Reset
-            w.bdrst().set_bit();
             w.bdrst().clear_bit();
-            w.bits(r);
             //Select RTC source
-            w
-                .rtcsel()
+            w.rtcsel()
                 .bits(rtc_config.clock_config as u8)
                 .rtcen()
-                .set_bit()
+                .set_bit();
+            
+            //Restore bcdr
+            w.lscosel().bit(reg.lscosel().bit())
+                .lscoen().bit(reg.lscoen().bit());
+            
+            w.lseon().bit(reg.lseon().bit())
+                .lsedrv().bits(reg.lsedrv().bits())
+                .lsebyp().bit(reg.lsebyp().bit())
         });
 
         write_protection(&self.rtc, false);
