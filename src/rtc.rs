@@ -3,12 +3,12 @@
 use crate::datetime::*;
 use crate::rcc::{BDCR, APB1R1, Clocks};
 use crate::pwr;
-use crate::stm32::{RTC};
+use crate::stm32::{RTC, RCC};
 
 /// RTC Abstraction
 pub struct Rtc {
     rtc: RTC,
-    rtc_config : RtcConfig
+    pub rtc_config : RtcConfig //TODO: remove pub
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -68,77 +68,33 @@ impl RtcConfig {
 impl Rtc {
     pub fn rtc(rtc: RTC, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1, clocks: Clocks, rtc_config : RtcConfig) -> Self {
 
-        assert_eq!(clocks.lsi(), true); // make sure LSI is enabled
+        // assert_eq!(clocks.lsi(), true); // make sure LSI is enabled
         // enable peripheral clock for communication
         apb1r1.enr().modify(|_, w| w.rtcapben().set_bit());
         pwrcr1.reg().read(); // read to allow the pwr clock to enable
-        
-        // Unlock the backup domain
-        pwrcr1.reg().modify(|_, w| w.dbp().set_bit());
-        while pwrcr1.reg().read().dbp().bit_is_clear() {}
 
-
-
-        // reset required for clock source change after first setup
-        
-        // bdcr.enr().modify(|_, w| { w.bdrst().set_bit() }); // reset
-        bdcr.enr().modify(|_, w| unsafe {
-            w.rtcsel()
-                .bits(rtc_config.clock_config as u8)
-                .rtcen()
-                .set_bit()
-                // .bdrst() 
-                // .clear_bit()
-        });
-        // pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
-        
-
-       write_protection(&rtc, false);
-        {
-            init_mode(&rtc, true);
-            {
-                rtc.cr.modify(|_, w| unsafe {
-                    w.fmt()
-                        .clear_bit() // 24hr
-                        .osel()
-                        /* 
-                            00: Output disabled
-                            01: Alarm A output enabled
-                            10: Alarm B output enabled
-                            11: Wakeup output enabled 
-                        */
-                        .bits(0b00)
-                        .pol()
-                        .clear_bit() // pol high
-                });
-                
-                rtc.prer.modify(|_, w| unsafe {
-                    w.prediv_s()
-                        .bits(rtc_config.sync_prescaler)
-                        .prediv_a()
-                        .bits(rtc_config.async_prescaler)
-                });
-            }
-            init_mode(&rtc, false);
-
-            // TODO configuration for output pins
-            rtc.or.modify(|_, w| {
-                w.rtc_alarm_type()
-                    .clear_bit()
-                    .rtc_out_rmp()
-                    .clear_bit()
-            });
-            
-        }
-        write_protection(&rtc, true);
-        
-        // Relock the backup domain
-        pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
-
-        Self {
+        let mut rtc_struct = Self {
             rtc,
             rtc_config
+        };
+        rtc_struct.set_config(apb1r1, bdcr, pwrcr1, clocks, rtc_config);
+        
+        let b = bdcr.enr().read();
+        match b.rtcsel().bits() {
+            0b00 => rtc_struct.rtc_config = rtc_struct.rtc_config.clock_config(RtcClockConfig::NoClock).async_prescaler(22),
+            0b01 => rtc_struct.rtc_config = rtc_struct.rtc_config.clock_config(RtcClockConfig::LSE).async_prescaler(22),
+            0b10 => rtc_struct.rtc_config = rtc_struct.rtc_config.clock_config(RtcClockConfig::LSI).async_prescaler(22),
+            0b11 => rtc_struct.rtc_config = rtc_struct.rtc_config.clock_config(RtcClockConfig::HSE).async_prescaler(22),
+            _ => rtc_struct.rtc_config = rtc_struct.rtc_config.async_prescaler(33)
+        };
+
+        if b.lsecsson().bit_is_set(){
+            rtc_struct.rtc_config = rtc_struct.rtc_config.async_prescaler(44);
         }
+        rtc_struct
+        
+        
+        
     }
 
     pub fn set_time(&self, time: &Time){
@@ -239,55 +195,24 @@ impl Rtc {
         self.rtc_config
     }
 
-    pub fn set_config(&self, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1, clocks: Clocks, rtc_config : RtcConfig) {
+    pub fn set_config(&mut self, apb1r1: &mut APB1R1, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1, clocks: Clocks, rtc_config : RtcConfig) {
         // Unlock the backup domain
         pwrcr1.reg().modify(|_, w| w.dbp().set_bit());
         while pwrcr1.reg().read().dbp().bit_is_clear() {}
 
-
-
-        // reset required for clock source change after first setup
-        // take backup of bcdr
-        let temp = bdcr.enr().read();
-        bdcr.enr().modify(|_, w| { w.bdrst().set_bit() }); // reset
         bdcr.enr().modify(|r, w| unsafe {
+            let r =r.bits();
+            //Reset
+            w.bdrst().set_bit();
+            w.bdrst().clear_bit();
+            w.bits(r);
             //Select RTC source
-            w.bdrst() 
-                .clear_bit()
+            w
                 .rtcsel()
                 .bits(rtc_config.clock_config as u8)
                 .rtcen()
-                .set_bit();
-            // Restore BCDR
-            if temp.lseon().bit(){
-                unsafe {
-                    w.lseon().set_bit();
-                }
-
-                if temp.lsebyp().bit() {
-                    w.lsebyp().set_bit();
-                } else {
-                    unsafe {
-                        w.lsedrv().bits(0b11);
-                    } //Max drive strength for setup
-                }
-
-                while r.lserdy().bit_is_clear() {}
-
-                unsafe {
-                    w.lsedrv().bits(temp.lsedrv().bits());
-                }//set drive strenght to previous value
-                w.lsecsson().bit(temp.lsecsson().bit());
-            }
-            w.lscosel()
-                .bit(temp.lscosel().bit())
-                .lscoen()
-                .bit(temp.lscoen().bit())
-                
+                .set_bit()
         });
-
-
-        pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
 
         write_protection(&self.rtc, false);
         {
@@ -327,6 +252,11 @@ impl Rtc {
             
         }
         write_protection(&self.rtc, true);
+        
+        // Relock the backup domain
+        pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
+
+        self.rtc_config = rtc_config;
     }
 }
 
