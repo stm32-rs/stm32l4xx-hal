@@ -135,7 +135,7 @@ impl Rtc {
                         });
                     },
                     None => ()
-                }                
+                }
             }
             init_mode(&self.rtc, false);
         }
@@ -270,7 +270,7 @@ impl Rtc {
         write_protection(&self.rtc, true);
         
         // Relock the backup domain
-        pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
+        // pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
 
         self.rtc_config = rtc_config;
     }
