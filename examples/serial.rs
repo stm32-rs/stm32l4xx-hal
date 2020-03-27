@@ -28,6 +28,7 @@ fn main() -> ! {
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
+    let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
@@ -39,7 +40,7 @@ fn main() -> ! {
         .sysclk(80.mhz())
         .pclk1(80.mhz())
         .pclk2(80.mhz())
-        .freeze(&mut flash.acr);
+        .freeze(&mut flash.acr, &mut pwr);
 
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations

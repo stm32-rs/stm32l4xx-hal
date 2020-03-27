@@ -33,9 +33,10 @@ fn main() -> ! {
 
     let mut flash = dp.FLASH.constrain(); // .constrain();
     let mut rcc = dp.RCC.constrain();
+    let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
     // Try a different clock configuration
-    let clocks = rcc.cfgr.hclk(8.mhz()).freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.hclk(8.mhz()).freeze(&mut flash.acr, &mut pwr);
     // let clocks = rcc.cfgr
     //     .sysclk(64.mhz())
     //     .pclk1(32.mhz())
