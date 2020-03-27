@@ -2,8 +2,8 @@
 
 use crate::datetime::*;
 use crate::pwr;
-use crate::rcc::{Clocks, APB1R1, BDCR};
-use crate::stm32::{RCC, RTC};
+use crate::rcc::{APB1R1, BDCR};
+use crate::stm32::{RTC};
 
 /// RTC Abstraction
 pub struct Rtc {
@@ -72,7 +72,6 @@ impl Rtc {
         apb1r1: &mut APB1R1,
         bdcr: &mut BDCR,
         pwrcr1: &mut pwr::CR1,
-        clocks: Clocks,
         rtc_config: RtcConfig,
     ) -> Self {
         // assert_eq!(clocks.lsi(), true); // make sure LSI is enabled
@@ -81,7 +80,7 @@ impl Rtc {
         pwrcr1.reg().read(); // read to allow the pwr clock to enable
 
         let mut rtc_struct = Self { rtc, rtc_config };
-        rtc_struct.set_config(apb1r1, bdcr, pwrcr1, clocks, rtc_config);
+        rtc_struct.set_config(bdcr, pwrcr1, rtc_config);
 
         rtc_struct
     }
@@ -154,7 +153,7 @@ impl Rtc {
         write_protection(&self.rtc, true);
     }
 
-    pub fn get_time(&self) -> (Date, Time) {
+    pub fn get_date_time(&self) -> (Date, Time) {
         let time;
         let date;
 
@@ -225,10 +224,8 @@ impl Rtc {
 
     pub fn set_config(
         &mut self,
-        apb1r1: &mut APB1R1,
         bdcr: &mut BDCR,
         pwrcr1: &mut pwr::CR1,
-        clocks: Clocks,
         rtc_config: RtcConfig,
     ) {
         // Unlock the backup domain
@@ -240,9 +237,9 @@ impl Rtc {
             !reg.lsecsson().bit(),
             "RTC is not compatible with LSE, yet."
         );
-        bdcr.enr().modify(|r, w| w.bdrst().set_bit());
+        bdcr.enr().modify(|_, w| w.bdrst().set_bit());
 
-        bdcr.enr().modify(|r, w| unsafe {
+        bdcr.enr().modify(|_, w| unsafe {
             //Reset
             w.bdrst().clear_bit();
             //Select RTC source
@@ -300,9 +297,6 @@ impl Rtc {
         }
         write_protection(&self.rtc, true);
 
-        // Relock the backup domain
-        // pwrcr1.reg().modify(|_, w| w.dbp().clear_bit());
-
         self.rtc_config = rtc_config;
     }
 }
@@ -348,5 +342,5 @@ fn bcd2_to_byte(bcd: (u8, u8)) -> u8 {
 
     let tmp = ((value & 0xF0) >> 0x4) * 10;
 
-    (tmp + (value & 0x0F))
+    tmp + (value & 0x0F)
 }
