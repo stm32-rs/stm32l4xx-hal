@@ -8,7 +8,6 @@ use core::marker::PhantomData;
 use crate::rcc::AHB2;
 use crate::stm32::{EXTI, SYSCFG};
 
-
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
     /// The to split the GPIO into

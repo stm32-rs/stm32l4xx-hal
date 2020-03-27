@@ -16,10 +16,10 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use cortex_m::asm;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
+use cortex_m::asm;
 
 #[entry]
 fn main() -> ! {
@@ -44,19 +44,17 @@ fn main() -> ! {
     // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
     let rx = gpiod.pd6.into_af7(&mut gpiod.moder, &mut gpiod.afrl);
 
-     // TRY using a different USART peripheral here
+    // TRY using a different USART peripheral here
     let serial = Serial::usart2(
         p.USART2,
         (tx, rx),
         Config::default().baudrate(115_200.bps()),
         clocks,
-        &mut rcc.apb1r1
+        &mut rcc.apb1r1,
     );
     let (mut tx, mut rx) = serial.split();
 
     let sent = b'X';
-
-
 
     // The `block!` macro makes an operation block until it finishes
     // NOTE the error type is `!`

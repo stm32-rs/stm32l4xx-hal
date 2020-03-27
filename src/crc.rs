@@ -161,7 +161,8 @@ impl Crc {
     pub fn reset_with_inital_value(&mut self, initial_value: u32) {
         let crc = unsafe { &(*CRC::ptr()) };
 
-        crc.init.write(|w| unsafe { w.crc_init().bits(initial_value) });
+        crc.init
+            .write(|w| unsafe { w.crc_init().bits(initial_value) });
         crc.cr.modify(|_, w| w.reset().set_bit());
     }
 

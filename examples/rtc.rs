@@ -14,18 +14,17 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use crate::hal::prelude::*;
+use crate::hal::datetime::{Date, Time};
 use crate::hal::delay::Delay;
+use crate::hal::prelude::*;
 use crate::hal::rtc::Rtc;
-use crate::hal::datetime::{Date,Time};
 use crate::rt::ExceptionFrame;
 
-use core::fmt::Write;
 use crate::sh::hio;
+use core::fmt::Write;
 
 #[entry]
 fn main() -> ! {
-
     let mut hstdout = hio::hstdout().unwrap();
 
     writeln!(hstdout, "Hello, world!").unwrap();
@@ -55,7 +54,6 @@ fn main() -> ! {
 
     time = rtc.get_time();
     date = rtc.get_date();
-
 
     writeln!(hstdout, "Time: {:?}", time).unwrap();
     writeln!(hstdout, "Date: {:?}", date).unwrap();

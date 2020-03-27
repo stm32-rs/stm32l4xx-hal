@@ -8,12 +8,8 @@
 extern crate panic_halt;
 
 // use cortex_m::asm;
-use stm32l4xx_hal::{
-    prelude::*,
-    stm32,
-    delay,
-};
 use cortex_m_rt::entry;
+use stm32l4xx_hal::{delay, prelude::*, stm32};
 
 #[entry]
 fn main() -> ! {
@@ -28,27 +24,26 @@ fn main() -> ! {
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
 
     // TIM2
-    let c1 = gpioa.pa0
+    let c1 = gpioa
+        .pa0
         .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
         .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
-    let c2 = gpioa.pa1
+    let c2 = gpioa
+        .pa1
         .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
         .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
-    let c3 = gpioa.pa2
+    let c3 = gpioa
+        .pa2
         .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
         .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
-    let c4 = gpioa.pa3
+    let c4 = gpioa
+        .pa3
         .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
         .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
 
     let mut pwm = p
         .TIM2
-        .pwm(
-            (c1, c2, c3, c4),
-            1.khz(),
-            clocks,
-            &mut rcc.apb1r1,
-        )
+        .pwm((c1, c2, c3, c4), 1.khz(), clocks, &mut rcc.apb1r1)
         .3;
 
     let max = pwm.get_max_duty();
@@ -65,21 +60,20 @@ fn main() -> ! {
         timer.delay_ms(second);
         // asm::bkpt();
 
-        pwm.set_duty(max/11*10);
+        pwm.set_duty(max / 11 * 10);
         timer.delay_ms(second);
         // asm::bkpt();
 
-        pwm.set_duty(3*max/4);
+        pwm.set_duty(3 * max / 4);
         timer.delay_ms(second);
         // asm::bkpt();
 
-        pwm.set_duty(max/2);
+        pwm.set_duty(max / 2);
         timer.delay_ms(second);
         // asm::bkpt();
 
-        pwm.set_duty(max/4);
+        pwm.set_duty(max / 4);
         timer.delay_ms(second);
         // asm::bkpt();
-
     }
 }

@@ -18,11 +18,11 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use cortex_m::asm;
 use crate::hal::dma::Half;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
+use cortex_m::asm;
 
 #[entry]
 fn main() -> ! {
@@ -53,7 +53,7 @@ fn main() -> ! {
         (tx, rx),
         Config::default().baudrate(9_600.bps()),
         clocks,
-        &mut rcc.apb2
+        &mut rcc.apb2,
     );
     let (mut tx, rx) = serial.split();
 
@@ -71,9 +71,7 @@ fn main() -> ! {
     for _ in 0..2 {
         while circ_buffer.readable_half().unwrap() != Half::First {}
 
-        let _first_half = circ_buffer.peek(|_buf, half| {
-            half
-        }).unwrap();
+        let _first_half = circ_buffer.peek(|_buf, half| half).unwrap();
 
         // asm::bkpt();
 

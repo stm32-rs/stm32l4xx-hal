@@ -19,7 +19,7 @@ extern crate stm32l4xx_hal as hal;
 
 use crate::hal::prelude::*;
 use crate::hal::rcc::PllConfig;
-use crate::hal::serial::{Serial, Config};
+use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
 use cortex_m::asm;
 

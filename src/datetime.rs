@@ -56,7 +56,7 @@ pub trait U32Ext {
 }
 
 impl U32Ext for u32 {
-    fn micros(self) -> Micros{
+    fn micros(self) -> Micros {
         Micros(self)
     }
     fn seconds(self) -> Second {
@@ -88,24 +88,29 @@ impl U32Ext for u32 {
     }
 }
 
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Time {
     pub hours: u32,
     pub minutes: u32,
     pub seconds: u32,
     pub micros: u32,
-    pub daylight_savings: bool
+    pub daylight_savings: bool,
 }
 
 impl Time {
-    pub fn new(hours: Hour, minutes: Minute, seconds: Second, micros: Micros, daylight_savings: bool) -> Self {
+    pub fn new(
+        hours: Hour,
+        minutes: Minute,
+        seconds: Second,
+        micros: Micros,
+        daylight_savings: bool,
+    ) -> Self {
         Self {
             hours: hours.0,
             minutes: minutes.0,
             seconds: seconds.0,
             micros: micros.0,
-            daylight_savings
+            daylight_savings,
         }
     }
 }
@@ -124,7 +129,7 @@ impl Date {
             day: day.0,
             date: date.0,
             month: month.0,
-            year: year.0
+            year: year.0,
         }
     }
 }

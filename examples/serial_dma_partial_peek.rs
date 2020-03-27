@@ -19,10 +19,10 @@ extern crate stm32l4xx_hal as hal;
 // extern crate nb;
 
 use crate::cortex_m::asm;
+use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
-use crate::hal::delay::Delay;
 
 #[entry]
 fn main() -> ! {
@@ -55,7 +55,7 @@ fn main() -> ! {
         (tx, rx),
         Config::default().baudrate(9_600.bps()),
         clocks,
-        &mut rcc.apb2
+        &mut rcc.apb2,
     );
 
     let (mut tx, rx) = serial.split();
@@ -77,10 +77,12 @@ fn main() -> ! {
     timer.delay_ms(1000_u32);
 
     // then view the partial buffer
-    let _curr_half = circ_buffer.partial_peek(|_buf, half| {
-        // do something with _buf here
-        Ok( (0, half) )
-    }).unwrap();
+    let _curr_half = circ_buffer
+        .partial_peek(|_buf, half| {
+            // do something with _buf here
+            Ok((0, half))
+        })
+        .unwrap();
 
     asm::bkpt();
 
