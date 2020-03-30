@@ -179,30 +179,33 @@ impl Rtc {
             "RTC is not compatible with LSE, yet."
         );
 
-        bdcr.enr().modify(|_, w| w.bdrst().set_bit());
+        if (reg.rtcen().bit() != true || reg.rtcsel().bits() != rtc_config.clock_config as u8 ){
+            bdcr.enr().modify(|_, w| w.bdrst().set_bit());
+    
+            bdcr.enr().modify(|_, w| unsafe {
+                //Reset
+                w.bdrst().clear_bit();
+                //Select RTC source
+                w.rtcsel()
+                    .bits(rtc_config.clock_config as u8)
+                    .rtcen()
+                    .set_bit();
+    
+                //Restore bcdr
+                w.lscosel()
+                    .bit(reg.lscosel().bit())
+                    .lscoen()
+                    .bit(reg.lscoen().bit());
+    
+                w.lseon()
+                    .bit(reg.lseon().bit())
+                    .lsedrv()
+                    .bits(reg.lsedrv().bits())
+                    .lsebyp()
+                    .bit(reg.lsebyp().bit())
+            });
+        }
 
-        bdcr.enr().modify(|_, w| unsafe {
-            //Reset
-            w.bdrst().clear_bit();
-            //Select RTC source
-            w.rtcsel()
-                .bits(rtc_config.clock_config as u8)
-                .rtcen()
-                .set_bit();
-
-            //Restore bcdr
-            w.lscosel()
-                .bit(reg.lscosel().bit())
-                .lscoen()
-                .bit(reg.lscoen().bit());
-
-            w.lseon()
-                .bit(reg.lseon().bit())
-                .lsedrv()
-                .bits(reg.lsedrv().bits())
-                .lsebyp()
-                .bit(reg.lsebyp().bit())
-        });
 
         write_protection(&self.rtc, false);
         {
