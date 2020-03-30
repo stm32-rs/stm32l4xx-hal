@@ -13,7 +13,6 @@ use crate::rcc::AHB1;
 use as_slice::AsSlice;
 pub use generic_array::typenum::consts;
 use generic_array::{ArrayLength, GenericArray};
-use stable_deref_trait::StableDeref;
 
 #[derive(Debug)]
 pub enum Error {
@@ -189,7 +188,7 @@ where
     /// Reads how many bytes are free
     #[inline]
     pub fn free(&self) -> usize {
-        self.buf.len() - self.len as usize
+        self.max_len() - self.len as usize
     }
 
     /// Get the max length of the frame
@@ -245,7 +244,7 @@ where
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
     pub(crate) fn new<H>(buf: BUFFER, chan: CHANNEL) -> Self
     where
-        BUFFER: StableDeref<Target = [H; 2]>,
+        BUFFER: Deref<Target = [H; 2]> + 'static,
     {
         CircBuffer {
             buffer: buf,
@@ -271,7 +270,7 @@ pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
 
 impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD>
 where
-    BUFFER: StableDeref + 'static,
+    BUFFER: Deref + 'static,
 {
     pub(crate) fn r(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
@@ -285,7 +284,7 @@ where
 
 impl<BUFFER, CHANNEL, PAYLOAD> Transfer<W, BUFFER, CHANNEL, PAYLOAD>
 where
-    BUFFER: StableDeref + 'static,
+    BUFFER: Deref + 'static,
 {
     pub(crate) fn w(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
@@ -326,13 +325,14 @@ macro_rules! dma {
             $tcifX:ident,
             $chtifX:ident,
             $ctcifX:ident,
-            $cgifX:ident
+            $cgifX:ident,
+            $teifX:ident,
+            $cteifX:ident
         ),)+
     }),)+) => {
         $(
             pub mod $dmaX {
                 use core::sync::atomic::{self, Ordering};
-                use stable_deref_trait::StableDeref;
                 use as_slice::{AsSlice};
                 use crate::stm32::{$DMAX, dma1};
                 use core::mem::MaybeUninit;
@@ -479,6 +479,10 @@ macro_rules! dma {
 
                             self.channel.stop();
 
+                            // NOTE(compiler_fence) operations on the DMA should not be reordered
+                            // before the next statement, takes the buffer from the DMA transfer.
+                            atomic::compiler_fence(Ordering::SeqCst);
+
                             // Return the old buffer for the user to do what they want with it
                             self.buffer.take()
                         }
@@ -504,9 +508,15 @@ macro_rules! dma {
                             self.channel.set_memory_address(new_buf.buffer_as_ptr() as u32, true);
                             self.channel.set_transfer_length(new_buf.len() as u16);
 
+                            // If there has been an error, clear the error flag to let the next
+                            // transaction start
+                            if self.channel.isr().$teifX().bit_is_set() {
+                                self.channel.ifcr().write(|w| w.$cteifX().set_bit());
+                            }
+
                             // NOTE(compiler_fence) operations on `buffer` should not be reordered after
                             // the next statement, which starts the DMA transfer
-                            atomic::compiler_fence(Ordering::SeqCst);
+                            atomic::compiler_fence(Ordering::Release);
 
                             self.channel.start();
 
@@ -581,6 +591,10 @@ macro_rules! dma {
 
                             self.channel.stop();
 
+                            // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                            // the next statement, which starts a new DMA transfer
+                            atomic::compiler_fence(Ordering::SeqCst);
+
                             let left_in_buffer = self.channel.get_cndtr() as usize;
                             let got_data_len = old_buf.max_len() - left_in_buffer; // How many bytes we got
                             unsafe {
@@ -627,7 +641,7 @@ macro_rules! dma {
 
                             // NOTE(compiler_fence) operations on `buffer` should not be reordered after
                             // the next statement, which starts the DMA transfer
-                            atomic::compiler_fence(Ordering::SeqCst);
+                            atomic::compiler_fence(Ordering::Release);
 
                             self.channel.start();
 
@@ -642,7 +656,7 @@ macro_rules! dma {
                         pub fn partial_peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
-                            B: StableDeref<Target = [H; 2]>,
+                            B: Deref<Target = [H; 2]> + 'static,
                             H: AsSlice<Element=T>,
                         {
                             // this inverts expectation and returns the half being _written_
@@ -683,7 +697,7 @@ macro_rules! dma {
                         pub fn peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> R,
-                            B: StableDeref<Target = [H; 2]>,
+                            B: Deref<Target = [H; 2]> + 'static,
                             H: AsSlice<Element=T>,
                         {
                             let half_being_read = self.readable_half()?;
@@ -799,7 +813,8 @@ dma! {
             cpar1, CPAR1,
             cmar1, CMAR1,
             htif1, tcif1,
-            chtif1, ctcif1, cgif1
+            chtif1, ctcif1, cgif1,
+            teif1, cteif1
         ),
         C2: (
             ccr2, CCR2,
@@ -807,7 +822,8 @@ dma! {
             cpar2, CPAR2,
             cmar2, CMAR2,
             htif2, tcif2,
-            chtif2, ctcif2, cgif2
+            chtif2, ctcif2, cgif2,
+            teif2, cteif2
         ),
         C3: (
             ccr3, CCR3,
@@ -815,7 +831,8 @@ dma! {
             cpar3, CPAR3,
             cmar3, CMAR3,
             htif3, tcif3,
-            chtif3, ctcif3, cgif3
+            chtif3, ctcif3, cgif3,
+            teif3, cteif3
         ),
         C4: (
             ccr4, CCR4,
@@ -823,7 +840,8 @@ dma! {
             cpar4, CPAR4,
             cmar4, CMAR4,
             htif4, tcif4,
-            chtif4, ctcif4, cgif4
+            chtif4, ctcif4, cgif4,
+            teif4, cteif4
         ),
         C5: (
             ccr5, CCR5,
@@ -831,7 +849,8 @@ dma! {
             cpar5, CPAR5,
             cmar5, CMAR5,
             htif5, tcif5,
-            chtif5, ctcif5, cgif5
+            chtif5, ctcif5, cgif5,
+            teif5, cteif5
         ),
         C6: (
             ccr6, CCR6,
@@ -839,7 +858,8 @@ dma! {
             cpar6, CPAR6,
             cmar6, CMAR6,
             htif6, tcif6,
-            chtif6, ctcif6, cgif6
+            chtif6, ctcif6, cgif6,
+            teif6, cteif6
         ),
         C7: (
             ccr7, CCR7,
@@ -847,7 +867,8 @@ dma! {
             cpar7, CPAR7,
             cmar7, CMAR7,
             htif7, tcif7,
-            chtif7, ctcif7, cgif7
+            chtif7, ctcif7, cgif7,
+            teif7, cteif7
         ),
     }),
     DMA2: (dma2, dma2en, dma2rst, {
@@ -857,7 +878,8 @@ dma! {
             cpar1, CPAR1,
             cmar1, CMAR1,
             htif1, tcif1,
-            chtif1, ctcif1, cgif1
+            chtif1, ctcif1, cgif1,
+            teif1, cteif1
         ),
         C2: (
             ccr2, CCR2,
@@ -865,7 +887,8 @@ dma! {
             cpar2, CPAR2,
             cmar2, CMAR2,
             htif2, tcif2,
-            chtif2, ctcif2, cgif2
+            chtif2, ctcif2, cgif2,
+            teif2, cteif2
         ),
         C3: (
             ccr3, CCR3,
@@ -873,7 +896,8 @@ dma! {
             cpar3, CPAR3,
             cmar3, CMAR3,
             htif3, tcif3,
-            chtif3, ctcif3, cgif3
+            chtif3, ctcif3, cgif3,
+            teif3, cteif3
         ),
         C4: (
             ccr4, CCR4,
@@ -881,7 +905,8 @@ dma! {
             cpar4, CPAR4,
             cmar4, CMAR4,
             htif4, tcif4,
-            chtif4, ctcif4, cgif4
+            chtif4, ctcif4, cgif4,
+            teif4, cteif4
         ),
         C5: (
             ccr5, CCR5,
@@ -889,7 +914,8 @@ dma! {
             cpar5, CPAR5,
             cmar5, CMAR5,
             htif5, tcif5,
-            chtif5, ctcif5, cgif5
+            chtif5, ctcif5, cgif5,
+            teif5, cteif5
         ),
         C6: (
             ccr6, CCR6,
@@ -897,7 +923,8 @@ dma! {
             cpar6, CPAR6,
             cmar6, CMAR6,
             htif6, tcif6,
-            chtif6, ctcif6, cgif6
+            chtif6, ctcif6, cgif6,
+            teif6, cteif6
         ),
         C7: (
             ccr7, CCR7,
@@ -905,7 +932,8 @@ dma! {
             cpar7, CPAR7,
             cmar7, CMAR7,
             htif7, tcif7,
-            chtif7, ctcif7, cgif7
+            chtif7, ctcif7, cgif7,
+            teif7, cteif7
         ),
     }),
 }

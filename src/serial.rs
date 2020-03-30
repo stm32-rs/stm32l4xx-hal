@@ -10,7 +10,6 @@ use core::ops::{Deref, DerefMut};
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
 use generic_array::ArrayLength;
-use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 use nb;
@@ -906,7 +905,7 @@ macro_rules! hal {
                     mut buffer: B,
                 ) -> CircBuffer<B, $rx_chan>
                 where
-                    B: StableDeref<Target = [H; 2]> + DerefMut + 'static,
+                    B: Deref<Target = [H; 2]> + DerefMut + 'static,
                     H: AsMutSlice<Element = u8>
                 {
                     let buf = buffer[0].as_mut_slice();
@@ -937,10 +936,9 @@ macro_rules! hal {
                             .clear_bit()
                     });
 
-                    // TODO can we weaken this compiler barrier?
                     // NOTE(compiler_fence) operations on `buffer` should not be reordered after
                     // the next statement, which starts the DMA transfer
-                    atomic::compiler_fence(Ordering::SeqCst);
+                    atomic::compiler_fence(Ordering::Release);
 
                     chan.start();
 
@@ -990,7 +988,7 @@ macro_rules! hal {
 
                     // NOTE(compiler_fence) operations on `buffer` should not be reordered after
                     // the next statement, which starts the DMA transfer
-                    atomic::compiler_fence(Ordering::SeqCst);
+                    atomic::compiler_fence(Ordering::Release);
 
                     channel.start();
 
