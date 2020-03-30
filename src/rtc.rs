@@ -30,10 +30,12 @@ pub struct RtcConfig {
     /// Asynchronous prescaler factor
     /// This is the asynchronous division factor:
     /// ck_apre frequency = RTCCLK frequency/(PREDIV_A+1)
+    /// ck_apre drives the subsecond register
     async_prescaler: u8,
     /// Synchronous prescaler factor
     /// This is the synchronous division factor:
     /// ck_spre frequency = ck_apre frequency/(PREDIV_S+1)
+    /// ck_spre must be 1Hz
     sync_prescaler: u16,
 }
 
@@ -50,16 +52,19 @@ impl Default for RtcConfig {
 }
 
 impl RtcConfig {
+    /// Sets the clock source of RTC config
     pub fn clock_config(mut self, cfg: RtcClockSource) -> Self {
         self.clock_config = cfg;
         self
     }
 
+    /// Set the asynchronous prescaler of RTC config
     pub fn async_prescaler(mut self, prescaler: u8) -> Self {
         self.async_prescaler = prescaler;
         self
     }
 
+    /// Set the synchronous prescaler of RTC config
     pub fn sync_prescaler(mut self, prescaler: u16) -> Self {
         self.sync_prescaler = prescaler;
         self
@@ -85,6 +90,7 @@ impl Rtc {
         rtc_struct
     }
 
+    /// Get date and time touple
     pub fn get_date_time(&self) -> (Date, Time) {
         let time;
         let date;
@@ -163,6 +169,8 @@ impl Rtc {
         self.rtc_config
     }
 
+    /// Applies the RTC config
+    /// It this changes the RTC clock source the time will be reset
     pub fn set_config(
         &mut self,
         bdcr: &mut BDCR,
@@ -271,6 +279,7 @@ fn init_mode(rtc: &RTC, enabled: bool) {
 }
 
 /// Raw set time
+/// Expects init mode enabled and write protection disabled
 fn set_time_raw (rtc: &RTC, time: Time){
     let (ht, hu) = byte_to_bcd2(time.hours as u8);
     let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
@@ -299,6 +308,7 @@ fn set_time_raw (rtc: &RTC, time: Time){
 }
 
 /// Raw set date
+/// Expects init mode enabled and write protection disabled
 fn set_date_raw (rtc: &RTC, date: Date){
     let (dt, du) = byte_to_bcd2(date.date as u8);
     let (mt, mu) = byte_to_bcd2(date.month as u8);
