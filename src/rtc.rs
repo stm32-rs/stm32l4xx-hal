@@ -85,70 +85,6 @@ impl Rtc {
         rtc_struct
     }
 
-    pub fn set_time(&self, time: Option<&Time>, date: Option<&Date>) {
-        write_protection(&self.rtc, false);
-        {
-            init_mode(&self.rtc, true);
-            {
-                if let Some(time) = time {
-                    let (ht, hu) = byte_to_bcd2(time.hours as u8);
-                    let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
-                    let (st, su) = byte_to_bcd2(time.seconds as u8);
-
-                    self.rtc.tr.write(|w| unsafe {
-                        w.ht()
-                            .bits(ht)
-                            .hu()
-                            .bits(hu)
-                            .mnt()
-                            .bits(mnt)
-                            .mnu()
-                            .bits(mnu)
-                            .st()
-                            .bits(st)
-                            .su()
-                            .bits(su)
-                            .pm()
-                            .clear_bit()
-                    });
-
-                    self.rtc
-                        .cr
-                        .modify(|_, w| w.bkp().bit(time.daylight_savings));
-                }
-                
-                
-
-                if let Some(date) = date {
-                    let (dt, du) = byte_to_bcd2(date.date as u8);
-                    let (mt, mu) = byte_to_bcd2(date.month as u8);
-                    let yr = date.year as u16;
-                    let yr_offset = (yr - 1970_u16) as u8;
-                    let (yt, yu) = byte_to_bcd2(yr_offset);
-
-                    self.rtc.dr.write(|w| unsafe {
-                        w.dt()
-                            .bits(dt)
-                            .du()
-                            .bits(du)
-                            .mt()
-                            .bit(mt > 0)
-                            .mu()
-                            .bits(mu)
-                            .yt()
-                            .bits(yt)
-                            .yu()
-                            .bits(yu)
-                            .wdu()
-                            .bits(date.day as u8)
-                    });
-                }
-            }
-            init_mode(&self.rtc, false);
-        }
-        write_protection(&self.rtc, true);
-    }
-
     pub fn get_date_time(&self) -> (Date, Time) {
         let time;
         let date;
@@ -181,33 +117,42 @@ impl Rtc {
         (date, time)
     }
 
-    pub fn set_date(&self, date: &Date) {
+    /// Set Date and Time
+    pub fn set_date_time(&self, time: Time, date: Date) {
         write_protection(&self.rtc, false);
         {
             init_mode(&self.rtc, true);
             {
-                let (dt, du) = byte_to_bcd2(date.date as u8);
-                let (mt, mu) = byte_to_bcd2(date.month as u8);
-                let yr = date.year as u16;
-                let yr_offset = (yr - 1970_u16) as u8;
-                let (yt, yu) = byte_to_bcd2(yr_offset);
+                set_time_raw(&self.rtc, time);
+                set_date_raw(&self.rtc, date);
+            }
+            init_mode(&self.rtc, false);
+        }
+        write_protection(&self.rtc, true);
+    }
 
-                self.rtc.dr.write(|w| unsafe {
-                    w.dt()
-                        .bits(dt)
-                        .du()
-                        .bits(du)
-                        .mt()
-                        .bit(mt > 0)
-                        .mu()
-                        .bits(mu)
-                        .yt()
-                        .bits(yt)
-                        .yu()
-                        .bits(yu)
-                        .wdu()
-                        .bits(date.day as u8)
-                });
+    /// Set Time
+    /// Note: If setting both time and date, use set_date_time(...) to avoid errors.
+    pub fn set_time(&self, time: Time) {
+        write_protection(&self.rtc, false);
+        {
+            init_mode(&self.rtc, true);
+            {
+                set_time_raw(&self.rtc, time);
+            }
+            init_mode(&self.rtc, false);
+        }
+        write_protection(&self.rtc, true);
+    }
+
+    /// Set Date
+    /// Note: If setting both time and date, use set_date_time(...) to avoid errors.
+    pub fn set_date(&self, date: Date) {
+        write_protection(&self.rtc, false);
+        {
+            init_mode(&self.rtc, true);
+            {
+                set_date_raw(&self.rtc, date);
             }
             init_mode(&self.rtc, false);
         }
@@ -319,6 +264,60 @@ fn init_mode(rtc: &RTC, enabled: bool) {
     } else {
         rtc.isr.write(|w| w.init().clear_bit()); // Exits init mode
     }
+}
+
+/// Raw set time
+fn set_time_raw (rtc: &RTC, time: Time){
+    let (ht, hu) = byte_to_bcd2(time.hours as u8);
+    let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
+    let (st, su) = byte_to_bcd2(time.seconds as u8);
+
+    rtc.tr.write(|w| unsafe {
+        w.ht()
+            .bits(ht)
+            .hu()
+            .bits(hu)
+            .mnt()
+            .bits(mnt)
+            .mnu()
+            .bits(mnu)
+            .st()
+            .bits(st)
+            .su()
+            .bits(su)
+            .pm()
+            .clear_bit()
+    });
+
+    rtc
+        .cr
+        .modify(|_, w| w.bkp().bit(time.daylight_savings));
+}
+
+/// Raw set date
+fn set_date_raw (rtc: &RTC, date: Date){
+    let (dt, du) = byte_to_bcd2(date.date as u8);
+    let (mt, mu) = byte_to_bcd2(date.month as u8);
+    let yr = date.year as u16;
+    let yr_offset = (yr - 1970_u16) as u8;
+    let (yt, yu) = byte_to_bcd2(yr_offset);
+
+    rtc.dr.write(|w| unsafe {
+        w.dt()
+            .bits(dt)
+            .du()
+            .bits(du)
+            .mt()
+            .bit(mt > 0)
+            .mu()
+            .bits(mu)
+            .yt()
+            .bits(yt)
+            .yu()
+            .bits(yu)
+            .wdu()
+            .bits(date.day as u8)
+    });
 }
 
 fn byte_to_bcd2(byte: u8) -> (u8, u8) {
