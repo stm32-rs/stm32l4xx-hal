@@ -118,7 +118,7 @@ impl Rtc {
     }
 
     /// Set Date and Time
-    pub fn set_date_time(&self, time: Time, date: Date) {
+    pub fn set_date_time(&self, date: Date, time: Time) {
         write_protection(&self.rtc, false);
         {
             init_mode(&self.rtc, true);
@@ -178,6 +178,7 @@ impl Rtc {
             !reg.lsecsson().bit(),
             "RTC is not compatible with LSE, yet."
         );
+
         bdcr.enr().modify(|_, w| w.bdrst().set_bit());
 
         bdcr.enr().modify(|_, w| unsafe {
