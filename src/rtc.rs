@@ -184,7 +184,7 @@ impl Rtc {
         let reg = bdcr.enr().read();
         assert!(
             !reg.lsecsson().bit(),
-            "RTC is not compatible with LSE, yet."
+            "RTC is not compatible with LSE CSS, yet."
         );
 
         if reg.rtcen().bit() != true || reg.rtcsel().bits() != rtc_config.clock_config as u8 {
