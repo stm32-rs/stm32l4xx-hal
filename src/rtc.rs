@@ -187,7 +187,7 @@ impl Rtc {
             "RTC is not compatible with LSE, yet."
         );
 
-        if (reg.rtcen().bit() != true || reg.rtcsel().bits() != rtc_config.clock_config as u8 ){
+        if reg.rtcen().bit() != true || reg.rtcsel().bits() != rtc_config.clock_config as u8 {
             bdcr.enr().modify(|_, w| w.bdrst().set_bit());
     
             bdcr.enr().modify(|_, w| unsafe {
