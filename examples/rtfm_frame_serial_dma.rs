@@ -10,7 +10,7 @@
 
 use panic_halt as _;
 use hal::{
-    dma::{self, consts, FrameReader, FrameSender, SerialDMAFrame},
+    dma::{self, consts, FrameReader, FrameSender, DMAFrame},
     prelude::*,
     rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
     serial::{self, Config, Serial},
@@ -22,8 +22,8 @@ use heapless::{
 use rtfm::app;
 use stm32l4xx_hal as hal;
 
-// The pool gives out `Box<SerialDMAFrame>`s that can hold 8 bytes
-pool!(SerialDMAPool: SerialDMAFrame<consts::U8>);
+// The pool gives out `Box<DMAFrame>`s that can hold 8 bytes
+pool!(SerialDMAPool: DMAFrame<consts::U8>);
 
 #[app(device = stm32l4xx_hal::stm32, peripherals = true)]
 const APP: () = {
@@ -82,7 +82,7 @@ const APP: () = {
         // Serial frame reader (DMA based), give it a buffer to start reading into
         let fr = if let Some(dma_buf) = SerialDMAPool::alloc() {
             // Set up the first reader frame
-            let dma_buf = dma_buf.init(SerialDMAFrame::new());
+            let dma_buf = dma_buf.init(DMAFrame::new());
             serial_rx.frame_read(dma_ch6, dma_buf)
         } else {
             unreachable!()
@@ -106,7 +106,7 @@ const APP: () = {
         // Check for character match
         if cx.resources.rx.is_character_match(true) {
             if let Some(dma_buf) = SerialDMAPool::alloc() {
-                let dma_buf = dma_buf.init(SerialDMAFrame::new());
+                let dma_buf = dma_buf.init(DMAFrame::new());
                 let buf = cx.resources.frame_reader.character_match_interrupt(dma_buf);
 
                 // Echo the buffer back over the serial
@@ -121,7 +121,7 @@ const APP: () = {
     #[task(binds = DMA1_CH6, resources = [rx, frame_reader], priority = 3)]
     fn serial_rx_dma_isr(cx: serial_rx_dma_isr::Context) {
         if let Some(dma_buf) = SerialDMAPool::alloc() {
-            let dma_buf = dma_buf.init(SerialDMAFrame::new());
+            let dma_buf = dma_buf.init(DMAFrame::new());
 
             // Erroneous packet as it did not fit in a buffer, throw away the buffer
             let _buf = cx

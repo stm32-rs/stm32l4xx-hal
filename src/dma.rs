@@ -36,7 +36,7 @@ pub enum Half {
 /// Frame reader "worker", access and handling of frame reads is made through this structure.
 pub struct FrameReader<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: BUFFER,
@@ -47,7 +47,7 @@ where
 
 impl<BUFFER, CHANNEL, N> FrameReader<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     pub(crate) fn new(
@@ -68,7 +68,7 @@ where
 /// structure.
 pub struct FrameSender<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: Option<BUFFER>,
@@ -78,7 +78,7 @@ where
 
 impl<BUFFER, CHANNEL, N> FrameSender<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     pub(crate) fn new(channel: CHANNEL) -> FrameSender<BUFFER, CHANNEL, N> {
@@ -96,7 +96,7 @@ where
 /// used with, for example, [`heapless::pool`] to create a pool of serial frames.
 ///
 /// [`heapless::pool`]: https://docs.rs/heapless/0.5.3/heapless/pool/index.html
-pub struct SerialDMAFrame<N>
+pub struct DMAFrame<N>
 where
     N: ArrayLength<MaybeUninit<u8>>,
 {
@@ -104,7 +104,7 @@ where
     buf: GenericArray<MaybeUninit<u8>, N>,
 }
 
-impl<N> fmt::Debug for SerialDMAFrame<N>
+impl<N> fmt::Debug for DMAFrame<N>
 where
     N: ArrayLength<MaybeUninit<u8>>,
 {
@@ -113,7 +113,7 @@ where
     }
 }
 
-impl<N> fmt::Write for SerialDMAFrame<N>
+impl<N> fmt::Write for DMAFrame<N>
 where
     N: ArrayLength<MaybeUninit<u8>>,
 {
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<N> SerialDMAFrame<N>
+impl<N> DMAFrame<N>
 where
     N: ArrayLength<MaybeUninit<u8>>,
 {
@@ -142,6 +142,26 @@ where
         Self {
             len: 0,
             buf: unsafe { MaybeUninit::uninit().assume_init() },
+        }
+    }
+
+    /// Gives a `&mut [u8]` slice to write into with the maximum size, the `commit` method
+    /// must then be used to set the actual number of bytes written.
+    ///
+    /// Note that this function internally first zeros the node's buffer.
+    pub fn write(&mut self) -> &mut [u8] {
+        // Initialize memory with a safe value
+        self.buf = unsafe { core::mem::zeroed() };
+        self.len = self.max_len() as u16;
+
+        unsafe { slice::from_raw_parts_mut(self.buf.as_mut_ptr() as *mut _, self.max_len()) }
+    }
+
+    /// Used to shrink the current size of the slice in the node, used in conjunction with `write`.
+    pub fn commit(&mut self, shrink_to: usize) {
+        // Only shrinking is allowed to remain safe with the `MaybeUninit`
+        if shrink_to < self.len as _ {
+            self.len = shrink_to as _;
         }
     }
 
@@ -220,7 +240,7 @@ where
     }
 }
 
-impl<N> AsSlice for SerialDMAFrame<N>
+impl<N> AsSlice for DMAFrame<N>
 where
     N: ArrayLength<MaybeUninit<u8>>,
 {
@@ -340,7 +360,7 @@ macro_rules! dma {
                 use core::ops::{Deref, DerefMut};
                 use core::ptr;
 
-                use crate::dma::{CircBuffer, FrameReader, FrameSender, SerialDMAFrame, DmaExt, Error, Event, Half, Transfer, W};
+                use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W};
                 use crate::rcc::AHB1;
 
                 pub struct Channels((), $(pub $CX),+);
@@ -460,7 +480,7 @@ macro_rules! dma {
 
                     impl<BUFFER, N> FrameSender<BUFFER, $CX, N>
                     where
-                        BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                     {
                         /// This method should be called in the transfer complete interrupt of the
@@ -528,7 +548,7 @@ macro_rules! dma {
 
                     impl<BUFFER, N> FrameReader<BUFFER, $CX, N>
                     where
-                        BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                     {
                         /// This function should be called from the transfer complete interrupt of

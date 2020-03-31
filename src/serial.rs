@@ -79,7 +79,7 @@ use crate::gpio::gpioc::PC12;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::AF8;
 
-use crate::dma::{dma1, CircBuffer, FrameReader, FrameSender, SerialDMAFrame};
+use crate::dma::{dma1, CircBuffer, FrameReader, FrameSender, DMAFrame};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
 
@@ -953,7 +953,7 @@ macro_rules! hal {
                     buffer: BUFFER,
                 ) -> FrameReader<BUFFER, $rx_chan, N>
                     where
-                        BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
                     let usart = unsafe{ &(*$USARTX::ptr()) };
@@ -1051,7 +1051,7 @@ macro_rules! hal {
                     mut channel: $tx_chan,
                 ) -> FrameSender<BUFFER, $tx_chan, N>
                     where
-                        BUFFER: Sized + Deref<Target = SerialDMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
                     let usart = unsafe{ &(*$USARTX::ptr()) };
