@@ -727,6 +727,10 @@ macro_rules! hal {
                             w.add().bits(c);
                         }
 
+                        if let Some(_) = config.receiver_timeout {
+                            w.rtoen().set_bit();
+                        }
+
                         w
                     });
 
