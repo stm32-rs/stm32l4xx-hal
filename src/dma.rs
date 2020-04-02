@@ -148,16 +148,20 @@ where
     /// Gives a `&mut [u8]` slice to write into with the maximum size, the `commit` method
     /// must then be used to set the actual number of bytes written.
     ///
-    /// Note that this function internally first zeros the node's buffer.
+    /// Note that this function internally first zeros the uninitialized part of the node's buffer.
     pub fn write(&mut self) -> &mut [u8] {
-        // Initialize memory with a safe value
-        self.buf = unsafe { core::mem::zeroed() };
+        // Initialize remaining memory with a safe value
+        for elem in &mut self.buf[self.len as usize..] {
+            *elem = MaybeUninit::zeroed();
+        }
+
         self.len = self.max_len() as u16;
 
+        // NOTE(unsafe): This is safe as the operation above set the entire buffer to a valid state
         unsafe { slice::from_raw_parts_mut(self.buf.as_mut_ptr() as *mut _, self.max_len()) }
     }
 
-    /// Used to shrink the current size of the slice in the node, used in conjunction with `write`.
+    /// Used to shrink the current size of the frame, used in conjunction with `write`.
     pub fn commit(&mut self, shrink_to: usize) {
         // Only shrinking is allowed to remain safe with the `MaybeUninit`
         if shrink_to < self.len as _ {
