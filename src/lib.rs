@@ -58,6 +58,8 @@ pub use crate::pac as device;
 ))]
 pub use crate::pac as stm32;
 
+pub mod traits;
+
 pub mod datetime;
 #[cfg(any(
     feature = "stm32l4x1",
