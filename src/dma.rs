@@ -203,6 +203,13 @@ where
         unsafe { slice::from_raw_parts(self.buf.as_ptr() as *const _, self.len as usize) }
     }
 
+    /// Returns a readable mutable slice which maps to the buffers internal data
+    #[inline]
+    pub fn read_mut(&mut self) -> &mut [u8] {
+        // NOTE(unsafe): Safe as it uses the internal length of valid data
+        unsafe { slice::from_raw_parts_mut(self.buf.as_mut_ptr() as *mut _, self.len as usize) }
+    }
+
     /// Reads how many bytes are available
     #[inline]
     pub fn len(&self) -> usize {
