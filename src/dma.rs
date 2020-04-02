@@ -2,11 +2,17 @@
 
 #![allow(dead_code)]
 
+use core::fmt;
 use core::marker::PhantomData;
-use core::ops;
+use core::mem::MaybeUninit;
+use core::ops::{Deref, DerefMut};
+use core::ptr;
+use core::slice;
 
 use crate::rcc::AHB1;
-use stable_deref_trait::StableDeref;
+use as_slice::AsSlice;
+pub use generic_array::typenum::consts;
+use generic_array::{ArrayLength, GenericArray};
 
 #[derive(Debug)]
 pub enum Error {
@@ -27,6 +33,228 @@ pub enum Half {
     Second,
 }
 
+/// Frame reader "worker", access and handling of frame reads is made through this structure.
+pub struct FrameReader<BUFFER, CHANNEL, N>
+where
+    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    buffer: BUFFER,
+    channel: CHANNEL,
+    matching_character: u8,
+    _marker: core::marker::PhantomData<N>, // Needed to make the compiler happy
+}
+
+impl<BUFFER, CHANNEL, N> FrameReader<BUFFER, CHANNEL, N>
+where
+    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    pub(crate) fn new(
+        buffer: BUFFER,
+        channel: CHANNEL,
+        matching_character: u8,
+    ) -> FrameReader<BUFFER, CHANNEL, N> {
+        Self {
+            buffer,
+            channel,
+            matching_character,
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+/// Frame sender "worker", access and handling of frame transmissions is made through this
+/// structure.
+pub struct FrameSender<BUFFER, CHANNEL, N>
+where
+    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    buffer: Option<BUFFER>,
+    channel: CHANNEL,
+    _marker: core::marker::PhantomData<N>,
+}
+
+impl<BUFFER, CHANNEL, N> FrameSender<BUFFER, CHANNEL, N>
+where
+    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    pub(crate) fn new(channel: CHANNEL) -> FrameSender<BUFFER, CHANNEL, N> {
+        Self {
+            buffer: None,
+            channel,
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+/// Data type for holding data frames for the Serial.
+///
+/// Internally used uninitialized storage, making this storage zero cost to create. It can also be
+/// used with, for example, [`heapless::pool`] to create a pool of serial frames.
+///
+/// [`heapless::pool`]: https://docs.rs/heapless/0.5.3/heapless/pool/index.html
+pub struct DMAFrame<N>
+where
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    len: u16,
+    buf: GenericArray<MaybeUninit<u8>, N>,
+}
+
+impl<N> fmt::Debug for DMAFrame<N>
+where
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.read())
+    }
+}
+
+impl<N> fmt::Write for DMAFrame<N>
+where
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        let free = self.free();
+
+        if s.len() > free {
+            Err(fmt::Error)
+        } else {
+            self.write_slice(s.as_bytes());
+            Ok(())
+        }
+    }
+}
+
+impl<N> DMAFrame<N>
+where
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    /// Creates a new node for the Serial DMA
+    #[inline]
+    pub fn new() -> Self {
+        // Create an uninitialized array of `MaybeUninit<u8>`. The `assume_init` is
+        // safe because the type we are claiming to have initialized here is a
+        // bunch of `MaybeUninit`s, which do not require initialization.
+        Self {
+            len: 0,
+            buf: unsafe { MaybeUninit::uninit().assume_init() },
+        }
+    }
+
+    /// Gives a `&mut [u8]` slice to write into with the maximum size, the `commit` method
+    /// must then be used to set the actual number of bytes written.
+    ///
+    /// Note that this function internally first zeros the uninitialized part of the node's buffer.
+    pub fn write(&mut self) -> &mut [u8] {
+        // Initialize remaining memory with a safe value
+        for elem in &mut self.buf[self.len as usize..] {
+            *elem = MaybeUninit::zeroed();
+        }
+
+        self.len = self.max_len() as u16;
+
+        // NOTE(unsafe): This is safe as the operation above set the entire buffer to a valid state
+        unsafe { slice::from_raw_parts_mut(self.buf.as_mut_ptr() as *mut _, self.max_len()) }
+    }
+
+    /// Used to shrink the current size of the frame, used in conjunction with `write`.
+    pub fn commit(&mut self, shrink_to: usize) {
+        // Only shrinking is allowed to remain safe with the `MaybeUninit`
+        if shrink_to < self.len as _ {
+            self.len = shrink_to as _;
+        }
+    }
+
+    /// Used to write data into the node, and returns how many bytes were written from `buf`.
+    ///
+    /// If the node is already partially filled, this will continue filling the node.
+    pub fn write_slice(&mut self, buf: &[u8]) -> usize {
+        let count = buf.len().min(self.free());
+
+        // Used to write data into the `MaybeUninit`
+        // NOTE(unsafe): Safe based on the size check above
+        unsafe {
+            ptr::copy_nonoverlapping(
+                buf.as_ptr(),
+                (self.buf.as_mut_ptr() as *mut u8).add(self.len.into()),
+                count,
+            );
+        }
+
+        self.len += count as u16;
+
+        count
+    }
+
+    /// Clear the node of all data making it empty
+    #[inline]
+    pub fn clear(&mut self) {
+        self.len = 0;
+    }
+
+    /// Returns a readable slice which maps to the buffers internal data
+    #[inline]
+    pub fn read(&self) -> &[u8] {
+        // NOTE(unsafe): Safe as it uses the internal length of valid data
+        unsafe { slice::from_raw_parts(self.buf.as_ptr() as *const _, self.len as usize) }
+    }
+
+    /// Reads how many bytes are available
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+
+    /// Reads how many bytes are free
+    #[inline]
+    pub fn free(&self) -> usize {
+        self.max_len() - self.len as usize
+    }
+
+    /// Get the max length of the frame
+    #[inline]
+    pub fn max_len(&self) -> usize {
+        N::to_usize()
+    }
+
+    /// This function is unsafe as it must be used in conjunction with `buffer_address` to
+    /// write and set the correct number of bytes from a DMA transaction
+    #[inline]
+    pub(crate) unsafe fn set_len_from_dma(&mut self, len: u16) {
+        self.len = len;
+    }
+
+    #[inline]
+    pub(crate) unsafe fn buffer_address_for_dma(&self) -> u32 {
+        self.buf.as_ptr() as u32
+    }
+
+    #[inline]
+    pub(crate) fn buffer_as_ptr(&self) -> *const MaybeUninit<u8> {
+        self.buf.as_ptr()
+    }
+
+    #[inline]
+    pub(crate) fn buffer_as_mut_ptr(&mut self) -> *mut MaybeUninit<u8> {
+        self.buf.as_mut_ptr()
+    }
+}
+
+impl<N> AsSlice for DMAFrame<N>
+where
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    type Element = u8;
+
+    fn as_slice(&self) -> &[Self::Element] {
+        self.read()
+    }
+}
+
 pub struct CircBuffer<BUFFER, CHANNEL>
 where
     BUFFER: 'static,
@@ -34,13 +262,13 @@ where
     buffer: BUFFER,
     channel: CHANNEL,
     readable_half: Half,
-    consumed_offset: usize
+    consumed_offset: usize,
 }
 
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
     pub(crate) fn new<H>(buf: BUFFER, chan: CHANNEL) -> Self
     where
-        BUFFER: StableDeref<Target = [H; 2]>,
+        BUFFER: Deref<Target = [H; 2]> + 'static,
     {
         CircBuffer {
             buffer: buf,
@@ -66,7 +294,7 @@ pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
 
 impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD>
 where
-    BUFFER: StableDeref + 'static,
+    BUFFER: Deref + 'static,
 {
     pub(crate) fn r(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
@@ -80,7 +308,7 @@ where
 
 impl<BUFFER, CHANNEL, PAYLOAD> Transfer<W, BUFFER, CHANNEL, PAYLOAD>
 where
-    BUFFER: StableDeref + 'static,
+    BUFFER: Deref + 'static,
 {
     pub(crate) fn w(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
@@ -92,7 +320,7 @@ where
     }
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> ops::Deref for Transfer<R, BUFFER, CHANNEL, PAYLOAD> {
+impl<BUFFER, CHANNEL, PAYLOAD> Deref for Transfer<R, BUFFER, CHANNEL, PAYLOAD> {
     type Target = BUFFER;
 
     fn deref(&self) -> &BUFFER {
@@ -121,28 +349,34 @@ macro_rules! dma {
             $tcifX:ident,
             $chtifX:ident,
             $ctcifX:ident,
-            $cgifX:ident
+            $cgifX:ident,
+            $teifX:ident,
+            $cteifX:ident
         ),)+
     }),)+) => {
         $(
             pub mod $dmaX {
                 use core::sync::atomic::{self, Ordering};
-                use stable_deref_trait::StableDeref;
-                use as_slice::AsSlice;
+                use as_slice::{AsSlice};
                 use crate::stm32::{$DMAX, dma1};
+                use core::mem::MaybeUninit;
+                use generic_array::ArrayLength;
+                use core::ops::{Deref, DerefMut};
+                use core::ptr;
 
-                use crate::dma::{CircBuffer, DmaExt, Error, Event, Half, Transfer, W};
+                use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W};
                 use crate::rcc::AHB1;
 
                 pub struct Channels((), $(pub $CX),+);
 
                 $(
-                    pub struct $CX { _0: () }
+                    pub struct $CX;
 
                     impl $CX {
                         /// Associated peripheral `address`
                         ///
                         /// `inc` indicates whether the address will be incremented after every byte transfer
+                        #[inline]
                         pub fn set_peripheral_address(&mut self, address: u32, inc: bool) {
                             self.cpar().write(|w| w.pa().bits(address) );
                             self.ccr().modify(|_, w| w.pinc().bit(inc) );
@@ -151,32 +385,38 @@ macro_rules! dma {
                         /// `address` where from/to data will be read/write
                         ///
                         /// `inc` indicates whether the address will be incremented after every byte transfer
+                        #[inline]
                         pub fn set_memory_address(&mut self, address: u32, inc: bool) {
                             self.cmar().write(|w| w.ma().bits(address) );
                             self.ccr().modify(|_, w| w.minc().bit(inc) );
                         }
 
                         /// Number of bytes to transfer
-                        pub fn set_transfer_length(&mut self, len: usize) {
-                            self.cndtr().write(|w| w.ndt().bits(cast::u16(len).unwrap()));
+                        #[inline]
+                        pub fn set_transfer_length(&mut self, len: u16) {
+                            self.cndtr().write(|w| w.ndt().bits(len));
                         }
 
                         /// Starts the DMA transfer
+                        #[inline]
                         pub fn start(&mut self) {
                             self.ccr().modify(|_, w| w.en().set_bit() );
                         }
 
                         /// Stops the DMA transfer
+                        #[inline]
                         pub fn stop(&mut self) {
                             self.ifcr().write(|w| w.$cgifX().set_bit());
                             self.ccr().modify(|_, w| w.en().clear_bit() );
                         }
 
                         /// Returns `true` if there's a transfer in progress
+                        #[inline]
                         pub fn in_progress(&self) -> bool {
                             self.isr().$tcifX().bit_is_clear()
                         }
 
+                        #[inline]
                         pub fn listen(&mut self, event: Event) {
                             match event {
                                 Event::HalfTransfer => self.ccr().modify(|_, w| w.htie().set_bit()),
@@ -186,6 +426,7 @@ macro_rules! dma {
                             }
                         }
 
+                        #[inline]
                         pub fn unlisten(&mut self, event: Event) {
                             match event {
                                 Event::HalfTransfer => {
@@ -197,40 +438,240 @@ macro_rules! dma {
                             }
                         }
 
+                        #[inline]
                         pub(crate) fn isr(&self) -> dma1::isr::R {
                             // NOTE(unsafe) atomic read with no side effects
                             unsafe { (*$DMAX::ptr()).isr.read() }
                         }
 
+                        #[inline]
                         pub(crate) fn ifcr(&self) -> &dma1::IFCR {
                             unsafe { &(*$DMAX::ptr()).ifcr }
                         }
 
+                        #[inline]
                         pub(crate) fn ccr(&mut self) -> &dma1::$CCRX {
                             unsafe { &(*$DMAX::ptr()).$ccrX }
                         }
 
+                        #[inline]
                         pub(crate) fn cndtr(&mut self) -> &dma1::$CNDTRX {
                             unsafe { &(*$DMAX::ptr()).$cndtrX }
                         }
 
+                        #[inline]
                         pub(crate) fn cpar(&mut self) -> &dma1::$CPARX {
                             unsafe { &(*$DMAX::ptr()).$cparX }
                         }
 
+                        #[inline]
                         pub(crate) fn cmar(&mut self) -> &dma1::$CMARX {
                             unsafe { &(*$DMAX::ptr()).$cmarX }
                         }
 
+                        #[inline]
                         pub(crate) fn cselr(&mut self) -> &dma1::CSELR {
                             unsafe { &(*$DMAX::ptr()).cselr }
                         }
 
+                        #[inline]
                         pub(crate) fn get_cndtr(&self) -> u32 {
                             // NOTE(unsafe) atomic read with no side effects
                             unsafe { (*$DMAX::ptr()).$cndtrX.read().bits() }
                         }
 
+                    }
+
+                    impl<BUFFER, N> FrameSender<BUFFER, $CX, N>
+                    where
+                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        N: ArrayLength<MaybeUninit<u8>>,
+                    {
+                        /// This method should be called in the transfer complete interrupt of the
+                        /// DMA, will return the sent frame if the transfer was truly completed.
+                        pub fn transfer_complete_interrupt(
+                            &mut self,
+                        ) -> Option<BUFFER> {
+
+                            // Clear ISR flag (Transfer Complete)
+                            if !self.channel.in_progress() {
+                                self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            } else {
+                                // The old transfer is not complete
+                                return None;
+                            }
+
+                            self.channel.stop();
+
+                            // NOTE(compiler_fence) operations on the DMA should not be reordered
+                            // before the next statement, takes the buffer from the DMA transfer.
+                            atomic::compiler_fence(Ordering::SeqCst);
+
+                            // Return the old buffer for the user to do what they want with it
+                            self.buffer.take()
+                        }
+
+                        /// Returns `true` if there is an ongoing transfer.
+                        #[inline]
+                        pub fn ongoing_transfer(&self) -> bool {
+                            self.buffer.is_some()
+                        }
+
+                        /// Send a frame. Will return `Err(frame)` if there was already an ongoing
+                        /// transaction or if the buffer has not been read out.
+                        pub fn send(
+                            &mut self,
+                            frame: BUFFER,
+                        ) -> Result<(), BUFFER> {
+                            if self.ongoing_transfer() {
+                                // The old transfer is not complete
+                                return Err(frame);
+                            }
+
+                            let new_buf = &*frame;
+                            self.channel.set_memory_address(new_buf.buffer_as_ptr() as u32, true);
+                            self.channel.set_transfer_length(new_buf.len() as u16);
+
+                            // If there has been an error, clear the error flag to let the next
+                            // transaction start
+                            if self.channel.isr().$teifX().bit_is_set() {
+                                self.channel.ifcr().write(|w| w.$cteifX().set_bit());
+                            }
+
+                            // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                            // the next statement, which starts the DMA transfer
+                            atomic::compiler_fence(Ordering::Release);
+
+                            self.channel.start();
+
+                            self.buffer = Some(frame);
+
+                            Ok(())
+                        }
+                    }
+
+                    impl<BUFFER, N> FrameReader<BUFFER, $CX, N>
+                    where
+                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        N: ArrayLength<MaybeUninit<u8>>,
+                    {
+                        /// This function should be called from the transfer complete interrupt of
+                        /// the corresponding DMA channel.
+                        ///
+                        /// Returns the full buffer received by the USART.
+                        #[inline]
+                        pub fn transfer_complete_interrupt(&mut self, next_frame: BUFFER) -> BUFFER {
+                            self.internal_interrupt(next_frame, false)
+                        }
+
+                        /// This function should be called from the character match interrupt of
+                        /// the corresponding USART
+                        ///
+                        /// Returns the buffer received by the USART, including the matching
+                        /// character.
+                        #[inline]
+                        pub fn character_match_interrupt(&mut self, next_frame: BUFFER) -> BUFFER {
+                            self.internal_interrupt(next_frame, true)
+                        }
+
+                        /// This function should be called from the receiver timeout interrupt of
+                        /// the corresponding USART
+                        ///
+                        /// Returns the buffer received by the USART.
+                        #[inline]
+                        pub fn receiver_timeout_interrupt(&mut self, next_frame: BUFFER) -> BUFFER {
+                            self.internal_interrupt(next_frame, false)
+                        }
+
+                        fn internal_interrupt(
+                            &mut self,
+                            mut next_frame: BUFFER,
+                            character_match_interrupt: bool,
+                        ) -> BUFFER {
+                            let old_buf = &mut *self.buffer;
+                            let new_buf = &mut *next_frame;
+                            new_buf.clear();
+
+                            // Clear ISR flag (Transfer Complete)
+                            if !self.channel.in_progress() {
+                                self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            } else if character_match_interrupt {
+                                // 1. If DMA not done and there was a character match interrupt,
+                                // let the DMA flush a little and then halt transfer.
+                                //
+                                // This is to alleviate the race condition between the character
+                                // match interrupt and the DMA memory transfer.
+                                let left_in_buffer = self.channel.get_cndtr() as usize;
+
+                                for _ in 0..5 {
+                                    let now_left = self.channel.get_cndtr() as usize;
+
+                                    if left_in_buffer - now_left >= 4 {
+                                        // We have gotten 4 extra characters flushed
+                                        break;
+                                    }
+                                }
+                            }
+
+                            self.channel.stop();
+
+                            // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                            // the next statement, which starts a new DMA transfer
+                            atomic::compiler_fence(Ordering::SeqCst);
+
+                            let left_in_buffer = self.channel.get_cndtr() as usize;
+                            let got_data_len = old_buf.max_len() - left_in_buffer; // How many bytes we got
+                            unsafe {
+                                old_buf.set_len_from_dma(got_data_len as u16);
+                            }
+
+                            // 2. Check DMA race condition by finding matched character
+                            let len = if character_match_interrupt {
+                                let search_buf = old_buf.read();
+
+                                // Search from the end
+                                let ch = self.matching_character;
+                                if let Some(pos) = search_buf.iter().rposition(|&x| x == ch) {
+                                    pos+1
+                                } else {
+                                    panic!("Matching character not found, but got character match interrupt");
+                                }
+                            } else {
+                                old_buf.len()
+                            };
+
+                            // 3. Start DMA again
+                            let diff = if len < got_data_len {
+                                // We got some extra characters in the from the new frame, move
+                                // them into the new buffer
+                                let diff = got_data_len - len;
+
+                                let new_buf_ptr = new_buf.buffer_as_mut_ptr();
+                                let old_buf_ptr = old_buf.buffer_as_ptr();
+
+                                // new_buf[0..diff].copy_from_slice(&old_buf[len..got_data_len]);
+                                unsafe {
+                                    ptr::copy_nonoverlapping(old_buf_ptr.add(len), new_buf_ptr, diff);
+                                }
+
+                                diff
+                            } else {
+                                0
+                            };
+
+                            self.channel.set_memory_address(unsafe { new_buf.buffer_as_ptr().add(diff) } as u32, true);
+                            self.channel.set_transfer_length((new_buf.max_len() - diff) as u16);
+                            let received_buffer = core::mem::replace(&mut self.buffer, next_frame);
+
+                            // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                            // the next statement, which starts the DMA transfer
+                            atomic::compiler_fence(Ordering::Release);
+
+                            self.channel.start();
+
+                            // 4. Return full frame
+                            received_buffer
+                        }
                     }
 
                     impl<B> CircBuffer<B, $CX> {
@@ -239,7 +680,7 @@ macro_rules! dma {
                         pub fn partial_peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
-                            B: StableDeref<Target = [H; 2]>,
+                            B: Deref<Target = [H; 2]> + 'static,
                             H: AsSlice<Element=T>,
                         {
                             // this inverts expectation and returns the half being _written_
@@ -280,7 +721,7 @@ macro_rules! dma {
                         pub fn peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> R,
-                            B: StableDeref<Target = [H; 2]>,
+                            B: Deref<Target = [H; 2]> + 'static,
                             H: AsSlice<Element=T>,
                         {
                             let half_being_read = self.readable_half()?;
@@ -380,7 +821,7 @@ macro_rules! dma {
                             self.$ccrX.reset();
                         )+
 
-                        Channels((), $($CX { _0: () }),+)
+                        Channels((), $($CX { }),+)
                     }
                 }
             }
@@ -396,7 +837,8 @@ dma! {
             cpar1, CPAR1,
             cmar1, CMAR1,
             htif1, tcif1,
-            chtif1, ctcif1, cgif1
+            chtif1, ctcif1, cgif1,
+            teif1, cteif1
         ),
         C2: (
             ccr2, CCR2,
@@ -404,7 +846,8 @@ dma! {
             cpar2, CPAR2,
             cmar2, CMAR2,
             htif2, tcif2,
-            chtif2, ctcif2, cgif2
+            chtif2, ctcif2, cgif2,
+            teif2, cteif2
         ),
         C3: (
             ccr3, CCR3,
@@ -412,7 +855,8 @@ dma! {
             cpar3, CPAR3,
             cmar3, CMAR3,
             htif3, tcif3,
-            chtif3, ctcif3, cgif3
+            chtif3, ctcif3, cgif3,
+            teif3, cteif3
         ),
         C4: (
             ccr4, CCR4,
@@ -420,7 +864,8 @@ dma! {
             cpar4, CPAR4,
             cmar4, CMAR4,
             htif4, tcif4,
-            chtif4, ctcif4, cgif4
+            chtif4, ctcif4, cgif4,
+            teif4, cteif4
         ),
         C5: (
             ccr5, CCR5,
@@ -428,7 +873,8 @@ dma! {
             cpar5, CPAR5,
             cmar5, CMAR5,
             htif5, tcif5,
-            chtif5, ctcif5, cgif5
+            chtif5, ctcif5, cgif5,
+            teif5, cteif5
         ),
         C6: (
             ccr6, CCR6,
@@ -436,7 +882,8 @@ dma! {
             cpar6, CPAR6,
             cmar6, CMAR6,
             htif6, tcif6,
-            chtif6, ctcif6, cgif6
+            chtif6, ctcif6, cgif6,
+            teif6, cteif6
         ),
         C7: (
             ccr7, CCR7,
@@ -444,7 +891,8 @@ dma! {
             cpar7, CPAR7,
             cmar7, CMAR7,
             htif7, tcif7,
-            chtif7, ctcif7, cgif7
+            chtif7, ctcif7, cgif7,
+            teif7, cteif7
         ),
     }),
     DMA2: (dma2, dma2en, dma2rst, {
@@ -454,7 +902,8 @@ dma! {
             cpar1, CPAR1,
             cmar1, CMAR1,
             htif1, tcif1,
-            chtif1, ctcif1, cgif1
+            chtif1, ctcif1, cgif1,
+            teif1, cteif1
         ),
         C2: (
             ccr2, CCR2,
@@ -462,7 +911,8 @@ dma! {
             cpar2, CPAR2,
             cmar2, CMAR2,
             htif2, tcif2,
-            chtif2, ctcif2, cgif2
+            chtif2, ctcif2, cgif2,
+            teif2, cteif2
         ),
         C3: (
             ccr3, CCR3,
@@ -470,7 +920,8 @@ dma! {
             cpar3, CPAR3,
             cmar3, CMAR3,
             htif3, tcif3,
-            chtif3, ctcif3, cgif3
+            chtif3, ctcif3, cgif3,
+            teif3, cteif3
         ),
         C4: (
             ccr4, CCR4,
@@ -478,7 +929,8 @@ dma! {
             cpar4, CPAR4,
             cmar4, CMAR4,
             htif4, tcif4,
-            chtif4, ctcif4, cgif4
+            chtif4, ctcif4, cgif4,
+            teif4, cteif4
         ),
         C5: (
             ccr5, CCR5,
@@ -486,7 +938,8 @@ dma! {
             cpar5, CPAR5,
             cmar5, CMAR5,
             htif5, tcif5,
-            chtif5, ctcif5, cgif5
+            chtif5, ctcif5, cgif5,
+            teif5, cteif5
         ),
         C6: (
             ccr6, CCR6,
@@ -494,7 +947,8 @@ dma! {
             cpar6, CPAR6,
             cmar6, CMAR6,
             htif6, tcif6,
-            chtif6, ctcif6, cgif6
+            chtif6, ctcif6, cgif6,
+            teif6, cteif6
         ),
         C7: (
             ccr7, CCR7,
@@ -502,7 +956,8 @@ dma! {
             cpar7, CPAR7,
             cmar7, CMAR7,
             htif7, tcif7,
-            chtif7, ctcif7, cgif7
+            chtif7, ctcif7, cgif7,
+            teif7, cteif7
         ),
     }),
 }
