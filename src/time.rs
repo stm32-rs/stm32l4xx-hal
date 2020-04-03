@@ -1,7 +1,6 @@
 //! Time units
 
 use cortex_m::peripheral::DWT;
-
 use crate::rcc::Clocks;
 
 /// Bits per second
@@ -73,8 +72,8 @@ impl Into<KiloHertz> for MegaHertz {
 
 impl From<u32> for Hertz {
     fn from(ms: u32) -> Self {
-        if ms >= 1000 {
-            Hertz(1/(ms/1000))
+        if ms <= 1000 {
+            Hertz((1000 + ms / 2) / ms)
         } else {
             Hertz(1)
         }
