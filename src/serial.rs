@@ -79,7 +79,7 @@ use crate::gpio::gpioc::PC12;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::AF8;
 
-use crate::dma::{dma1, CircBuffer, FrameReader, FrameSender, DMAFrame};
+use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
 
