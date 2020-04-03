@@ -632,8 +632,9 @@ macro_rules! dma {
                                 old_buf.set_len_from_dma(got_data_len as u16);
                             }
 
-                            // 2. Check DMA race condition by finding matched character
-                            let len = if character_match_interrupt {
+                            // 2. Check DMA race condition by finding matched character, and that
+                            //    the length is larger than 0
+                            let len = if character_match_interrupt && got_data_len > 0 {
                                 let search_buf = old_buf.read();
 
                                 // Search from the end
@@ -641,7 +642,8 @@ macro_rules! dma {
                                 if let Some(pos) = search_buf.iter().rposition(|&x| x == ch) {
                                     pos+1
                                 } else {
-                                    panic!("Matching character not found, but got character match interrupt");
+                                    // No character match found
+                                    0
                                 }
                             } else {
                                 old_buf.len()
