@@ -35,6 +35,10 @@ default-features = false
 version = "1.0.2"
 default-features = false
 
+[dependencies.stable_deref_trait]
+default-features = false
+version = "1.1"
+
 [dependencies.embedded-hal]
 version = "0.2.3"
 features = ["unproven"]
