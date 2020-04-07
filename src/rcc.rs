@@ -469,7 +469,7 @@ impl CFGR {
             // 2. Setup the LSE
             rcc.bdcr.modify(|_, w| {
                 unsafe {
-                    w.lseon().set_bit(); // Enable LSE and use as RTC source
+                    w.lseon().set_bit(); // Enable LSE
                 }
 
                 if lse_cfg.bypass == CrystalBypass::Enable {
