@@ -162,11 +162,30 @@ where
     }
 
     /// Used to shrink the current size of the frame, used in conjunction with `write`.
+    #[inline]
     pub fn commit(&mut self, shrink_to: usize) {
         // Only shrinking is allowed to remain safe with the `MaybeUninit`
         if shrink_to < self.len as _ {
             self.len = shrink_to as _;
         }
+    }
+
+    /// Gives an uninitialized `&mut [MaybeUninit<u8>]` slice to write into, the `set_len` method
+    /// must then be used to set the actual number of bytes written.
+    #[inline]
+    pub fn write_uninit(&mut self) -> &mut [MaybeUninit<u8>] {
+        &mut self.buf
+    }
+
+    /// Used to set the current size of the frame, used in conjunction with `write_uninit` to have an
+    /// interface for uninitialized memory. Use with care!
+    ///
+    /// NOTE(unsafe): This must be set so that the final buffer is only referencing initialized
+    /// memory.
+    #[inline]
+    pub unsafe fn set_len(&mut self, len: usize) {
+        assert!(len <= self.max_len());
+        self.len = len as _;
     }
 
     /// Used to write data into the node, and returns how many bytes were written from `buf`.
