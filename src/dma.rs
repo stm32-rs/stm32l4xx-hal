@@ -13,6 +13,7 @@ use crate::rcc::AHB1;
 use as_slice::AsSlice;
 pub use generic_array::typenum::consts;
 use generic_array::{ArrayLength, GenericArray};
+use stable_deref_trait::StableDeref;
 
 #[derive(Debug)]
 pub enum Error {
@@ -36,7 +37,7 @@ pub enum Half {
 /// Frame reader "worker", access and handling of frame reads is made through this structure.
 pub struct FrameReader<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: BUFFER,
@@ -47,7 +48,7 @@ where
 
 impl<BUFFER, CHANNEL, N> FrameReader<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     pub(crate) fn new(
@@ -68,7 +69,7 @@ where
 /// structure.
 pub struct FrameSender<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: Option<BUFFER>,
@@ -78,7 +79,7 @@ where
 
 impl<BUFFER, CHANNEL, N> FrameSender<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     pub(crate) fn new(channel: CHANNEL) -> FrameSender<BUFFER, CHANNEL, N> {
@@ -275,7 +276,7 @@ where
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
     pub(crate) fn new<H>(buf: BUFFER, chan: CHANNEL) -> Self
     where
-        BUFFER: Deref<Target = [H; 2]> + 'static,
+        BUFFER: StableDeref<Target = [H; 2]> + 'static,
     {
         CircBuffer {
             buffer: buf,
@@ -301,7 +302,7 @@ pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
 
 impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD>
 where
-    BUFFER: Deref + 'static,
+    BUFFER: StableDeref + 'static,
 {
     pub(crate) fn r(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
@@ -315,7 +316,7 @@ where
 
 impl<BUFFER, CHANNEL, PAYLOAD> Transfer<W, BUFFER, CHANNEL, PAYLOAD>
 where
-    BUFFER: Deref + 'static,
+    BUFFER: StableDeref + 'static,
 {
     pub(crate) fn w(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
@@ -368,8 +369,9 @@ macro_rules! dma {
                 use crate::stm32::{$DMAX, dma1};
                 use core::mem::MaybeUninit;
                 use generic_array::ArrayLength;
-                use core::ops::{Deref, DerefMut};
+                use core::ops::DerefMut;
                 use core::ptr;
+                use stable_deref_trait::StableDeref;
 
                 use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W};
                 use crate::rcc::AHB1;
@@ -491,7 +493,7 @@ macro_rules! dma {
 
                     impl<BUFFER, N> FrameSender<BUFFER, $CX, N>
                     where
-                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                     {
                         /// This method should be called in the transfer complete interrupt of the
@@ -559,7 +561,7 @@ macro_rules! dma {
 
                     impl<BUFFER, N> FrameReader<BUFFER, $CX, N>
                     where
-                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                     {
                         /// This function should be called from the transfer complete interrupt of
@@ -689,7 +691,7 @@ macro_rules! dma {
                         pub fn partial_peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
-                            B: Deref<Target = [H; 2]> + 'static,
+                            B: StableDeref<Target = [H; 2]> + 'static,
                             H: AsSlice<Element=T>,
                         {
                             // this inverts expectation and returns the half being _written_
@@ -730,7 +732,7 @@ macro_rules! dma {
                         pub fn peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> R,
-                            B: Deref<Target = [H; 2]> + 'static,
+                            B: StableDeref<Target = [H; 2]> + 'static,
                             H: AsSlice<Element=T>,
                         {
                             let half_being_read = self.readable_half()?;

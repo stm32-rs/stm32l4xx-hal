@@ -6,10 +6,11 @@ use as_slice::AsMutSlice;
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
-use core::ops::{Deref, DerefMut};
+use core::ops::DerefMut;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
 use generic_array::ArrayLength;
+use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 use nb;
@@ -909,7 +910,7 @@ macro_rules! hal {
                     mut buffer: B,
                 ) -> CircBuffer<B, $rx_chan>
                 where
-                    B: Deref<Target = [H; 2]> + DerefMut + 'static,
+                    B: StableDeref<Target = [H; 2]> + DerefMut + 'static,
                     H: AsMutSlice<Element = u8>
                 {
                     let buf = buffer[0].as_mut_slice();
@@ -957,7 +958,7 @@ macro_rules! hal {
                     buffer: BUFFER,
                 ) -> FrameReader<BUFFER, $rx_chan, N>
                     where
-                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
                     let usart = unsafe{ &(*$USARTX::ptr()) };
@@ -1055,7 +1056,7 @@ macro_rules! hal {
                     mut channel: $tx_chan,
                 ) -> FrameSender<BUFFER, $tx_chan, N>
                     where
-                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
                     let usart = unsafe{ &(*$USARTX::ptr()) };
