@@ -247,13 +247,6 @@ where
         N::to_usize()
     }
 
-    /// This function is unsafe as it must be used in conjunction with `buffer_address` to
-    /// write and set the correct number of bytes from a DMA transaction
-    #[inline]
-    pub(crate) unsafe fn set_len_from_dma(&mut self, len: u16) {
-        self.len = len;
-    }
-
     #[inline]
     pub(crate) unsafe fn buffer_address_for_dma(&self) -> u32 {
         self.buf.as_ptr() as u32
@@ -648,7 +641,7 @@ macro_rules! dma {
                             let left_in_buffer = self.channel.get_cndtr() as usize;
                             let got_data_len = old_buf.max_len() - left_in_buffer; // How many bytes we got
                             unsafe {
-                                old_buf.set_len_from_dma(got_data_len as u16);
+                                old_buf.set_len(got_data_len as u16);
                             }
 
                             // 2. Check DMA race condition by finding matched character, and that
