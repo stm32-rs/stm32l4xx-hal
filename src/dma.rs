@@ -641,7 +641,7 @@ macro_rules! dma {
                             let left_in_buffer = self.channel.get_cndtr() as usize;
                             let got_data_len = old_buf.max_len() - left_in_buffer; // How many bytes we got
                             unsafe {
-                                old_buf.set_len(got_data_len as u16);
+                                old_buf.set_len(got_data_len);
                             }
 
                             // 2. Check DMA race condition by finding matched character, and that
