@@ -163,11 +163,30 @@ where
     }
 
     /// Used to shrink the current size of the frame, used in conjunction with `write`.
+    #[inline]
     pub fn commit(&mut self, shrink_to: usize) {
         // Only shrinking is allowed to remain safe with the `MaybeUninit`
         if shrink_to < self.len as _ {
             self.len = shrink_to as _;
         }
+    }
+
+    /// Gives an uninitialized `&mut [MaybeUninit<u8>]` slice to write into, the `set_len` method
+    /// must then be used to set the actual number of bytes written.
+    #[inline]
+    pub fn write_uninit(&mut self) -> &mut [MaybeUninit<u8>] {
+        &mut self.buf
+    }
+
+    /// Used to set the current size of the frame, used in conjunction with `write_uninit` to have an
+    /// interface for uninitialized memory. Use with care!
+    ///
+    /// NOTE(unsafe): This must be set so that the final buffer is only referencing initialized
+    /// memory.
+    #[inline]
+    pub unsafe fn set_len(&mut self, len: usize) {
+        assert!(len <= self.max_len());
+        self.len = len as _;
     }
 
     /// Used to write data into the node, and returns how many bytes were written from `buf`.
@@ -227,13 +246,6 @@ where
     #[inline]
     pub fn max_len(&self) -> usize {
         N::to_usize()
-    }
-
-    /// This function is unsafe as it must be used in conjunction with `buffer_address` to
-    /// write and set the correct number of bytes from a DMA transaction
-    #[inline]
-    pub(crate) unsafe fn set_len_from_dma(&mut self, len: u16) {
-        self.len = len;
     }
 
     #[inline]
@@ -631,7 +643,7 @@ macro_rules! dma {
                             let left_in_buffer = self.channel.get_cndtr() as usize;
                             let got_data_len = old_buf.max_len() - left_in_buffer; // How many bytes we got
                             unsafe {
-                                old_buf.set_len_from_dma(got_data_len as u16);
+                                old_buf.set_len(got_data_len);
                             }
 
                             // 2. Check DMA race condition by finding matched character, and that
