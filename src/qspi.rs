@@ -61,7 +61,7 @@ impl Default for QspiConfig{
     fn default() -> QspiConfig {
         QspiConfig {
             clock_prescaler : 0,
-            flash_size : 23, //27 = 128mB
+            flash_size : 22, //8MB //26 = 128MB
             address_size : AddressSize::Addr24Bit,
             clock_mode : ClockMode::Mode0,
             fifo_threshold : 1,
@@ -128,19 +128,19 @@ impl QspiConfig {
 
 
 pub struct QspiWriteCommand<'c>{
-    instruction : Option<u8>,
-    address : Option<u32>,
-    alternative_bytes : Option<&'c[u8]>,
-    data: Option<&'c[u8]>,
-    dummy_cycles : u8,
+    pub instruction : Option<u8>,
+    pub address : Option<u32>,
+    pub alternative_bytes : Option<&'c[u8]>,
+    pub dummy_cycles : u8,
+    pub data: Option<&'c[u8]>,
 }
 
 pub struct QspiReadCommand<'c>{
-    instruction : Option<u8>,
-    address : Option<u32>,
-    alternative_bytes : Option<&'c[u8]>,
-    dummy_cycles : u8,
-    recive_lenght : u32,
+    pub instruction : Option<u8>,
+    pub address : Option<u32>,
+    pub alternative_bytes : Option<&'c[u8]>,
+    pub dummy_cycles : u8,
+    pub recive_lenght : u32,
 }
 
 
