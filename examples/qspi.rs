@@ -17,10 +17,10 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use cortex_m::asm;
 use crate::hal::prelude::*;
-use crate::hal::qspi::{Qspi, QspiReadCommand, QspiConfig, QspiMode};
+use crate::hal::qspi::{Qspi, QspiConfig, QspiMode, QspiReadCommand};
 use crate::rt::ExceptionFrame;
+use cortex_m::asm;
 
 #[entry]
 fn main() -> ! {
@@ -32,31 +32,37 @@ fn main() -> ! {
     let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
 
     // clock configuration (clocks run at nearly the maximum frequency)
-    let clocks = rcc.cfgr.sysclk(80.mhz()).pclk1(80.mhz()).pclk2(80.mhz()).freeze(&mut flash.acr, &mut pwr);
+    let clocks = rcc
+        .cfgr
+        .sysclk(80.mhz())
+        .pclk1(80.mhz())
+        .pclk2(80.mhz())
+        .freeze(&mut flash.acr, &mut pwr);
 
-    let get_id_command = QspiReadCommand{
-        instruction : Some((0x9f, QspiMode::SingleChannel)),
-        address : None,
-        alternative_bytes : None,
-        dummy_cycles : 0,
-        data_mode : QspiMode::SingleChannel,
-        recive_lenght : 3,
-        double_data_rate : false,
+    let get_id_command = QspiReadCommand {
+        instruction: Some((0x9f, QspiMode::SingleChannel)),
+        address: None,
+        alternative_bytes: None,
+        dummy_cycles: 0,
+        data_mode: QspiMode::SingleChannel,
+        recive_lenght: 3,
+        double_data_rate: false,
     };
-    let mut id_arr : [u8; 3] = [0;3];
+    let mut id_arr: [u8; 3] = [0; 3];
 
-    let qspi ={
+    let qspi = {
         let clk = gpioe.pe10.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
         let ncs = gpioe.pe11.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
         let io_0 = gpioe.pe12.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
         let io_1 = gpioe.pe13.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
         let io_2 = gpioe.pe14.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
         let io_3 = gpioe.pe15.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
-        Qspi::new(p.QUADSPI,
+        Qspi::new(
+            p.QUADSPI,
             (clk, ncs, io_0, io_1, io_2, io_3),
-            &mut rcc.ahb3, 
-            QspiConfig::default().clock_prescaler(201)) //Added due to missing OSPEEDR register changes in Qspi
-        
+            &mut rcc.ahb3,
+            QspiConfig::default().clock_prescaler(201),
+        ) //Added due to missing OSPEEDR register changes in Qspi
     };
 
     qspi.transfer(get_id_command, &mut id_arr);
