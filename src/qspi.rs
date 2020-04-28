@@ -56,7 +56,7 @@ macro_rules! pins {
     }
 }
 
-
+#[cfg(feature = "stm32l4x5")]
 pins!(QUADSPI, AF10,
     CLK: [PE10],
     nCS: [PE11],
@@ -178,18 +178,6 @@ impl QspiConfig {
         self 
     }
 }
-
-pub trait Pins<QSPI>{
-
-}
-
-impl Pins<QUADSPI> for (
-    PE10<Alternate<AF10, Input<Floating>>>,
-    PE11<Alternate<AF10, Input<Floating>>>,
-    PE12<Alternate<AF10, Input<Floating>>>,
-    PE13<Alternate<AF10, Input<Floating>>>,
-    PE14<Alternate<AF10, Input<Floating>>>, 
-    PE15<Alternate<AF10, Input<Floating>>>){}
 
 
 
