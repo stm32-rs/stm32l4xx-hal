@@ -184,6 +184,8 @@ macro_rules! gpio {
                 pub moder: MODER,
                 /// Opaque OTYPER register
                 pub otyper: OTYPER,
+                /// Opaque OSPEEDR register
+                pub ospeedr: OSPEEDR,
                 /// Opaque PUPDR register
                 pub pupdr: PUPDR,
                 $(
@@ -205,6 +207,7 @@ macro_rules! gpio {
                         afrl: AFRL { _0: () },
                         moder: MODER { _0: () },
                         otyper: OTYPER { _0: () },
+                        ospeedr: OSPEEDR {_0: ()},
                         pupdr: PUPDR { _0: () },
                         $(
                             $pxi: $PXi { _mode: PhantomData },
@@ -254,6 +257,16 @@ macro_rules! gpio {
             impl OTYPER {
                 pub(crate) fn otyper(&mut self) -> &$gpioy::OTYPER {
                     unsafe { &(*$GPIOX::ptr()).otyper }
+                }
+            }
+
+            /// Opaque OSPEEDR register
+            pub struct OSPEEDR {
+                _0: (),
+            }
+            impl OSPEEDR {
+                pub(crate) fn ospeedr(&mut self) -> &$gpioy::OSPEEDR {
+                    unsafe { &(*$GPIOX::ptr()).ospeedr }
                 }
             }
 
