@@ -8,7 +8,6 @@ use core::marker::PhantomData;
 use crate::rcc::AHB2;
 use crate::stm32::{EXTI, SYSCFG};
 
-
 /// Extension trait to split a GPIO peripheral in independent pins and registers
 pub trait GpioExt {
     /// The to split the GPIO into
@@ -573,17 +572,17 @@ macro_rules! gpio {
                             _mode: self._mode,
                         }
                     }
-                    
+
                     /// Set pin speed
                     pub fn set_speed(self, speed: Speed) -> Self {
                         let offset = 2 * $i;
-    
+
                         unsafe {
                             &(*$GPIOX::ptr()).ospeedr.modify(|r, w| {
                                 w.bits((r.bits() & !(0b11 << offset)) | ((speed as u32) << offset))
                             })
                         };
-    
+
                         self
                     }
                 }
@@ -614,7 +613,7 @@ macro_rules! gpio {
 
                         self
                     }
-                
+
                     /// Turns pin alternate configuration pin into open drain
                     pub fn set_open_drain(self) -> $PXi<AlternateOD<AF, MODE>> {
                         let offset = $i;
