@@ -108,8 +108,6 @@ pub struct QspiConfig {
     clock_mode: ClockMode,
     /// FIFO threshold level (Activates FTF, QUADSPI_SR[2]) 0-15.
     fifo_threshold: u8,
-    /// Single, dual og quad mode
-    qspi_mode: QspiMode,
     sample_shift: SampleShift,
     /// CSHT+1 defines the minimum number of CLK cycles which the chip select (nCS) must
     /// remain high between commands issued to the Flash memory.
@@ -125,7 +123,6 @@ impl Default for QspiConfig {
             address_size: AddressSize::Addr24Bit,
             clock_mode: ClockMode::Mode0,
             fifo_threshold: 1,
-            qspi_mode: QspiMode::QuadChannel,
             sample_shift: SampleShift::HalfACycle,
             chip_select_high_time: 1,
             qpi_mode: false,
@@ -156,11 +153,6 @@ impl QspiConfig {
 
     pub fn fifo_threshold(mut self, fifo_thres: u8) -> Self {
         self.fifo_threshold = fifo_thres;
-        self
-    }
-
-    pub fn qspi_mode(mut self, qspi: QspiMode) -> Self {
-        self.qspi_mode = qspi;
         self
     }
 
@@ -406,7 +398,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .dlr
                 .write(|w| unsafe { w.dl().bits(command.recive_lenght as u32 - 1) });
             if self.config.qpi_mode {
-                dmode = self.config.qspi_mode as u8;
+                dmode = QspiMode::QuadChannel as u8;
             } else {
                 dmode = command.data_mode as u8;
             }
@@ -415,7 +407,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         //Write instruction mode
         if let Some((inst, mode)) = command.instruction {
             if self.config.qpi_mode {
-                imode = self.config.qspi_mode as u8;
+                imode = QspiMode::QuadChannel as u8;
             } else {
                 imode = mode as u8;
             }
@@ -425,7 +417,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         // Note Address mode
         if let Some((_, mode)) = command.address {
             if self.config.qpi_mode {
-                admode = self.config.qspi_mode as u8;
+                admode = QspiMode::QuadChannel as u8;
             } else {
                 admode = mode as u8;
             }
@@ -435,7 +427,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         // Write Alternative bytes
         if let Some((a_bytes, mode)) = command.alternative_bytes {
             if self.config.qpi_mode {
-                abmode = self.config.qspi_mode as u8;
+                abmode = QspiMode::QuadChannel as u8;
             } else {
                 abmode = mode as u8;
             }
@@ -540,7 +532,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .dlr
                 .write(|w| unsafe { w.dl().bits(data.len() as u32 - 1) });
             if self.config.qpi_mode {
-                dmode = self.config.qspi_mode as u8;
+                dmode = QspiMode::QuadChannel as u8;
             } else {
                 dmode = mode as u8;
             }
@@ -549,7 +541,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         //Write instruction mode
         if let Some((inst, mode)) = command.instruction {
             if self.config.qpi_mode {
-                imode = self.config.qspi_mode as u8;
+                imode = QspiMode::QuadChannel as u8;
             } else {
                 imode = mode as u8;
             }
@@ -559,7 +551,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         // Note Address mode
         if let Some((_, mode)) = command.address {
             if self.config.qpi_mode {
-                admode = self.config.qspi_mode as u8;
+                admode = QspiMode::QuadChannel as u8;
             } else {
                 admode = mode as u8;
             }
@@ -569,7 +561,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         // Write Alternative bytes
         if let Some((a_bytes, mode)) = command.alternative_bytes {
             if self.config.qpi_mode {
-                abmode = self.config.qspi_mode as u8;
+                abmode = QspiMode::QuadChannel as u8;
             } else {
                 abmode = mode as u8;
             }
