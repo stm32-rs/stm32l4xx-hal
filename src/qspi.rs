@@ -1,6 +1,10 @@
 //! Quad Serial Peripheral Interface (QSPI) bus
 
-use crate::gpio::gpioe::{PE10, PE11, PE12, PE13, PE14, PE15};
+use crate::gpio::{
+    gpioe::{PE10, PE11, PE12, PE13, PE14, PE15},
+    gpioa::{PA6, PA7},
+    gpiob::{PB0, PB1, PB10, PB11},
+};
 use crate::gpio::{Alternate, Floating, Input, AF10};
 use crate::rcc::AHB3;
 use crate::stm32::QUADSPI;
@@ -55,17 +59,6 @@ macro_rules! pins {
     }
 }
 
-#[cfg(feature = "stm32l4x5")]
-pins!(
-    QUADSPI,
-    AF10,
-    CLK: [PE10],
-    nCS: [PE11],
-    IO0: [PE12],
-    IO1: [PE13],
-    IO2: [PE14],
-    IO3: [PE15]
-);
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
@@ -598,3 +591,63 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         }
     }
 }
+
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+pins!(
+    QUADSPI,
+    AF10,
+    CLK: [PE10, PB10],
+    nCS: [PE11, PB11],
+    IO0: [PE12, PB0],
+    IO1: [PE13, PB1],
+    IO2: [PE14, PA7],
+    IO3: [PE15, PA6]
+);
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x6"
+))]
+pins!(
+    QUADSPI,
+    AF10,
+    CLK: [PA3],
+    nCS: [PA2, PD3],
+    IO0: [PD4],
+    IO1: [PD5],
+    IO2: [PD6],
+    IO3: [PD7]
+);
+
+#[cfg(feature = "stm32l4x2")]
+pins!(
+    QUADSPI,
+    AF10,
+    CLK: [],
+    nCS: [],
+    IO0: [PB1],
+    IO1: [PB2],
+    IO2: [],
+    IO3: []
+);
+
+#[cfg(feature = "stm32l4x6")]
+pins!(
+    QUADSPI,
+    AF10,
+    CLK: [],
+    nCS: [],
+    IO0: [PC1, PF8],
+    IO1: [PC2, PF9],
+    IO2: [PC4, PF7],
+    IO3: [PC5, PF6]
+);
