@@ -85,4 +85,4 @@ required-features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [[example]]
 name = "qspi"
-required-features = ["stm32l4x5"]
+required-features = ["rt", "stm32l4x5"]

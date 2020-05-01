@@ -119,7 +119,7 @@ impl Default for QspiConfig {
     fn default() -> QspiConfig {
         QspiConfig {
             clock_prescaler: 0,
-            flash_size: 22, //8MB //26 = 128MB
+            flash_size: 22, // 8MB // 26 = 128MB
             address_size: AddressSize::Addr24Bit,
             clock_mode: ClockMode::Mode0,
             fifo_threshold: 1,
@@ -173,118 +173,82 @@ impl QspiConfig {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct QspiWriteCommand<'c> {
+pub struct QspiWriteCommand<'a> {
     pub instruction: Option<(u8, QspiMode)>,
     pub address: Option<(u32, QspiMode)>,
-    pub alternative_bytes: Option<(&'c [u8], QspiMode)>,
+    pub alternative_bytes: Option<(&'a [u8], QspiMode)>,
     pub dummy_cycles: u8,
-    pub data: Option<(&'c [u8], QspiMode)>,
+    pub data: Option<(&'a [u8], QspiMode)>,
     pub double_data_rate: bool,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct QspiReadCommand<'c> {
+pub struct QspiReadCommand<'a> {
     pub instruction: Option<(u8, QspiMode)>,
     pub address: Option<(u32, QspiMode)>,
-    pub alternative_bytes: Option<(&'c [u8], QspiMode)>,
+    pub alternative_bytes: Option<(&'a [u8], QspiMode)>,
     pub dummy_cycles: u8,
     pub data_mode: QspiMode,
-    pub recive_lenght: u32,
+    pub receive_length: u32,
     pub double_data_rate: bool,
 }
 
-impl<'c> QspiWriteCommand<'c> {
+impl<'a> QspiWriteCommand<'a> {
     pub fn address(self, addr: u32, mode: QspiMode) -> Self {
         QspiWriteCommand {
-            instruction: self.instruction,
             address: Some((addr, mode)),
-            alternative_bytes: self.alternative_bytes,
-            dummy_cycles: self.dummy_cycles,
-            data: self.data,
-            double_data_rate: self.double_data_rate,
+            ..self
         }
     }
 
-    pub fn alternative_bytes(self, bytes: &'c [u8], mode: QspiMode) -> Self {
+    pub fn alternative_bytes(self, bytes: &'a [u8], mode: QspiMode) -> Self {
         QspiWriteCommand {
-            instruction: self.instruction,
-            address: self.address,
             alternative_bytes: Some((bytes, mode)),
-            dummy_cycles: self.dummy_cycles,
-            data: self.data,
-            double_data_rate: self.double_data_rate,
+            ..self
         }
     }
 
     pub fn dummy_cycles(self, n: u8) -> Self {
         QspiWriteCommand {
-            instruction: self.instruction,
-            address: self.address,
-            alternative_bytes: self.alternative_bytes,
             dummy_cycles: n,
-            data: self.data,
-            double_data_rate: self.double_data_rate,
+            ..self
         }
     }
 
-    pub fn data(self, bytes: &'c [u8], mode: QspiMode) -> Self {
+    pub fn data(self, bytes: &'a [u8], mode: QspiMode) -> Self {
         QspiWriteCommand {
-            instruction: self.instruction,
-            address: self.address,
-            alternative_bytes: self.alternative_bytes,
-            dummy_cycles: self.dummy_cycles,
             data: Some((bytes, mode)),
-            double_data_rate: self.double_data_rate,
+            ..self
         }
     }
 }
 
-impl<'c> QspiReadCommand<'c> {
+impl<'a> QspiReadCommand<'a> {
     pub fn address(self, addr: u32, mode: QspiMode) -> Self {
         QspiReadCommand {
-            instruction: self.instruction,
             address: Some((addr, mode)),
-            alternative_bytes: self.alternative_bytes,
-            dummy_cycles: self.dummy_cycles,
-            data_mode: self.data_mode,
-            recive_lenght: self.recive_lenght,
-            double_data_rate: self.double_data_rate,
+            ..self
         }
     }
 
-    pub fn alternative_bytes(self, bytes: &'c [u8], mode: QspiMode) -> Self {
+    pub fn alternative_bytes(self, bytes: &'a [u8], mode: QspiMode) -> Self {
         QspiReadCommand {
-            instruction: self.instruction,
-            address: self.address,
             alternative_bytes: Some((bytes, mode)),
-            dummy_cycles: self.dummy_cycles,
-            data_mode: self.data_mode,
-            recive_lenght: self.recive_lenght,
-            double_data_rate: self.double_data_rate,
+            ..self
         }
     }
 
     pub fn dummy_cycles(self, n: u8) -> Self {
         QspiReadCommand {
-            instruction: self.instruction,
-            address: self.address,
-            alternative_bytes: self.alternative_bytes,
             dummy_cycles: n,
-            data_mode: self.data_mode,
-            recive_lenght: self.recive_lenght,
-            double_data_rate: self.double_data_rate,
+            ..self
         }
     }
 
-    pub fn recive_lenght(self, length: u32) -> Self {
+    pub fn receive_length(self, length: u32) -> Self {
         QspiReadCommand {
-            instruction: self.instruction,
-            address: self.address,
-            alternative_bytes: self.alternative_bytes,
-            dummy_cycles: self.dummy_cycles,
-            data_mode: self.data_mode,
-            recive_lenght: length,
-            double_data_rate: self.double_data_rate,
+            receive_length: length,
+            ..self
         }
     }
 }
@@ -343,7 +307,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
 
     pub fn apply_config(&mut self, config: QspiConfig) {
         if self.qspi.sr.read().busy().bit_is_set() {
-            //Todo: Handle error
+            // Todo: Handle error
             // return Err(QspiError::Busy);
         }
 
@@ -353,7 +317,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
 
         while self.qspi.sr.read().busy().bit_is_set() {}
 
-        // modify the prescaler and select flash bank 2 - flash bank 1 is currently unsupported.
+        // Modify the prescaler and select flash bank 2 - flash bank 1 is currently unsupported.
         self.qspi.cr.modify(|_, w| unsafe {
             w.prescaler()
                 .bits(config.clock_prescaler as u8)
@@ -361,7 +325,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .bit(config.sample_shift == SampleShift::HalfACycle)
         });
 
-        //Modify DCR with flash size, CSHT and clock mode
+        // Modify DCR with flash size, CSHT and clock mode
         self.qspi.dcr.modify(|_, w| unsafe {
             w.fsize()
                 .bits(config.flash_size as u8)
@@ -371,7 +335,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .bit(config.clock_mode == ClockMode::Mode3)
         });
 
-        //Enable SPI
+        // Enable SPI
         self.qspi.cr.modify(|_, w| w.en().set_bit());
 
         self.config = config;
@@ -379,7 +343,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
 
     pub fn transfer(&self, command: QspiReadCommand, buffer: &mut [u8]) {
         if self.is_busy() {
-            //Todo handle error
+            // Todo handle error
         }
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
@@ -393,10 +357,10 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         let mut absize: u8 = 0;
 
         // Write the length and format of data
-        if command.recive_lenght > 0 {
+        if command.receive_length > 0 {
             self.qspi
                 .dlr
-                .write(|w| unsafe { w.dl().bits(command.recive_lenght as u32 - 1) });
+                .write(|w| unsafe { w.dl().bits(command.receive_length as u32 - 1) });
             if self.config.qpi_mode {
                 dmode = QspiMode::QuadChannel as u8;
             } else {
@@ -404,7 +368,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             }
         }
 
-        //Write instruction mode
+        // Write instruction mode
         if let Some((inst, mode)) = command.instruction {
             if self.config.qpi_mode {
                 imode = QspiMode::QuadChannel as u8;
@@ -449,7 +413,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             self.qspi.cr.modify(|_, w| w.sshift().bit(false));
         }
 
-        //Write CCR register with instruction etc.
+        // Write CCR register with instruction etc.
         self.qspi.ccr.modify(|_, w| unsafe {
             w.fmode()
                 .bits(0b01)
@@ -473,12 +437,12 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .bits(instruction)
         });
 
-        //Write address, triggers send
+        // Write address, triggers send
         if let Some((addr, _)) = command.address {
             self.qspi.ar.write(|w| unsafe { w.address().bits(addr) });
         }
 
-        //Read data from the buffer
+        // Read data from the buffer
         let mut b = buffer.iter_mut();
         while self.qspi.sr.read().tcf().bit_is_clear() {
             if self.qspi.sr.read().ftf().bit_is_set() {
@@ -491,7 +455,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 }
             }
         }
-        //When transfer complete, empty fifo buffer
+        // When transfer complete, empty fifo buffer
         while self.qspi.sr.read().flevel().bits() > 0 {
             if let Some(v) = b.next() {
                 unsafe {
@@ -513,7 +477,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
 
     pub fn write(&self, command: QspiWriteCommand) {
         if self.is_busy() {
-            //Todo handle error
+            // Todo handle error
         }
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
@@ -538,7 +502,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             }
         }
 
-        //Write instruction mode
+        // Write instruction mode
         if let Some((inst, mode)) = command.instruction {
             if self.config.qpi_mode {
                 imode = QspiMode::QuadChannel as u8;
@@ -583,7 +547,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             self.qspi.cr.modify(|_, w| w.sshift().bit(false));
         }
 
-        //Write CCR register with instruction etc.
+        // Write CCR register with instruction etc.
         self.qspi.ccr.modify(|_, w| unsafe {
             w.fmode()
                 .bits(0b00)
@@ -607,12 +571,12 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .bits(instruction)
         });
 
-        //Write address, triggers send
+        // Write address, triggers send
         if let Some((addr, _)) = command.address {
             self.qspi.ar.write(|w| unsafe { w.address().bits(addr) });
         }
 
-        //Write data to the FIFO
+        // Write data to the FIFO
         if let Some((data, _)) = command.data {
             for byte in data {
                 while self.qspi.sr.read().ftf().bit_is_clear() {}

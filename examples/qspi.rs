@@ -1,6 +1,6 @@
-//! Test the serial interface
+//! Test the Quad SPI interface
 //!
-//! This example requires you to short (connect) the TX and RX pins.
+//! The example wirtes a command over the QSPI interfaces and recives a 3 byte response.
 // #![deny(unsafe_code)]
 // #![deny(warnings)]
 #![no_main]
@@ -45,7 +45,7 @@ fn main() -> ! {
         alternative_bytes: None,
         dummy_cycles: 0,
         data_mode: QspiMode::SingleChannel,
-        recive_lenght: 3,
+        receive_length: 3,
         double_data_rate: false,
     };
     let mut id_arr: [u8; 3] = [0; 3];
