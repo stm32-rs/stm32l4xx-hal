@@ -311,7 +311,11 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .set_bit()
         });
 
-        let mut unit = Qspi { qspi, _pins: pins, config };
+        let mut unit = Qspi {
+            qspi,
+            _pins: pins,
+            config,
+        };
         unit.apply_config(config);
         unit
     }
@@ -659,7 +663,6 @@ impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, Input<Floating>>> {}
 impl private::Sealed for PB2<Alternate<AF10, Input<Floating>>> {}
 #[cfg(feature = "stm32l4x2")]
 impl IO1Pin<QUADSPI> for PB2<Alternate<AF10, Input<Floating>>> {}
-
 
 #[cfg(feature = "stm32l4x6")]
 pins!(
