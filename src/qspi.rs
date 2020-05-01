@@ -24,7 +24,7 @@ use crate::gpio::{
 };
 
 #[cfg(feature = "stm32l4x2")]
-use crate::gpio::gpiob::{PB1, PB2};
+use crate::gpio::gpiob::PB2;
 
 #[cfg(feature = "stm32l4x6")]
 use crate::gpio::{
@@ -45,7 +45,7 @@ mod private {
 /// CLK pin. This trait is sealed and cannot be implemented.
 pub trait ClkPin<QSPI>: private::Sealed {}
 /// nCS pin. This trait is sealed and cannot be implemented.
-pub trait nCSPin<QSPI>: private::Sealed {}
+pub trait NCSPin<QSPI>: private::Sealed {}
 /// IO0 pin. This trait is sealed and cannot be implemented.
 pub trait IO0Pin<QSPI>: private::Sealed {}
 /// IO1 pin. This trait is sealed and cannot be implemented.
@@ -65,7 +65,7 @@ macro_rules! pins {
         )*
         $(
             impl private::Sealed for $ncs<Alternate<$af, Input<Floating>>> {}
-            impl nCSPin<$qspi> for $ncs<Alternate<$af, Input<Floating>>> {}
+            impl NCSPin<$qspi> for $ncs<Alternate<$af, Input<Floating>>> {}
         )*
         $(
             impl private::Sealed for $io0<Alternate<$af, Input<Floating>>> {}
@@ -274,7 +274,7 @@ impl<'a> QspiReadCommand<'a> {
 
 pub struct Qspi<PINS> {
     qspi: QUADSPI,
-    pins: PINS,
+    _pins: PINS,
     config: QspiConfig,
 }
 
@@ -287,7 +287,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
     ) -> Self
     where
         CLK: ClkPin<QUADSPI>,
-        NCS: nCSPin<QUADSPI>,
+        NCS: NCSPin<QUADSPI>,
         IO0: IO0Pin<QUADSPI>,
         IO1: IO1Pin<QUADSPI>,
         IO2: IO2Pin<QUADSPI>,
@@ -311,7 +311,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .set_bit()
         });
 
-        let mut unit = Qspi { qspi, pins, config };
+        let mut unit = Qspi { qspi, _pins: pins, config };
         unit.apply_config(config);
         unit
     }
@@ -654,16 +654,12 @@ pins!(
 );
 
 #[cfg(feature = "stm32l4x2")]
-pins!(
-    QUADSPI,
-    AF10,
-    CLK: [],
-    nCS: [],
-    IO0: [PB1],
-    IO1: [PB2],
-    IO2: [],
-    IO3: []
-);
+impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, Input<Floating>>> {}
+#[cfg(feature = "stm32l4x2")]
+impl private::Sealed for PB2<Alternate<AF10, Input<Floating>>> {}
+#[cfg(feature = "stm32l4x2")]
+impl IO1Pin<QUADSPI> for PB2<Alternate<AF10, Input<Floating>>> {}
+
 
 #[cfg(feature = "stm32l4x6")]
 pins!(
