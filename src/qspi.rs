@@ -7,9 +7,9 @@
     feature = "stm32l4x6"
 ))]
 use crate::gpio::{
-    gpioe::{PE10, PE11, PE12, PE13, PE14, PE15},
     gpioa::{PA6, PA7},
     gpiob::{PB0, PB1, PB10, PB11},
+    gpioe::{PE10, PE11, PE12, PE13, PE14, PE15},
 };
 
 #[cfg(any(
@@ -85,7 +85,6 @@ macro_rules! pins {
         )*
     }
 }
-
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
@@ -618,7 +617,6 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         }
     }
 }
-
 
 #[cfg(any(
     feature = "stm32l4x1",
