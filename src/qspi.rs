@@ -1,10 +1,37 @@
 //! Quad Serial Peripheral Interface (QSPI) bus
-
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
 use crate::gpio::{
     gpioe::{PE10, PE11, PE12, PE13, PE14, PE15},
     gpioa::{PA6, PA7},
     gpiob::{PB0, PB1, PB10, PB11},
 };
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x6"
+))]
+use crate::gpio::{
+    gpioa::{PA2, PA3},
+    gpiod::{PD3, PD4, PD5, PD6, PD7},
+};
+
+#[cfg(feature = "stm32l4x2")]
+use crate::gpio::gpiob::{PB1, PB2};
+
+#[cfg(feature = "stm32l4x6")]
+use crate::gpio::{
+    gpioc::{PC1, PC2, PC4, PC5},
+    gpiof::{PF6, PF7, PF8, PF9},
+};
+
 use crate::gpio::{Alternate, Floating, Input, AF10};
 use crate::rcc::AHB3;
 use crate::stm32::QUADSPI;
