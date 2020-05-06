@@ -12,6 +12,8 @@ pub enum Error {
     Illegal,
     /// Set during read if ECC decoding logic detects correctable or uncorrectable error
     EccError,
+    /// Page number is out of range
+    PageOutOfRange,
     /// (Legal) command failed
     Failure,
 }
