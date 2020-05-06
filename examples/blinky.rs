@@ -14,17 +14,16 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use crate::hal::prelude::*;
 use crate::hal::delay::Delay;
-use crate::rt::ExceptionFrame;
+use crate::hal::prelude::*;
 use crate::rt::entry;
+use crate::rt::ExceptionFrame;
 
-use core::fmt::Write;
 use crate::sh::hio;
+use core::fmt::Write;
 
 #[entry]
 fn main() -> ! {
-
     let mut hstdout = hio::hstdout().unwrap();
 
     writeln!(hstdout, "Hello, world!").unwrap();
@@ -34,9 +33,10 @@ fn main() -> ! {
 
     let mut flash = dp.FLASH.constrain(); // .constrain();
     let mut rcc = dp.RCC.constrain();
+    let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
     // Try a different clock configuration
-    let clocks = rcc.cfgr.hclk(8.mhz()).freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.hclk(8.mhz()).freeze(&mut flash.acr, &mut pwr);
     // let clocks = rcc.cfgr
     //     .sysclk(64.mhz())
     //     .pclk1(32.mhz())
@@ -46,7 +46,9 @@ fn main() -> ! {
     // let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.afrh);
 
     let mut gpiob = dp.GPIOB.split(&mut rcc.ahb2);
-    let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+    let mut led = gpiob
+        .pb3
+        .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
 
     let mut timer = Delay::new(cp.SYST, clocks);
     loop {

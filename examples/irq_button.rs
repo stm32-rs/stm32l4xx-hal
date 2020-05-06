@@ -27,13 +27,14 @@ fn main() -> ! {
 
         let mut rcc = dp.RCC.constrain();
         let mut flash = dp.FLASH.constrain(); // .constrain();
+        let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
         rcc.cfgr
             .hclk(48.mhz())
             .sysclk(48.mhz())
             .pclk1(24.mhz())
             .pclk2(24.mhz())
-            .freeze(&mut flash.acr);
+            .freeze(&mut flash.acr, &mut pwr);
 
         // Create a button input with an interrupt
         let mut gpioc = dp.GPIOC.split(&mut rcc.ahb2);

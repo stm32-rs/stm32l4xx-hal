@@ -19,10 +19,10 @@ extern crate stm32l4xx_hal as hal;
 // extern crate nb;
 
 use crate::cortex_m::asm;
+use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
-use crate::hal::delay::Delay;
 
 #[entry]
 fn main() -> ! {
@@ -31,12 +31,13 @@ fn main() -> ! {
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
+    let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     let channels = p.DMA1.split(&mut rcc.ahb1);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
@@ -55,7 +56,7 @@ fn main() -> ! {
         (tx, rx),
         Config::default().baudrate(9_600.bps()),
         clocks,
-        &mut rcc.apb2
+        &mut rcc.apb2,
     );
 
     let (mut tx, rx) = serial.split();
@@ -77,10 +78,12 @@ fn main() -> ! {
     timer.delay_ms(1000_u32);
 
     // then view the partial buffer
-    let _curr_half = circ_buffer.partial_peek(|_buf, half| {
-        // do something with _buf here
-        Ok( (0, half) )
-    }).unwrap();
+    let _curr_half = circ_buffer
+        .partial_peek(|_buf, half| {
+            // do something with _buf here
+            Ok((0, half))
+        })
+        .unwrap();
 
     asm::bkpt();
 

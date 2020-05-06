@@ -18,8 +18,8 @@ extern crate stm32l4xx_hal as hal;
 // extern crate nb;
 
 use crate::hal::prelude::*;
-use crate::hal::rcc::PllConfig;
-use crate::hal::serial::{Serial, Config};
+use crate::hal::rcc::{PllConfig, PllDivider};
+use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
 use cortex_m::asm;
 
@@ -30,6 +30,7 @@ fn main() -> ! {
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
+    let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
@@ -39,7 +40,7 @@ fn main() -> ! {
     let plls = PllConfig {
         m: 0b001,  // / 2
         n: 0b1000, // * 8
-        r: 0b11,   // /8
+        r: PllDivider::Div8,   // /8
     };
     // NOTE: it is up to the user to make sure the pll config matches the given sysclk
     let clocks = rcc
@@ -47,7 +48,7 @@ fn main() -> ! {
         .sysclk_with_pll(8.mhz(), plls)
         .pclk1(8.mhz())
         .pclk2(8.mhz())
-        .freeze(&mut flash.acr);
+        .freeze(&mut flash.acr, &mut pwr);
 
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations

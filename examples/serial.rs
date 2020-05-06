@@ -17,10 +17,10 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use cortex_m::asm;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
+use cortex_m::asm;
 
 #[entry]
 fn main() -> ! {
@@ -28,13 +28,19 @@ fn main() -> ! {
 
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
+    let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
     // let clocks = rcc.cfgr.freeze(&mut flash.acr);
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
-    let clocks = rcc.cfgr.sysclk(80.mhz()).pclk1(80.mhz()).pclk2(80.mhz()).freeze(&mut flash.acr);
+    let clocks = rcc
+        .cfgr
+        .sysclk(80.mhz())
+        .pclk1(80.mhz())
+        .pclk2(80.mhz())
+        .freeze(&mut flash.acr, &mut pwr);
 
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
@@ -52,7 +58,7 @@ fn main() -> ! {
         (tx, rx),
         Config::default().baudrate(9_600.bps()),
         clocks,
-        &mut rcc.apb1r1
+        &mut rcc.apb1r1,
     );
     let (mut tx, mut rx) = serial.split();
 

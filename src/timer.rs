@@ -1,12 +1,12 @@
 //! Timers
 
-use cast::{u16, u32};
 use crate::hal::timer::{CountDown, Periodic};
+use crate::stm32::{TIM15, TIM16, TIM2, TIM6, TIM7};
+use cast::{u16, u32};
 use nb;
-use crate::stm32::{TIM2, TIM6, TIM7, TIM15, TIM16};
 use void::Void;
 
-use crate::rcc::{APB1R1, Clocks, APB2};
+use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
 /// Hardware timers
@@ -120,7 +120,7 @@ macro_rules! hal {
                 pub fn clear_update_interrupt_flag(&mut self) {
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
                 }
-                
+
                 /// Releases the TIM peripheral
                 pub fn free(self) -> $TIM {
                     // pause counter

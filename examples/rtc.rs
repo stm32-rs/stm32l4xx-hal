@@ -14,18 +14,18 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use crate::hal::prelude::*;
+use crate::hal::datetime::{Date, Time};
 use crate::hal::delay::Delay;
-use crate::hal::rtc::Rtc;
-use crate::hal::datetime::{Date,Time};
+use crate::hal::prelude::*;
+use crate::hal::rcc::{CrystalBypass, ClockSecuritySystem};
+use crate::hal::rtc::{Rtc, RtcClockSource, RtcConfig};
 use crate::rt::ExceptionFrame;
 
-use core::fmt::Write;
 use crate::sh::hio;
+use core::fmt::Write;
 
 #[entry]
 fn main() -> ! {
-
     let mut hstdout = hio::hstdout().unwrap();
 
     writeln!(hstdout, "Hello, world!").unwrap();
@@ -35,30 +35,37 @@ fn main() -> ! {
 
     let mut flash = dp.FLASH.constrain(); // .constrain();
     let mut rcc = dp.RCC.constrain();
-
-    // Try a different clock configuration
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
-
-    let mut timer = Delay::new(cp.SYST, clocks);
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
-    let rtc = Rtc::rtc(dp.RTC, &mut rcc.apb1r1, &mut rcc.bdcr, &mut pwr.cr1, clocks);
+    
+    // Try a different clock configuration
+    let clocks = rcc
+        .cfgr
+        .lse(CrystalBypass::Disable, ClockSecuritySystem::Disable)
+        .freeze(&mut flash.acr, &mut pwr);
+    
+    let mut timer = Delay::new(cp.SYST, clocks);
+    
+    let rtc = Rtc::rtc(
+        dp.RTC, 
+        &mut rcc.apb1r1, 
+        &mut rcc.bdcr, 
+        &mut pwr.cr1,
+        RtcConfig::default().clock_config(RtcClockSource::LSE) 
+    );
 
-    let mut time = Time::new(21.hours(), 57.minutes(), 32.seconds(), false);
+    let mut time = Time::new(21.hours(), 57.minutes(), 32.seconds(), 0.micros(), false);
     let mut date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
 
-    rtc.set_time(&time);
-    rtc.set_date(&date);
+    rtc.set_time(Some(&time), Some(&date));
 
     timer.delay_ms(1000_u32);
     timer.delay_ms(1000_u32);
     timer.delay_ms(1000_u32);
 
-    time = rtc.get_time();
-    date = rtc.get_date();
+    let (rtc_date, rtc_time) = rtc.get_date_time();
 
-
-    writeln!(hstdout, "Time: {:?}", time).unwrap();
-    writeln!(hstdout, "Date: {:?}", date).unwrap();
+    writeln!(hstdout, "Time: {:?}", rtc_time).unwrap();
+    writeln!(hstdout, "Date: {:?}", rtc_date).unwrap();
     writeln!(hstdout, "Good bye!").unwrap();
     loop {}
 }
