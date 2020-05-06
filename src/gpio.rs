@@ -39,8 +39,22 @@ pub struct PushPull;
 /// Open drain output (type state)
 pub struct OpenDrain;
 
+/// GPIO Pin speed selection
+pub enum Speed {
+    Low = 0,
+    Medium = 1,
+    High = 2,
+    VeryHigh = 3,
+}
+
 /// Alternate mode (type state)
 pub struct Alternate<AF, MODE> {
+    _af: PhantomData<AF>,
+    _mode: PhantomData<MODE>,
+}
+
+/// Some alternate mode in open drain configuration (type state)
+pub struct AlternateOD<AF, MODE> {
     _af: PhantomData<AF>,
     _mode: PhantomData<MODE>,
 }
@@ -167,10 +181,11 @@ macro_rules! gpio {
 
             use crate::rcc::AHB2;
             use super::{
-                Alternate,
+
+                Alternate, AlternateOD,
                 AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
                 Floating, GpioExt, Input, OpenDrain, Output, Edge, ExtiPin,
-                PullDown, PullUp, PushPull, State,
+                PullDown, PullUp, PushPull, State, Speed,
             };
 
             /// GPIO parts
@@ -183,6 +198,8 @@ macro_rules! gpio {
                 pub moder: MODER,
                 /// Opaque OTYPER register
                 pub otyper: OTYPER,
+                /// Opaque OSPEEDR register
+                pub ospeedr: OSPEEDR,
                 /// Opaque PUPDR register
                 pub pupdr: PUPDR,
                 $(
@@ -204,6 +221,7 @@ macro_rules! gpio {
                         afrl: AFRL { _0: () },
                         moder: MODER { _0: () },
                         otyper: OTYPER { _0: () },
+                        ospeedr: OSPEEDR {_0: ()},
                         pupdr: PUPDR { _0: () },
                         $(
                             $pxi: $PXi { _mode: PhantomData },
@@ -253,6 +271,16 @@ macro_rules! gpio {
             impl OTYPER {
                 pub(crate) fn otyper(&mut self) -> &$gpioy::OTYPER {
                     unsafe { &(*$GPIOX::ptr()).otyper }
+                }
+            }
+
+            /// Opaque OSPEEDR register
+            pub struct OSPEEDR {
+                _0: (),
+            }
+            impl OSPEEDR {
+                pub(crate) fn ospeedr(&mut self) -> &$gpioy::OSPEEDR {
+                    unsafe { &(*$GPIOX::ptr()).ospeedr }
                 }
             }
 
@@ -543,6 +571,59 @@ macro_rules! gpio {
                             i: $i,
                             _mode: self._mode,
                         }
+                    }
+
+                    /// Set pin speed
+                    pub fn set_speed(self, speed: Speed) -> Self {
+                        let offset = 2 * $i;
+
+                        unsafe {
+                            &(*$GPIOX::ptr()).ospeedr.modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | ((speed as u32) << offset))
+                            })
+                        };
+
+                        self
+                    }
+                }
+
+                impl<AF, MODE> $PXi<Alternate<AF, MODE>> {
+                    /// Set pin speed
+                    pub fn set_speed(self, speed: Speed) -> Self {
+                        let offset = 2 * $i;
+
+                        unsafe {
+                            &(*$GPIOX::ptr()).ospeedr.modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | ((speed as u32) << offset))
+                            })
+                        };
+
+                        self
+                    }
+
+                    /// Enables / disables the internal pull up
+                    pub fn internal_pull_up(self, on: bool) -> Self {
+                        let offset = 2 * $i;
+                        let value = if on { 0b01 } else { 0b00 };
+                        unsafe {
+                            &(*$GPIOX::ptr()).pupdr.modify(|r, w| {
+                                w.bits((r.bits() & !(0b11 << offset)) | (value << offset))
+                            })
+                        };
+
+                        self
+                    }
+
+                    /// Turns pin alternate configuration pin into open drain
+                    pub fn set_open_drain(self) -> $PXi<AlternateOD<AF, MODE>> {
+                        let offset = $i;
+                        unsafe {
+                            &(*$GPIOX::ptr()).otyper.modify(|r, w| {
+                                w.bits(r.bits() | (1 << offset))
+                            })
+                        };
+
+                        $PXi {_mode: PhantomData }
                     }
                 }
 
