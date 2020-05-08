@@ -209,21 +209,21 @@ impl<'a> WriteErase for FlashProgramming<'a> {
             0..=255 => {
                 self.cr.cr().modify(|_, w| unsafe {
                     w.bker()
-                    .clear_bit()
-                    .pnb()
-                    .bits(u8::try_from(page.0).unwrap())
-                    .per()
-                    .set_bit()
+                        .clear_bit()
+                        .pnb()
+                        .bits(page.0 as u8)
+                        .per()
+                        .set_bit()
                 });
             }
             256..=511 => {
                 self.cr.cr().modify(|_, w| unsafe {
                     w.bker()
-                    .set_bit()
-                    .pnb()
-                    .bits(u8::try_from(page.0 - 256).unwrap())
-                    .per()
-                    .set_bit()
+                        .set_bit()
+                        .pnb()
+                        .bits((page.0 - 256) as u8)
+                        .per()
+                        .set_bit()
                 });
             }
             _ => {
