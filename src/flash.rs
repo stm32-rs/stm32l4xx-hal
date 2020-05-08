@@ -221,7 +221,7 @@ impl<'a> WriteErase for FlashProgramming<'a> {
                     w.bker()
                         .set_bit()
                         .pnb()
-                        .bits(page.0 as u8 - 256)
+                        .bits((page.0 - 256) as u8)
                         .per()
                         .set_bit()
                 });
