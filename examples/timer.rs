@@ -30,6 +30,7 @@ fn main() -> ! {
 
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = hal::stm32::Peripherals::take().unwrap();
+    let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
     let mut flash = dp.FLASH.constrain(); // .constrain();
     let mut rcc = dp.RCC.constrain();
@@ -50,8 +51,8 @@ fn main() -> ! {
 
 #[interrupt]
 fn TIM7() {
-    let mut p = 0;
-    p += 1;
+    static mut COUNT: u32 = 0;
+    *COUNT += 1;
     // let mut hstdout = hio::hstdout().unwrap();
     // writeln!(hstdout, "Hello, TIM!").unwrap();
 }
