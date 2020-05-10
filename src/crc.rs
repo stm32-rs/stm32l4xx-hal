@@ -18,9 +18,10 @@
 
 use crate::rcc;
 use crate::stm32::CRC;
+use core::hash::Hasher;
 use core::ptr;
 
-/// Extension trait to constrain the FLASH peripheral.
+/// Extension trait to constrain the CRC peripheral.
 pub trait CrcExt {
     /// Constrains the CRC peripheral to play nicely with the other abstractions
     fn constrain(self, ahb1: &mut rcc::AHB1) -> Config;
@@ -166,7 +167,7 @@ impl Crc {
         crc.cr.modify(|_, w| w.reset().set_bit());
     }
 
-    /// Feed the CRC with data, this will internally optimize for word writes.
+    /// Feed the CRC with data
     #[inline]
     pub fn feed(&mut self, data: &[u8]) {
         let crc = unsafe { &(*CRC::ptr()) };
@@ -197,5 +198,19 @@ impl Crc {
         let crc = unsafe { &(*CRC::ptr()) };
 
         crc.dr.read().bits()
+    }
+}
+
+impl Hasher for Crc {
+    #[inline]
+    fn finish(&self) -> u64 {
+        // `peek_result` as `core::hash::Hasher` required that the `finish` method does not reset
+        // the hasher.
+        self.peek_result() as u64
+    }
+
+    #[inline]
+    fn write(&mut self, data: &[u8]) {
+        self.feed(data);
     }
 }

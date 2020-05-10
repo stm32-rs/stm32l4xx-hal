@@ -13,6 +13,7 @@ use crate::rcc::AHB1;
 use as_slice::AsSlice;
 pub use generic_array::typenum::consts;
 use generic_array::{ArrayLength, GenericArray};
+use stable_deref_trait::StableDeref;
 
 #[derive(Debug)]
 pub enum Error {
@@ -36,7 +37,7 @@ pub enum Half {
 /// Frame reader "worker", access and handling of frame reads is made through this structure.
 pub struct FrameReader<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: BUFFER,
@@ -47,7 +48,7 @@ where
 
 impl<BUFFER, CHANNEL, N> FrameReader<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     pub(crate) fn new(
@@ -68,7 +69,7 @@ where
 /// structure.
 pub struct FrameSender<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: Option<BUFFER>,
@@ -78,7 +79,7 @@ where
 
 impl<BUFFER, CHANNEL, N> FrameSender<BUFFER, CHANNEL, N>
 where
-    BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
     N: ArrayLength<MaybeUninit<u8>>,
 {
     pub(crate) fn new(channel: CHANNEL) -> FrameSender<BUFFER, CHANNEL, N> {
@@ -162,11 +163,30 @@ where
     }
 
     /// Used to shrink the current size of the frame, used in conjunction with `write`.
+    #[inline]
     pub fn commit(&mut self, shrink_to: usize) {
         // Only shrinking is allowed to remain safe with the `MaybeUninit`
         if shrink_to < self.len as _ {
             self.len = shrink_to as _;
         }
+    }
+
+    /// Gives an uninitialized `&mut [MaybeUninit<u8>]` slice to write into, the `set_len` method
+    /// must then be used to set the actual number of bytes written.
+    #[inline]
+    pub fn write_uninit(&mut self) -> &mut [MaybeUninit<u8>] {
+        &mut self.buf
+    }
+
+    /// Used to set the current size of the frame, used in conjunction with `write_uninit` to have an
+    /// interface for uninitialized memory. Use with care!
+    ///
+    /// NOTE(unsafe): This must be set so that the final buffer is only referencing initialized
+    /// memory.
+    #[inline]
+    pub unsafe fn set_len(&mut self, len: usize) {
+        assert!(len <= self.max_len());
+        self.len = len as _;
     }
 
     /// Used to write data into the node, and returns how many bytes were written from `buf`.
@@ -228,13 +248,6 @@ where
         N::to_usize()
     }
 
-    /// This function is unsafe as it must be used in conjunction with `buffer_address` to
-    /// write and set the correct number of bytes from a DMA transaction
-    #[inline]
-    pub(crate) unsafe fn set_len_from_dma(&mut self, len: u16) {
-        self.len = len;
-    }
-
     #[inline]
     pub(crate) unsafe fn buffer_address_for_dma(&self) -> u32 {
         self.buf.as_ptr() as u32
@@ -275,7 +288,7 @@ where
 impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
     pub(crate) fn new<H>(buf: BUFFER, chan: CHANNEL) -> Self
     where
-        BUFFER: Deref<Target = [H; 2]> + 'static,
+        BUFFER: StableDeref<Target = [H; 2]> + 'static,
     {
         CircBuffer {
             buffer: buf,
@@ -301,7 +314,7 @@ pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
 
 impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD>
 where
-    BUFFER: Deref + 'static,
+    BUFFER: StableDeref + 'static,
 {
     pub(crate) fn r(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
@@ -315,7 +328,7 @@ where
 
 impl<BUFFER, CHANNEL, PAYLOAD> Transfer<W, BUFFER, CHANNEL, PAYLOAD>
 where
-    BUFFER: Deref + 'static,
+    BUFFER: StableDeref + 'static,
 {
     pub(crate) fn w(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
         Transfer {
@@ -368,8 +381,9 @@ macro_rules! dma {
                 use crate::stm32::{$DMAX, dma1};
                 use core::mem::MaybeUninit;
                 use generic_array::ArrayLength;
-                use core::ops::{Deref, DerefMut};
+                use core::ops::DerefMut;
                 use core::ptr;
+                use stable_deref_trait::StableDeref;
 
                 use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W};
                 use crate::rcc::AHB1;
@@ -491,7 +505,7 @@ macro_rules! dma {
 
                     impl<BUFFER, N> FrameSender<BUFFER, $CX, N>
                     where
-                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                     {
                         /// This method should be called in the transfer complete interrupt of the
@@ -559,7 +573,7 @@ macro_rules! dma {
 
                     impl<BUFFER, N> FrameReader<BUFFER, $CX, N>
                     where
-                        BUFFER: Sized + Deref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                     {
                         /// This function should be called from the transfer complete interrupt of
@@ -629,7 +643,7 @@ macro_rules! dma {
                             let left_in_buffer = self.channel.get_cndtr() as usize;
                             let got_data_len = old_buf.max_len() - left_in_buffer; // How many bytes we got
                             unsafe {
-                                old_buf.set_len_from_dma(got_data_len as u16);
+                                old_buf.set_len(got_data_len);
                             }
 
                             // 2. Check DMA race condition by finding matched character, and that
@@ -689,7 +703,7 @@ macro_rules! dma {
                         pub fn partial_peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
-                            B: Deref<Target = [H; 2]> + 'static,
+                            B: StableDeref<Target = [H; 2]> + 'static,
                             H: AsSlice<Element=T>,
                         {
                             // this inverts expectation and returns the half being _written_
@@ -730,7 +744,7 @@ macro_rules! dma {
                         pub fn peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> R,
-                            B: Deref<Target = [H; 2]> + 'static,
+                            B: StableDeref<Target = [H; 2]> + 'static,
                             H: AsSlice<Element=T>,
                         {
                             let half_being_read = self.readable_half()?;

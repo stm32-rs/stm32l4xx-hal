@@ -8,9 +8,8 @@
 #![no_main]
 #![no_std]
 
-use panic_halt as _;
 use hal::{
-    dma::{self, consts, FrameReader, FrameSender, DMAFrame},
+    dma::{self, consts, DMAFrame, FrameReader, FrameSender},
     prelude::*,
     rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
     serial::{self, Config, Serial},
@@ -19,11 +18,15 @@ use heapless::{
     pool,
     pool::singleton::{Box, Pool},
 };
+use panic_halt as _;
 use rtfm::app;
 use stm32l4xx_hal as hal;
 
 // The pool gives out `Box<DMAFrame>`s that can hold 8 bytes
-pool!(SerialDMAPool: DMAFrame<consts::U8>);
+pool!(
+    #[allow(non_upper_case_globals)]
+    SerialDMAPool: DMAFrame<consts::U8>
+);
 
 #[app(device = stm32l4xx_hal::stm32, peripherals = true)]
 const APP: () = {
