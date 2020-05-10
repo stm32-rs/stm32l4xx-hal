@@ -39,6 +39,7 @@ fn main() -> ! {
 
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
+    let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
     let _clocks = rcc
         .cfgr
@@ -46,7 +47,7 @@ fn main() -> ! {
         .sysclk(48.mhz())
         .pclk1(24.mhz())
         .pclk2(24.mhz())
-        .freeze(&mut flash.acr);
+        .freeze(&mut flash.acr, &mut pwr);
 
     enable_crs();
 

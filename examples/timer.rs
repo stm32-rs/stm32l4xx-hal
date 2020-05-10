@@ -33,9 +33,10 @@ fn main() -> ! {
 
     let mut flash = dp.FLASH.constrain(); // .constrain();
     let mut rcc = dp.RCC.constrain();
+    let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
     // Try a different clock configuration
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
 
     // let mut gpiob = dp.GPIOB.split(&mut rcc.ahb2);
     // let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
@@ -50,8 +51,8 @@ fn main() -> ! {
 
 #[interrupt]
 fn TIM7() {
-    let mut p = 0;
-    p += 1;
+    static mut COUNT: u32 = 0;
+    *COUNT += 1;
     // let mut hstdout = hio::hstdout().unwrap();
     // writeln!(hstdout, "Hello, TIM!").unwrap();
 }
