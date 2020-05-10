@@ -1,10 +1,9 @@
 //! Timers
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::stm32::{TIM17, TIM4, TIM5};
-
 use crate::hal::timer::{CountDown, Periodic};
 use crate::stm32::{TIM15, TIM16, TIM2, TIM6, TIM7};
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::stm32::{TIM17, TIM4, TIM5};
 use cast::{u16, u32};
 use nb;
 use void::Void;

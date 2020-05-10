@@ -2,7 +2,7 @@ extern crate core;
 #[cfg(feature = "unproven")]
 use core::cmp;
 
-use crate::rcc::{AHB2, Clocks};
+use crate::rcc::{Clocks, AHB2};
 use crate::stm32::RNG;
 
 /// Extension trait to activate the RNG
@@ -12,7 +12,6 @@ pub trait RngExt {
 }
 
 impl RngExt for RNG {
-
     fn enable(self, ahb2: &mut AHB2, clocks: Clocks) -> Rng {
         // crrcr.crrcr().modify(|_, w| w.hsi48on().set_bit()); // p. 180 in ref-manual
         // ...this is now supposed to be done in RCC configuration before freezing
@@ -32,9 +31,7 @@ impl RngExt for RNG {
 
         self.cr.modify(|_, w| w.rngen().set_bit());
 
-        Rng {
-            rng: self
-        }
+        Rng { rng: self }
     }
 }
 
@@ -44,7 +41,6 @@ pub struct Rng {
 }
 
 impl Rng {
-
     // cf. https://github.com/nrf-rs/nrf51-hal/blob/master/src/rng.rs#L31
     pub fn free(self) -> RNG {
         // maybe disable the RNG?
@@ -55,7 +51,7 @@ impl Rng {
     // trait list, but may be helpful nonetheless
     // Q: should these be prefixed by underscores?
 
-    pub fn get_random_data(&self)-> u32 {
+    pub fn get_random_data(&self) -> u32 {
         while !self.is_data_ready() {}
         let word = self.possibly_invalid_random_data();
         // NB: no need to clear bit here
@@ -94,7 +90,6 @@ impl Rng {
     pub fn possibly_invalid_random_data(&self) -> u32 {
         self.rng.dr.read().rndata().bits()
     }
-
 }
 
 #[derive(Debug)]
@@ -102,14 +97,12 @@ pub enum Error {}
 
 #[cfg(feature = "unproven")]
 impl crate::hal::blocking::rng::Read for Rng {
-
     // TODO: this error seems pretty useless if it
     // doesn't flag non-enabled RNG or non-started HSI48,
     // but that would be a runtime cost :/
     type Error = Error;
 
     fn read(&mut self, buffer: &mut [u8]) -> Result<(), Self::Error> {
-
         let mut i = 0usize;
         while i < buffer.len() {
             let random_word: u32 = self.get_random_data();
@@ -120,6 +113,5 @@ impl crate::hal::blocking::rng::Read for Rng {
         }
 
         Ok(())
-
     }
 }

@@ -33,7 +33,10 @@ fn main() -> ! {
         let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
         rcc.cfgr
+            .hclk(48.mhz())
             .sysclk(80.mhz())
+            .pclk1(24.mhz())
+            .pclk2(24.mhz())
             .freeze(&mut flash.acr, &mut pwr);
 
         // Create a button input with an interrupt

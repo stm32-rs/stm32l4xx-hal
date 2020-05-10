@@ -12,19 +12,17 @@ extern crate cortex_m_semihosting as sh;
 extern crate panic_semihosting;
 extern crate stm32l4xx_hal as hal;
 
-use crate::hal::prelude::*;
-use crate::rt::ExceptionFrame;
-use crate::rt::entry;
 use crate::hal::interrupt;
-use crate::hal::timer::{Timer, Event};
+use crate::hal::prelude::*;
+use crate::hal::timer::{Event, Timer};
+use crate::rt::entry;
+use crate::rt::ExceptionFrame;
 
-use core::fmt::Write;
 use crate::sh::hio;
-
+use core::fmt::Write;
 
 #[entry]
 fn main() -> ! {
-
     let mut hstdout = hio::hstdout().unwrap();
     writeln!(hstdout, "Hello, world!").unwrap();
 
