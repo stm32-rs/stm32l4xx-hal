@@ -33,7 +33,7 @@ fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = hal::stm32::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain(); // .constrain();
+    let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
     
@@ -44,7 +44,7 @@ fn main() -> ! {
         .freeze(&mut flash.acr, &mut pwr);
     
     let mut timer = Delay::new(cp.SYST, clocks);
-    
+  
     let rtc = Rtc::rtc(
         dp.RTC, 
         &mut rcc.apb1r1, 

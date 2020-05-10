@@ -31,6 +31,7 @@ fn main() -> ! {
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
     let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
+
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     let channels = p.DMA1.split(&mut rcc.ahb1);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
