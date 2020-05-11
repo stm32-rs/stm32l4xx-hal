@@ -377,6 +377,15 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         self.qspi.sr.read().busy().bit_is_set()
     }
 
+    /// Aborts any ongoing transaction
+    /// Note can cause problems if aborting writes to flash satus register
+    pub fn abort_transmission(&self) {
+        self.qspi.cr.modify(|_, w| 
+            w.abort().set_bit()
+        );
+        while self.qspi.sr.read().busy().bit_is_set() {}
+    }
+
     pub fn get_config(&self) -> QspiConfig {
         self.config
     }
