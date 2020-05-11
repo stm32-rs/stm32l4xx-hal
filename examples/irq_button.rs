@@ -12,9 +12,12 @@ use crate::hal::{
     prelude::*,
     stm32,
 };
+use cortex_m::{
+    interrupt::{free, Mutex},
+    peripheral::NVIC
+};
 use core::cell::RefCell;
 use core::ops::DerefMut;
-use cortex_m::interrupt::{free, Mutex};
 use rt::entry;
 
 // Set up global state. It's all mutexed up for concurrency safety.
@@ -22,18 +25,19 @@ static BUTTON: Mutex<RefCell<Option<PC13<Input<PullUp>>>>> = Mutex::new(RefCell:
 
 #[entry]
 fn main() -> ! {
-    if let (Some(mut dp), Some(cp)) = (stm32::Peripherals::take(), cortex_m::Peripherals::take()) {
+    if let Some(mut dp) = stm32::Peripherals::take() {
         dp.RCC.apb2enr.write(|w| w.syscfgen().set_bit());
 
         let mut rcc = dp.RCC.constrain();
         let mut flash = dp.FLASH.constrain(); // .constrain();
+        let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
         rcc.cfgr
             .hclk(48.mhz())
-            .sysclk(48.mhz())
+            .sysclk(80.mhz())
             .pclk1(24.mhz())
             .pclk2(24.mhz())
-            .freeze(&mut flash.acr);
+            .freeze(&mut flash.acr, &mut pwr);
 
         // Create a button input with an interrupt
         let mut gpioc = dp.GPIOC.split(&mut rcc.ahb2);
@@ -45,8 +49,7 @@ fn main() -> ! {
         board_btn.trigger_on_edge(&mut dp.EXTI, Edge::FALLING);
 
         // Enable interrupts
-        let mut nvic = cp.NVIC;
-        nvic.enable(stm32::Interrupt::EXTI15_10);
+        unsafe { NVIC::unmask(stm32::Interrupt::EXTI15_10); }
 
         free(|cs| {
             BUTTON.borrow(cs).replace(Some(board_btn));

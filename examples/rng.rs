@@ -7,10 +7,10 @@ extern crate stm32l4xx_hal as hal;
 use core::fmt;
 use cortex_m_rt::entry;
 
-use crate::hal::stm32;
-use crate::hal::prelude::*;
 use crate::hal::delay::Delay;
-use crate::hal::serial::{Serial, Config};
+use crate::hal::prelude::*;
+use crate::hal::serial::{Config, Serial};
+use crate::hal::stm32;
 
 macro_rules! uprint {
     ($serial:expr, $($arg:tt)*) => {
@@ -29,30 +29,32 @@ macro_rules! uprintln {
 
 #[entry]
 fn main() -> ! {
-
     let core = cortex_m::Peripherals::take().unwrap();
     let device = stm32::Peripherals::take().unwrap();
 
     let mut flash = device.FLASH.constrain();
     let mut rcc = device.RCC.constrain();
+    let mut pwr = device.PWR.constrain(&mut rcc.apb1r1);
 
-    let clocks = rcc.cfgr
-        .hsi48(true)  // needed for RNG
-        .sysclk(64.mhz()).pclk1(32.mhz())
-        .freeze(&mut flash.acr);
+    let clocks = rcc
+        .cfgr
+        .hsi48(true) // needed for RNG
+        .sysclk(64.mhz())
+        .pclk1(32.mhz())
+        .freeze(&mut flash.acr, &mut pwr);
 
     // setup usart
     let mut gpioa = device.GPIOA.split(&mut rcc.ahb2);
     let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
     let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
 
-    let baud_rate = 9_600;  // 115_200;
+    let baud_rate = 9_600; // 115_200;
     let serial = Serial::usart1(
         device.USART1,
         (tx, rx),
         Config::default().baudrate(baud_rate.bps()),
         clocks,
-        &mut rcc.apb2
+        &mut rcc.apb2,
     );
     let (mut tx, _) = serial.split();
 
@@ -68,12 +70,9 @@ fn main() -> ! {
     loop {
         const N: usize = 5;
         let mut random_bytes = [0u8; N];
-        rng.read(&mut random_bytes).expect("missing random data for some reason");
-        uprintln!(
-            &mut tx,
-            "{} random u8 values: {:?}",
-            N, random_bytes
-        );
+        rng.read(&mut random_bytes)
+            .expect("missing random data for some reason");
+        uprintln!(&mut tx, "{} random u8 values: {:?}", N, random_bytes);
 
         timer.delay_ms(some_time);
     }

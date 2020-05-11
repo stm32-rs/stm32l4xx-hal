@@ -205,9 +205,32 @@ impl<'a> WriteErase for FlashProgramming<'a> {
     }
 
     fn erase_page(&mut self, page: flash_trait::FlashPage) -> flash_trait::Result {
-        self.cr
-            .cr()
-            .modify(|_, w| unsafe { w.pnb().bits(u8::try_from(page.0).unwrap()).per().set_bit() });
+        match page.0 {
+            0..=255 => {
+                self.cr.cr().modify(|_, w| unsafe {
+                    w.bker()
+                        .clear_bit()
+                        .pnb()
+                        .bits(page.0 as u8)
+                        .per()
+                        .set_bit()
+                });
+            }
+            256..=511 => {
+                self.cr.cr().modify(|_, w| unsafe {
+                    w.bker()
+                        .set_bit()
+                        .pnb()
+                        .bits((page.0 - 256) as u8)
+                        .per()
+                        .set_bit()
+                });
+            }
+            _ => {
+                return Err(flash_trait::Error::PageOutOfRange);
+            }
+        }
+
         self.cr.cr().modify(|_, w| w.start().set_bit());
 
         let res = self.wait();

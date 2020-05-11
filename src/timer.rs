@@ -1,12 +1,14 @@
 //! Timers
 
-use cast::{u16, u32};
 use crate::hal::timer::{CountDown, Periodic};
+use crate::stm32::{TIM15, TIM16, TIM2, TIM6, TIM7};
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::stm32::{TIM17, TIM4, TIM5};
+use cast::{u16, u32};
 use nb;
-use crate::stm32::{TIM2, TIM6, TIM7, TIM15, TIM16};
 use void::Void;
 
-use crate::rcc::{APB1R1, Clocks, APB2};
+use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
 /// Hardware timers
@@ -120,7 +122,7 @@ macro_rules! hal {
                 pub fn clear_update_interrupt_flag(&mut self) {
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
                 }
-                
+
                 /// Releases the TIM peripheral
                 pub fn free(self) -> $TIM {
                     // pause counter
@@ -138,4 +140,11 @@ hal! {
     TIM7: (tim7, tim7en, tim7rst, APB1R1),
     TIM15: (tim15, tim15en, tim15rst, APB2),
     TIM16: (tim16, tim16en, tim16rst, APB2),
+}
+
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+hal! {
+    TIM4: (tim4, tim4en, tim4rst, APB1R1),
+    TIM5: (tim5, tim5en, tim5rst, APB1R1),
+    TIM17: (tim17, tim17en, tim17rst, APB2),
 }

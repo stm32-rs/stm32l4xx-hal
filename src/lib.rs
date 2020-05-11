@@ -58,6 +58,7 @@ pub use crate::pac as device;
 ))]
 pub use crate::pac as stm32;
 
+
 pub mod traits;
 
 #[cfg(any(
@@ -117,6 +118,14 @@ pub mod i2c;
     feature = "stm32l4x6"
 ))]
 pub mod prelude;
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+pub mod pwm;
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",

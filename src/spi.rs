@@ -5,8 +5,8 @@ use core::ptr;
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use nb;
 
-use crate::gpio::{AF5, Input, Floating, Alternate};
-use crate::rcc::{APB1R1, APB2, Clocks};
+use crate::gpio::{Alternate, Floating, Input, AF5};
+use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
 /// SPI error
@@ -193,18 +193,11 @@ macro_rules! hal {
     }
 }
 
-use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpiod::*;
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 use crate::gpio::gpiog::*;
+use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
 
 use crate::stm32::SPI1;
 #[cfg(any(
@@ -230,14 +223,8 @@ pins!(SPI1, AF5,
     MISO: [PA6, PB4, PE14],
     MOSI: [PA7, PB5, PE15]);
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
-pins!(SPI1, AF5,
-    SCK: [PG2],
-    MISO: [PG3],
-    MOSI: [PG4]);
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -245,7 +232,7 @@ pins!(SPI1, AF5,
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
-use crate::{stm32::SPI3, gpio::AF6};
+use crate::{gpio::AF6, stm32::SPI3};
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -268,36 +255,18 @@ pins!(SPI3, AF6,
     MISO: [PB4, PC11],
     MOSI: [PB5, PC12]);
 
-#[cfg(any(
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins!(SPI3, AF6,
-    SCK: [PG9],
-    MISO: [PG10],
-    MOSI: [PG11]);
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::stm32::SPI2;
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
     SPI2: (spi2, APB1R1, spi2en, spi2rst, pclk1),
 }
 
-#[cfg(any(
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins!(SPI2, AF5,
     SCK: [PB13, PB10, PD1],
     MISO: [PB14, PC2, PD3],
