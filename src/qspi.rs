@@ -392,8 +392,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
 
     pub fn apply_config(&mut self, config: QspiConfig) {
         if self.qspi.sr.read().busy().bit_is_set() {
-            // Todo: Handle error
-            // return Err(QspiError::Busy);
+            self.abort_transmission();
         }
 
         self.qspi
