@@ -152,6 +152,13 @@ pub enum ClockMode {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum QspiError{
+    Busy,
+    Address,
+    Unknown,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct QspiConfig {
     /// This field defines the scaler factor for generating CLK based on the AHB clock
     /// (value+1).
@@ -410,9 +417,9 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         self.config = config;
     }
 
-    pub fn transfer(&self, command: QspiReadCommand, buffer: &mut [u8]) {
+    pub fn transfer(&self, command: QspiReadCommand, buffer: &mut [u8]) -> Result<(), QspiError>{
         if self.is_busy() {
-            // Todo handle error
+            return Err(QspiError::Busy)
         }
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
@@ -509,6 +516,16 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         // Write address, triggers send
         if let Some((addr, _)) = command.address {
             self.qspi.ar.write(|w| unsafe { w.address().bits(addr) });
+
+            // Transfer error
+            if self.qspi.sr.read().tef().bit_is_set() {
+                return Err(QspiError::Address)
+            }
+        }
+
+        // Transfer error
+        if self.qspi.sr.read().tef().bit_is_set() {
+            return Err(QspiError::Unknown)
         }
 
         // Read data from the buffer
@@ -542,11 +559,12 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                     .bit(self.config.sample_shift == SampleShift::HalfACycle)
             });
         }
+        Ok(())
     }
 
-    pub fn write(&self, command: QspiWriteCommand) {
+    pub fn write(&self, command: QspiWriteCommand) -> Result<(), QspiError>{
         if self.is_busy() {
-            // Todo handle error
+            return Err(QspiError::Busy)
         }
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
@@ -645,6 +663,11 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             self.qspi.ar.write(|w| unsafe { w.address().bits(addr) });
         }
 
+        // Transfer error
+        if self.qspi.sr.read().tef().bit_is_set() {
+            return Err(QspiError::Unknown)
+        }
+
         // Write data to the FIFO
         if let Some((data, _)) = command.data {
             for byte in data {
@@ -665,6 +688,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                     .bit(self.config.sample_shift == SampleShift::HalfACycle)
             });
         }
+        Ok(())
     }
 }
 
