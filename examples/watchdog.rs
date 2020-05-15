@@ -1,5 +1,4 @@
-//! Blinks an LED
-
+//! Example of watchdog timer
 #![deny(unsafe_code)]
 // #![deny(warnings)]
 #![no_std]
@@ -40,7 +39,6 @@ fn main() -> ! {
     // Try a different clock configuration
     let clocks = rcc
         .cfgr
-        .lse(CrystalBypass::Disable, ClockSecuritySystem::Disable)
         .lsi(true)
         .freeze(&mut flash.acr, &mut pwr);
     
