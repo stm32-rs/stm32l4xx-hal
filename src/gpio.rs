@@ -279,6 +279,7 @@ macro_rules! gpio {
                 _0: (),
             }
             impl OSPEEDR {
+                #[allow(unused)]
                 pub(crate) fn ospeedr(&mut self) -> &$gpioy::OSPEEDR {
                     unsafe { &(*$GPIOX::ptr()).ospeedr }
                 }

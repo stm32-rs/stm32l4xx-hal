@@ -32,7 +32,7 @@
 
 use crate::stm32::{flash, FLASH};
 use crate::traits::flash as flash_trait;
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryInto;
 use core::{mem, ops::Drop, ptr};
 pub use flash_trait::{Error, FlashPage, Read, WriteErase};
 
