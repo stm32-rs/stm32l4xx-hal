@@ -32,7 +32,7 @@ use crate::gpio::{
     gpiof::{PF6, PF7, PF8, PF9},
 };
 
-use crate::gpio::{Alternate, Floating, Input, AF10};
+use crate::gpio::{Alternate, Floating, Input, AF10, Speed};
 use crate::rcc::AHB3;
 use crate::stm32::QUADSPI;
 use core::ptr;
@@ -43,17 +43,29 @@ mod private {
 }
 
 /// CLK pin. This trait is sealed and cannot be implemented.
-pub trait ClkPin<QSPI>: private::Sealed {}
+pub trait ClkPin<QSPI>: private::Sealed {
+    fn set_speed(self, speed: Speed) -> Self;
+}
 /// nCS pin. This trait is sealed and cannot be implemented.
-pub trait NCSPin<QSPI>: private::Sealed {}
+pub trait NCSPin<QSPI>: private::Sealed {
+    fn set_speed(self, speed: Speed) -> Self;
+}
 /// IO0 pin. This trait is sealed and cannot be implemented.
-pub trait IO0Pin<QSPI>: private::Sealed {}
+pub trait IO0Pin<QSPI>: private::Sealed {
+    fn set_speed(self, speed: Speed) -> Self;
+}
 /// IO1 pin. This trait is sealed and cannot be implemented.
-pub trait IO1Pin<QSPI>: private::Sealed {}
+pub trait IO1Pin<QSPI>: private::Sealed {
+    fn set_speed(self, speed: Speed) -> Self;
+}
 /// IO2 pin. This trait is sealed and cannot be implemented.
-pub trait IO2Pin<QSPI>: private::Sealed {}
+pub trait IO2Pin<QSPI>: private::Sealed {
+    fn set_speed(self, speed: Speed) -> Self;
+}
 /// IO3 pin. This trait is sealed and cannot be implemented.
-pub trait IO3Pin<QSPI>: private::Sealed {}
+pub trait IO3Pin<QSPI>: private::Sealed {
+    fn set_speed(self, speed: Speed) -> Self;
+}
 
 macro_rules! pins {
     ($qspi:ident, $af:ident, CLK: [$($clk:ident),*], nCS: [$($ncs:ident),*],
@@ -61,27 +73,51 @@ macro_rules! pins {
         IO3: [$($io3:ident),*]) => {
         $(
             impl private::Sealed for $clk<Alternate<$af, Input<Floating>>> {}
-            impl ClkPin<$qspi> for $clk<Alternate<$af, Input<Floating>>> {}
+            impl ClkPin<$qspi> for $clk<Alternate<$af, Input<Floating>>> {
+                fn set_speed(self, speed: Speed) -> Self{
+                    self.set_speed(speed)
+                }
+            }
         )*
         $(
             impl private::Sealed for $ncs<Alternate<$af, Input<Floating>>> {}
-            impl NCSPin<$qspi> for $ncs<Alternate<$af, Input<Floating>>> {}
+            impl NCSPin<$qspi> for $ncs<Alternate<$af, Input<Floating>>> {
+                fn set_speed(self, speed: Speed) -> Self{
+                    self.set_speed(speed)
+                }
+            }
         )*
         $(
             impl private::Sealed for $io0<Alternate<$af, Input<Floating>>> {}
-            impl IO0Pin<$qspi> for $io0<Alternate<$af, Input<Floating>>> {}
+            impl IO0Pin<$qspi> for $io0<Alternate<$af, Input<Floating>>> {
+                fn set_speed(self, speed: Speed) -> Self{
+                    self.set_speed(speed)
+                }
+            }
         )*
         $(
             impl private::Sealed for $io1<Alternate<$af, Input<Floating>>> {}
-            impl IO1Pin<$qspi> for $io1<Alternate<$af, Input<Floating>>> {}
+            impl IO1Pin<$qspi> for $io1<Alternate<$af, Input<Floating>>> {
+                fn set_speed(self, speed: Speed) -> Self{
+                    self.set_speed(speed)
+                }
+            }
         )*
         $(
             impl private::Sealed for $io2<Alternate<$af, Input<Floating>>> {}
-            impl IO2Pin<$qspi> for $io2<Alternate<$af, Input<Floating>>> {}
+            impl IO2Pin<$qspi> for $io2<Alternate<$af, Input<Floating>>> {
+                fn set_speed(self, speed: Speed) -> Self{
+                    self.set_speed(speed)
+                }
+            }
         )*
         $(
             impl private::Sealed for $io3<Alternate<$af, Input<Floating>>> {}
-            impl IO3Pin<$qspi> for $io3<Alternate<$af, Input<Floating>>> {}
+            impl IO3Pin<$qspi> for $io3<Alternate<$af, Input<Floating>>> {
+                fn set_speed(self, speed: Speed) -> Self{
+                    self.set_speed(speed)
+                }
+            }
         )*
     }
 }
@@ -113,6 +149,13 @@ pub enum SampleShift {
 pub enum ClockMode {
     Mode0,
     Mode3,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum QspiError{
+    Busy,
+    Address,
+    Unknown,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -311,9 +354,19 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .set_bit()
         });
 
+        // Set gpio speed
+        let high_speed_pins = (
+            pins.0.set_speed(Speed::VeryHigh),
+            pins.1.set_speed(Speed::VeryHigh),
+            pins.2.set_speed(Speed::VeryHigh),
+            pins.3.set_speed(Speed::VeryHigh),
+            pins.4.set_speed(Speed::VeryHigh),
+            pins.5.set_speed(Speed::VeryHigh),
+        );
+
         let mut unit = Qspi {
             qspi,
-            _pins: pins,
+            _pins: high_speed_pins,
             config,
         };
         unit.apply_config(config);
@@ -324,14 +377,22 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         self.qspi.sr.read().busy().bit_is_set()
     }
 
+    /// Aborts any ongoing transaction
+    /// Note can cause problems if aborting writes to flash satus register
+    pub fn abort_transmission(&self) {
+        self.qspi.cr.modify(|_, w| 
+            w.abort().set_bit()
+        );
+        while self.qspi.sr.read().busy().bit_is_set() {}
+    }
+
     pub fn get_config(&self) -> QspiConfig {
         self.config
     }
 
     pub fn apply_config(&mut self, config: QspiConfig) {
         if self.qspi.sr.read().busy().bit_is_set() {
-            // Todo: Handle error
-            // return Err(QspiError::Busy);
+            self.abort_transmission();
         }
 
         self.qspi
@@ -358,15 +419,15 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .bit(config.clock_mode == ClockMode::Mode3)
         });
 
-        // Enable SPI
+        // Enable QSPI
         self.qspi.cr.modify(|_, w| w.en().set_bit());
 
         self.config = config;
     }
 
-    pub fn transfer(&self, command: QspiReadCommand, buffer: &mut [u8]) {
+    pub fn transfer(&self, command: QspiReadCommand, buffer: &mut [u8]) -> Result<(), QspiError>{
         if self.is_busy() {
-            // Todo handle error
+            return Err(QspiError::Busy)
         }
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
@@ -463,6 +524,16 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         // Write address, triggers send
         if let Some((addr, _)) = command.address {
             self.qspi.ar.write(|w| unsafe { w.address().bits(addr) });
+
+            // Transfer error
+            if self.qspi.sr.read().tef().bit_is_set() {
+                return Err(QspiError::Address)
+            }
+        }
+
+        // Transfer error
+        if self.qspi.sr.read().tef().bit_is_set() {
+            return Err(QspiError::Unknown)
         }
 
         // Read data from the buffer
@@ -496,11 +567,12 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                     .bit(self.config.sample_shift == SampleShift::HalfACycle)
             });
         }
+        Ok(())
     }
 
-    pub fn write(&self, command: QspiWriteCommand) {
+    pub fn write(&self, command: QspiWriteCommand) -> Result<(), QspiError>{
         if self.is_busy() {
-            // Todo handle error
+            return Err(QspiError::Busy)
         }
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
@@ -599,6 +671,11 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             self.qspi.ar.write(|w| unsafe { w.address().bits(addr) });
         }
 
+        // Transfer error
+        if self.qspi.sr.read().tef().bit_is_set() {
+            return Err(QspiError::Unknown)
+        }
+
         // Write data to the FIFO
         if let Some((data, _)) = command.data {
             for byte in data {
@@ -619,6 +696,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                     .bit(self.config.sample_shift == SampleShift::HalfACycle)
             });
         }
+        Ok(())
     }
 }
 
@@ -658,11 +736,19 @@ pins!(
 );
 
 #[cfg(feature = "stm32l4x2")]
-impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, Input<Floating>>> {}
+impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, Input<Floating>>> {
+    fn set_speed(self, speed: Speed) -> Self{
+        self.set_speed(speed)
+    }
+}
 #[cfg(feature = "stm32l4x2")]
 impl private::Sealed for PB2<Alternate<AF10, Input<Floating>>> {}
 #[cfg(feature = "stm32l4x2")]
-impl IO1Pin<QUADSPI> for PB2<Alternate<AF10, Input<Floating>>> {}
+impl IO1Pin<QUADSPI> for PB2<Alternate<AF10, Input<Floating>>> {
+    fn set_speed(self, speed: Speed) -> Self{
+        self.set_speed(speed)
+    }
+}
 
 #[cfg(feature = "stm32l4x6")]
 pins!(

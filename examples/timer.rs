@@ -49,8 +49,8 @@ fn main() -> ! {
 
 #[interrupt]
 fn TIM7() {
-    let mut p = 0;
-    p += 1;
+    static mut COUNT: u32 = 0;
+    *COUNT += 1;
     // let mut hstdout = hio::hstdout().unwrap();
     // writeln!(hstdout, "Hello, TIM!").unwrap();
 }

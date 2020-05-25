@@ -65,7 +65,7 @@ fn main() -> ! {
         ) //Added due to missing OSPEEDR register changes in Qspi
     };
 
-    qspi.transfer(get_id_command, &mut id_arr);
+    qspi.transfer(get_id_command, &mut id_arr).unwrap();
 
     // if all goes well you should reach this breakpoint
     asm::bkpt();
