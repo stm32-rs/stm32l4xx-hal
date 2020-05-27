@@ -34,15 +34,16 @@ impl IndependentWatchdog {
     }
 
     /// Sets the watchdog timer timout period. Max: 32768 ms
-    fn setup(&self, timeout_ms: u32) {
+    fn setup(&self, timeout_ms: MilliSeconds) {
+        assert!(timeout_ms.0 <= 32768, "Watchdog timeout to high");
         let mut pr = 0;
-        while pr < MAX_PR && Self::timeout_period(pr, MAX_RL) < timeout_ms {
+        while pr < MAX_PR && Self::timeout_period(pr, MAX_RL) < timeout_ms.0 {
             pr += 1;
         }
 
         let max_period = Self::timeout_period(pr, MAX_RL);
         let max_rl = u32::from(MAX_RL);
-        let rl = (timeout_ms * max_rl / max_period).min(max_rl) as u16;
+        let rl = (timeout_ms.0 * max_rl / max_period).min(max_rl) as u16;
 
         self.access_registers(|iwdg| {
             iwdg.pr.modify(|_, w| w.pr().bits(pr));
@@ -97,7 +98,7 @@ impl WatchdogEnable for IndependentWatchdog {
     type Time = MilliSeconds;
 
     fn start<T: Into<Self::Time>>(&mut self, period: T) {
-        self.setup(period.into().0);
+        self.setup(period.into());
 
         self.iwdg.kr.write(|w| unsafe { w.key().bits(KR_START) });
     }
