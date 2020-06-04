@@ -11,7 +11,7 @@ use core::slice;
 
 use crate::rcc::AHB1;
 use as_slice::AsSlice;
-pub use generic_array::typenum::consts;
+pub use generic_array::typenum::{self, consts};
 use generic_array::{ArrayLength, GenericArray};
 use stable_deref_trait::StableDeref;
 

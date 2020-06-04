@@ -173,7 +173,7 @@ macro_rules! hal {
                         .cen().set_bit()
                 });
 
-                unsafe { mem::uninitialized() }
+                unsafe { mem::MaybeUninit::uninit().assume_init() }
             }
 
             impl hal::PwmPin for Pwm<$TIMX, C1> {
