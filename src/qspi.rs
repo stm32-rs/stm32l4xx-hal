@@ -408,6 +408,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .sshift()
                 .bit(config.sample_shift == SampleShift::HalfACycle)
         });
+        while self.qspi.sr.read().busy().bit_is_set() {}
 
         // Modify DCR with flash size, CSHT and clock mode
         self.qspi.dcr.modify(|_, w| unsafe {
@@ -418,9 +419,11 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .ckmode()
                 .bit(config.clock_mode == ClockMode::Mode3)
         });
+        while self.qspi.sr.read().busy().bit_is_set() {}
 
         // Enable QSPI
         self.qspi.cr.modify(|_, w| w.en().set_bit());
+        while self.qspi.sr.read().busy().bit_is_set() {}
 
         self.config = config;
     }
