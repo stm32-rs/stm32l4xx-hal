@@ -793,6 +793,12 @@ impl_pin_traits! {
             RTS_DE: PA1, PD4;
             CTS: PA0, PD3;
         }
+        AF3: {
+            TX: ;
+            RX: PA15;
+            RTS_DE: ;
+            CTS: ;
+        }
     }
 }
 
