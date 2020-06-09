@@ -36,7 +36,6 @@ use crate::gpio::{Alternate, Floating, Input, AF10, Speed};
 use crate::rcc::AHB3;
 use crate::stm32::QUADSPI;
 use core::ptr;
-use log;
 
 #[doc(hidden)]
 mod private {
@@ -701,9 +700,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
 
         self.qspi.fcr.write(|w| w.ctcf().set_bit());
 
-        if self.is_busy(){
-            log::error!("Write BUSY!");
-        }
+        if self.is_busy(){}
 
         if command.double_data_rate {
             self.qspi.cr.modify(|_, w| {
