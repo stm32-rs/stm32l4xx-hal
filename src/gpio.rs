@@ -5,7 +5,7 @@
 
 use core::marker::PhantomData;
 
-use crate::rcc::AHB2;
+use crate::rcc::{AHB2, APB2};
 use crate::stm32::{EXTI, SYSCFG};
 
 /// Extension trait to split a GPIO peripheral in independent pins and registers
@@ -124,7 +124,7 @@ pub enum Edge {
 
 /// External Interrupt Pin
 pub trait ExtiPin {
-    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG);
+    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2);
     fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
     fn enable_interrupt(&mut self, exti: &mut EXTI);
     fn disable_interrupt(&mut self, exti: &mut EXTI);
@@ -179,7 +179,7 @@ macro_rules! gpio {
             use crate::hal::digital::v2::{OutputPin, InputPin};
             use crate::stm32::{$gpioy, $GPIOX, EXTI, SYSCFG};
 
-            use crate::rcc::AHB2;
+            use crate::rcc::{AHB2, APB2};
             use super::{
 
                 Alternate, AlternateOD,
@@ -320,7 +320,8 @@ macro_rules! gpio {
 
             impl<MODE> ExtiPin for $PXx<Input<MODE>> {
                 /// Make corresponding EXTI line sensitive to this pin
-                fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG) {
+                fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) {
+                    apb2.enr().modify(|_,w| w.syscfgen().set_bit());
                     let offset = 4 * (self.i % 4);
                     match self.i {
                         0..=3 => {
@@ -659,7 +660,8 @@ macro_rules! gpio {
 
                 impl<MODE> ExtiPin for $PXi<Input<MODE>> {
                     /// Configure EXTI Line $i to trigger from this pin.
-                    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG) {
+                    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) {
+                        apb2.enr().modify(|_,w| w.syscfgen().set_bit());
                         let offset = 4 * ($i % 4);
                         syscfg.$exticri.modify(|r, w| unsafe {
                             let mut exticr = r.bits();
