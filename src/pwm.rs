@@ -1,90 +1,94 @@
 //! # Pulse Width Modulation
 
-use cast::{u16, u32};
 use core::marker::PhantomData;
 use core::mem;
 
 use crate::hal;
-use crate::stm32::TIM2;
+use crate::stm32::{TIM1, TIM15, TIM2};
 
-use crate::gpio::gpioa::{PA0, PA1, PA2, PA3};
-use crate::gpio::{Alternate, Output, PushPull, AF1};
-use crate::rcc::{Clocks, APB1R1};
+use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA2, PA3, PA8, PA9};
+use crate::gpio::gpiob::{PB14};
+use crate::gpio::{Alternate, AlternateOD, Floating, Input, Output, PushPull, AF1};
+use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
 // NB: REMAP is not implemented!
 pub trait Pins<TIM> {
     // const REMAP: u8;
-    const C1: bool;
-    const C2: bool;
-    const C3: bool;
-    const C4: bool;
+    const C1: bool = false;
+    const C2: bool = false;
+    const C3: bool = false;
+    const C4: bool = false;
     type Channels;
 }
 
-impl Pins<TIM2>
-    for (
-        PA0<Alternate<AF1, Output<PushPull>>>,
-        PA1<Alternate<AF1, Output<PushPull>>>,
-        PA2<Alternate<AF1, Output<PushPull>>>,
-        PA3<Alternate<AF1, Output<PushPull>>>,
-    )
-{
-    const C1: bool = true;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM2, C1>, Pwm<TIM2, C2>, Pwm<TIM2, C3>, Pwm<TIM2, C4>);
+macro_rules! pins_to_channels_mapping {
+    ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),* ); )+ ) => {
+        $(
+            #[allow(unused_parens)]
+            impl Pins<$TIMX> for ($($PINX<Alternate<AF1, Output<PushPull>>>),+)
+            {
+                $(const $ENCHX: bool = true;)+
+                type Channels = ($(Pwm<$TIMX, $ENCHX>),+);
+            }
+
+            #[allow(unused_parens)]
+            impl Pins<$TIMX> for ($($PINX<AlternateOD<AF1, Input<Floating>>>),+)
+            {
+                $(const $ENCHX: bool = true;)+
+                type Channels = ($(Pwm<$TIMX, $ENCHX>),+);
+            }
+        )+
+    };
 }
 
-// useful for RGB LED
-impl Pins<TIM2>
-    for (
-        PA2<Alternate<AF1, Output<PushPull>>>,
-        PA3<Alternate<AF1, Output<PushPull>>>,
-        PA1<Alternate<AF1, Output<PushPull>>>,
-    )
-{
-    const C1: bool = false;
-    const C2: bool = true;
-    const C3: bool = true;
-    const C4: bool = true;
-    type Channels = (Pwm<TIM2, C3>, Pwm<TIM2, C4>, Pwm<TIM2, C2>);
+pins_to_channels_mapping! {
+    // TIM1
+    TIM1: (PA8, PA9, PA10, PA11), (C1, C2, C3, C4);
+    TIM1: (PA9, PA10, PA11), (C2, C3, C4);
+    TIM1: (PA8, PA10, PA11), (C1, C3, C4);
+    TIM1: (PA8, PA9, PA11), (C1, C2, C4);
+    TIM1: (PA8, PA9, PA10), (C1, C2, C3);
+    TIM1: (PA10, PA11), (C3, C4);
+    TIM1: (PA9, PA11), (C2, C4);
+    TIM1: (PA9, PA10), (C2, C3);
+    TIM1: (PA8, PA11), (C1, C4);
+    TIM1: (PA8, PA10), (C1, C3);
+    TIM1: (PA8, PA9), (C1, C2);
+    TIM1: (PA8), (C1);
+    TIM1: (PA9), (C2);
+    TIM1: (PA10), (C3);
+    TIM1: (PA11), (C4);
+
+    // TIM2
+    TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4);
+    TIM2: (PA1, PA2, PA3), (C2, C3, C4);
+    TIM2: (PA0, PA2, PA3), (C1, C3, C4);
+    TIM2: (PA0, PA1, PA3), (C1, C2, C4);
+    TIM2: (PA0, PA1, PA2), (C1, C2, C3);
+    TIM2: (PA2, PA3), (C3, C4);
+    TIM2: (PA1, PA3), (C2, C4);
+    TIM2: (PA1, PA2), (C2, C3);
+    TIM2: (PA0, PA3), (C1, C4);
+    TIM2: (PA0, PA2), (C1, C3);
+    TIM2: (PA0, PA1), (C1, C2);
+    TIM2: (PA0), (C1);
+    TIM2: (PA1), (C2);
+    TIM2: (PA2), (C3);
+    TIM2: (PA3), (C4);
+
+    // TIM15
+    TIM15: (PB14), (C1);
 }
 
-impl Pins<TIM2> for PA0<Alternate<AF1, Output<PushPull>>> {
-    const C1: bool = true;
-    const C2: bool = false;
-    const C3: bool = false;
-    const C4: bool = false;
-    type Channels = Pwm<TIM2, C1>;
+pub trait PwmExt1: Sized {
+    fn pwm<PINS, T>(self, _: PINS, frequency: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    where
+        PINS: Pins<Self>,
+        T: Into<Hertz>;
 }
 
-impl Pins<TIM2> for PA1<Alternate<AF1, Output<PushPull>>> {
-    const C1: bool = false;
-    const C2: bool = true;
-    const C3: bool = false;
-    const C4: bool = false;
-    type Channels = Pwm<TIM2, C2>;
-}
-
-impl Pins<TIM2> for PA2<Alternate<AF1, Output<PushPull>>> {
-    const C1: bool = false;
-    const C2: bool = false;
-    const C3: bool = true;
-    const C4: bool = false;
-    type Channels = Pwm<TIM2, C3>;
-}
-
-impl Pins<TIM2> for PA3<Alternate<AF1, Output<PushPull>>> {
-    const C1: bool = false;
-    const C2: bool = false;
-    const C3: bool = false;
-    const C4: bool = true;
-    type Channels = Pwm<TIM2, C4>;
-}
-
-pub trait PwmExt: Sized {
+pub trait PwmExt2: Sized {
     fn pwm<PINS, T>(
         self,
         _: PINS,
@@ -97,7 +101,27 @@ pub trait PwmExt: Sized {
         T: Into<Hertz>;
 }
 
-impl PwmExt for TIM2 {
+impl PwmExt1 for TIM1 {
+    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    where
+        PINS: Pins<Self>,
+        T: Into<Hertz>,
+    {
+        tim1(self, _pins, freq.into(), clocks, apb)
+    }
+}
+
+impl PwmExt1 for TIM15 {
+    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    where
+        PINS: Pins<Self>,
+        T: Into<Hertz>,
+    {
+        tim15(self, _pins, freq.into(), clocks, apb)
+    }
+}
+
+impl PwmExt2 for TIM2 {
     fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB1R1) -> PINS::Channels
     where
         PINS: Pins<Self>,
@@ -123,8 +147,8 @@ pub struct C2;
 pub struct C3;
 pub struct C4;
 
-macro_rules! hal {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident),)+) => {
+macro_rules! advanced_timer {
+    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX<PINS>(
                 tim: $TIMX,
@@ -155,15 +179,20 @@ macro_rules! hal {
                 if PINS::C4 {
                     tim.ccmr2_output().modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
                 }
+
                 let clk = clocks.pclk1().0;
                 let freq = freq.0;
                 let ticks = clk / freq;
 
                 // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
-                let psc = u16(ticks / (1 << 16)).unwrap();
-                tim.psc.write(|w| { w.psc().bits(psc) });
-                let arr = u16(ticks / u32(psc + 1)).unwrap();
-                tim.arr.write(|w| { w.arr().bits(u32(arr)) });
+                let psc = ticks / (1 << 16);
+                tim.psc.write(|w| { w.psc().bits(psc as $psc_width) });
+                let arr = ticks / (psc + 1);
+                tim.arr.write(|w| { w.arr().bits(arr as $arr_width) });
+
+                // Only for the advanced control timer
+                tim.bdtr.write(|w| w.moe().set_bit());
+                tim.egr.write(|w| w.ug().set_bit());
 
                 tim.cr1.write(|w| {
                     w.cms()
@@ -171,110 +200,180 @@ macro_rules! hal {
                         .dir().clear_bit()
                         .opm().clear_bit()
                         .cen().set_bit()
+                        .arpe().set_bit()
                 });
 
                 unsafe { mem::MaybeUninit::uninit().assume_init() }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C1> {
-                type Duty = u32;
-
-                fn disable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc1e().clear_bit()) }
-                }
-
-                fn enable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc1e().set_bit()) }
-                }
-
-                fn get_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).ccr1.read().ccr().bits() }
-                }
-
-                fn get_max_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
-                }
-
-                fn set_duty(&mut self, duty: Self::Duty) {
-                    unsafe { (*$TIMX::ptr()).ccr1.write(|w| w.ccr().bits(duty)) }
-                }
+            pwm_channels! {
+                $TIMX:  (C1, $arr_width, cc1e, ccr1, ccr),
+                        (C2, $arr_width, cc2e, ccr2, ccr),
+                        (C3, $arr_width, cc3e, ccr3, ccr),
+                        (C4, $arr_width, cc4e, ccr4, ccr),
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C2> {
-                type Duty = u32;
+        )+
+    }
+}
 
-                fn disable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc2e().clear_bit()) }
+macro_rules! standard_timer {
+    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+        $(
+            fn $timX<PINS>(
+                tim: $TIMX,
+                _pins: PINS,
+                freq: Hertz,
+                clocks: Clocks,
+                apb: &mut $apb,
+            ) -> PINS::Channels
+            where
+                PINS: Pins<$TIMX>,
+            {
+                apb.enr().modify(|_, w| w.$timXen().set_bit());
+                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+
+                if PINS::C1 {
+                    tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
                 }
 
-                fn enable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc2e().set_bit()) }
+                if PINS::C2 {
+                    tim.ccmr1_output().modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
                 }
 
-                fn get_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).ccr2.read().ccr().bits() }
+                if PINS::C3 {
+                    tim.ccmr2_output().modify(|_, w| unsafe { w.oc3pe().set_bit().oc3m().bits(6) });
                 }
 
-                fn get_max_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
+                if PINS::C4 {
+                    tim.ccmr2_output().modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
                 }
 
-                fn set_duty(&mut self, duty: Self::Duty) {
-                    unsafe { (*$TIMX::ptr()).ccr2.write(|w| w.ccr().bits(duty)) }
-                }
+                let clk = clocks.pclk1().0;
+                let freq = freq.0;
+                let ticks = clk / freq;
+
+                // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
+                let psc = ticks / (1 << 16);
+                tim.psc.write(|w| { w.psc().bits(psc as $psc_width) });
+                let arr = ticks / (psc + 1);
+                tim.arr.write(|w| { w.arr().bits(arr as $arr_width) });
+
+                tim.cr1.write(|w| {
+                    w.cms()
+                        .bits(0b00)
+                        .dir().clear_bit()
+                        .opm().clear_bit()
+                        .cen().set_bit()
+                        .arpe().set_bit()
+                });
+
+                unsafe { mem::MaybeUninit::uninit().assume_init() }
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C3> {
-                type Duty = u32;
-
-                fn disable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc3e().clear_bit()) }
-                }
-
-                fn enable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc3e().set_bit()) }
-                }
-
-                fn get_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).ccr3.read().ccr().bits() }
-                }
-
-                fn get_max_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
-                }
-
-                fn set_duty(&mut self, duty: Self::Duty) {
-                    unsafe { (*$TIMX::ptr()).ccr3.write(|w| w.ccr().bits(duty)) }
-                }
+            pwm_channels! {
+                $TIMX:  (C1, $arr_width, cc1e, ccr1, ccr),
+                        (C2, $arr_width, cc2e, ccr2, ccr),
+                        (C3, $arr_width, cc3e, ccr3, ccr),
+                        (C4, $arr_width, cc4e, ccr4, ccr),
             }
 
-            impl hal::PwmPin for Pwm<$TIMX, C4> {
-                type Duty = u32;
+        )+
+    }
+}
 
+macro_rules! small_timer {
+    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+        $(
+            fn $timX<PINS>(
+                tim: $TIMX,
+                _pins: PINS,
+                freq: Hertz,
+                clocks: Clocks,
+                apb: &mut $apb,
+            ) -> PINS::Channels
+            where
+                PINS: Pins<$TIMX>,
+            {
+                apb.enr().modify(|_, w| w.$timXen().set_bit());
+                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+
+                if PINS::C1 {
+                    tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                }
+
+                let clk = clocks.pclk1().0;
+                let freq = freq.0;
+                let ticks = clk / freq;
+
+                // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
+                let psc = ticks / (1 << 16);
+                tim.psc.write(|w| { w.psc().bits(psc as $psc_width) });
+                let arr = ticks / (psc + 1);
+                unsafe { tim.arr.write(|w| { w.arr().bits(arr as $arr_width) }); }
+
+                tim.cr1.write(|w| {
+                    w.opm().clear_bit()
+                        .cen().set_bit()
+                        .arpe().set_bit()
+                });
+
+                unsafe { mem::MaybeUninit::uninit().assume_init() }
+            }
+
+            pwm_channels! {
+                $TIMX:  (C1, $arr_width, cc1e, ccr1, ccr1),
+            }
+
+        )+
+    }
+}
+
+macro_rules! pwm_channels {
+    ($TIMX:ident: $(($channel:ident, $arr_width:ident, $ccXe:ident, $ccrX:ident, $ccr:ident),)+) => {
+        $(
+            impl hal::PwmPin for Pwm<$TIMX, $channel> {
+                type Duty = $arr_width;
+
+                #[inline(always)]
                 fn disable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc4e().clear_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.$ccXe().clear_bit()) }
                 }
 
+                #[inline(always)]
                 fn enable(&mut self) {
-                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.cc4e().set_bit()) }
+                    unsafe { (*$TIMX::ptr()).ccer.modify(|_, w| w.$ccXe().set_bit()) }
                 }
 
+                #[inline(always)]
                 fn get_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).ccr4.read().ccr().bits() }
+                    unsafe { (*$TIMX::ptr()).$ccrX.read().$ccr().bits() }
                 }
 
+                #[inline(always)]
                 fn get_max_duty(&self) -> Self::Duty {
                     unsafe { (*$TIMX::ptr()).arr.read().arr().bits() }
                 }
 
+                #[inline(always)]
                 fn set_duty(&mut self, duty: Self::Duty) {
-                    unsafe { (*$TIMX::ptr()).ccr4.write(|w| w.ccr().bits(duty)) }
+                    unsafe { (*$TIMX::ptr()).$ccrX.write(|w| w.$ccr().bits(duty)) }
                 }
             }
         )+
     }
 }
 
-hal! {
-    TIM2: (tim2, tim2en, tim2rst, APB1R1),
+advanced_timer! {
+    TIM1: (tim1, tim1en, tim1rst, APB2, u16, u16),
+}
+
+standard_timer! {
+    TIM2: (tim2, tim2en, tim2rst, APB1R1, u16, u32),
+}
+
+small_timer! {
+    TIM15: (tim15, tim15en, tim15rst, APB2, u16, u16),
 }
