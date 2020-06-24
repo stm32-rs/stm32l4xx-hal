@@ -108,6 +108,21 @@ macro_rules! hal {
                     }
                 }
 
+
+                /// Clears interrupt associated with `event`.
+                ///
+                /// If the interrupt is not cleared, it will immediately retrigger after
+                /// the ISR has finished.
+                pub fn clear_interrupt(&mut self, event: Event) {
+                    match event {
+                        Event::TimeOut => {
+                            // Clear interrupt flag
+                            self.tim.sr.write(|w| w.uif().clear_bit());
+                        }
+                    }
+                }
+
+
                 /// Stops listening for an `event`
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
