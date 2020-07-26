@@ -767,7 +767,7 @@ macro_rules! hal {
                     }
                 }
 
-                /// Starts listening for an interrupt event
+                /// Stops listening for an interrupt event
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxne => {
