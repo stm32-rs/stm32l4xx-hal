@@ -47,17 +47,19 @@ impl DelayMs<u8> for Delay {
 
 impl DelayUs<u32> for Delay {
     fn delay_us(&mut self, us: u32) {
-        let rvr = us * (self.clocks.sysclk().0 / 1_000_000);
+        let mut total_rvr = us * (self.clocks.sysclk().0 / 1_000_000);
 
-        // assert!(rvr < (1 << 24)); //TODO fix this assertion
+        while total_rvr > 0 {
+            let rvr = u32::min(0x00ffffff, total_rvr);
+            self.syst.set_reload(rvr);
+            self.syst.clear_current();
+            self.syst.enable_counter();
 
-        self.syst.set_reload(rvr);
-        self.syst.clear_current();
-        self.syst.enable_counter();
+            while !self.syst.has_wrapped() {}
 
-        while !self.syst.has_wrapped() {}
-
-        self.syst.disable_counter();
+            self.syst.disable_counter();
+            total_rvr -= rvr;
+        }
     }
 }
 
