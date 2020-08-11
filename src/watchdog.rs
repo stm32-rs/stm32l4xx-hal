@@ -12,7 +12,7 @@ pub struct IndependentWatchdog {
 }
 
 const LSI_KHZ: u32 = 32;
-const MAX_PR: u8 = 0b110;
+const MAX_PR: u32 = 0b110;
 const MAX_RL: u16 = 0xFFF;
 const KR_ACCESS: u16 = 0x5555;
 const KR_RELOAD: u16 = 0xAAAA;
@@ -36,14 +36,14 @@ impl IndependentWatchdog {
     /// Sets the watchdog timer timout period. Max: 32768 ms
     fn setup(&self, timeout_ms: MilliSeconds) {
         assert!(timeout_ms.0 < (1 << 15), "Watchdog timeout to high");
-        let pr = match timeout_ms {
+        let pr = match timeout_ms.0 {
             t if t <= (MAX_PR + 1) * 4 / LSI_KHZ => 0b000,
             t if t <= (MAX_PR + 1) * 8 / LSI_KHZ => 0b001,
             t if t <= (MAX_PR + 1) * 16 / LSI_KHZ => 0b010,
             t if t <= (MAX_PR + 1) * 32 / LSI_KHZ => 0b011,
             t if t <= (MAX_PR + 1) * 64 / LSI_KHZ => 0b100,
             t if t <= (MAX_PR + 1) * 128 / LSI_KHZ => 0b101,
-            _ => 0x110,
+            _ => 0b110,
         };
 
         let max_period = Self::timeout_period(pr, MAX_RL);
