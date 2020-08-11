@@ -35,11 +35,16 @@ impl IndependentWatchdog {
 
     /// Sets the watchdog timer timout period. Max: 32768 ms
     fn setup(&self, timeout_ms: MilliSeconds) {
-        assert!(timeout_ms.0 <= 32768, "Watchdog timeout to high");
-        let mut pr = 0;
-        while pr < MAX_PR && Self::timeout_period(pr, MAX_RL) < timeout_ms.0 {
-            pr += 1;
-        }
+        assert!(timeout_ms.0 < (1 << 15), "Watchdog timeout to high");
+        let pr = match timeout_ms {
+            t if t <= (MAX_PR + 1) * 4 / LSI_KHZ => 0b000,
+            t if t <= (MAX_PR + 1) * 8 / LSI_KHZ => 0b001,
+            t if t <= (MAX_PR + 1) * 16 / LSI_KHZ => 0b010,
+            t if t <= (MAX_PR + 1) * 32 / LSI_KHZ => 0b011,
+            t if t <= (MAX_PR + 1) * 64 / LSI_KHZ => 0b100,
+            t if t <= (MAX_PR + 1) * 128 / LSI_KHZ => 0b101,
+            _ => 0x110,
+        };
 
         let max_period = Self::timeout_period(pr, MAX_RL);
         let max_rl = u32::from(MAX_RL);
