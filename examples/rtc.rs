@@ -36,27 +36,27 @@ fn main() -> ! {
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
-    
+
     // Try a different clock configuration
     let clocks = rcc
         .cfgr
         .lse(CrystalBypass::Disable, ClockSecuritySystem::Disable)
         .freeze(&mut flash.acr, &mut pwr);
-    
+
     let mut timer = Delay::new(cp.SYST, clocks);
-  
-    let rtc = Rtc::rtc(
-        dp.RTC, 
-        &mut rcc.apb1r1, 
-        &mut rcc.bdcr, 
+
+    let mut rtc = Rtc::rtc(
+        dp.RTC,
+        &mut rcc.apb1r1,
+        &mut rcc.bdcr,
         &mut pwr.cr1,
-        RtcConfig::default().clock_config(RtcClockSource::LSE) 
+        RtcConfig::default().clock_config(RtcClockSource::LSE)
     );
 
-    let mut time = Time::new(21.hours(), 57.minutes(), 32.seconds(), 0.micros(), false);
-    let mut date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
+    let time = Time::new(21.hours(), 57.minutes(), 32.seconds(), 0.micros(), false);
+    let date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
 
-    rtc.set_time(Some(&time), Some(&date));
+    rtc.set_date_time(date, time);
 
     timer.delay_ms(1000_u32);
     timer.delay_ms(1000_u32);
