@@ -1,9 +1,36 @@
 //! RTC peripheral abstraction
 
-use crate::datetime::*;
-use crate::pwr;
-use crate::rcc::{APB1R1, BDCR};
-use crate::stm32::{RTC};
+use void::Void;
+
+use crate::{
+    datetime::*,
+    hal::timer::{self, Cancel as _},
+    pwr,
+    rcc::{APB1R1, BDCR},
+    stm32::{EXTI, RTC},
+};
+
+/// Interrupt event
+pub enum Event {
+    WakeupTimer,
+    AlarmA,
+    AlarmB,
+    Timestamp,
+}
+
+pub enum Alarm {
+    AlarmA,
+    AlarmB,
+}
+
+impl From<Alarm> for Event {
+    fn from(a: Alarm) -> Self {
+        match a {
+            Alarm::AlarmA => Event::AlarmA,
+            Alarm::AlarmB => Event::AlarmB,
+        }
+    }
+}
 
 /// RTC Abstraction
 pub struct Rtc {
@@ -124,59 +151,183 @@ impl Rtc {
     }
 
     /// Set Date and Time
-    pub fn set_date_time(&self, date: Date, time: Time) {
-        write_protection(&self.rtc, false);
-        {
-            init_mode(&self.rtc, true);
-            {
-                set_time_raw(&self.rtc, time);
-                set_date_raw(&self.rtc, date);
-            }
-            init_mode(&self.rtc, false);
-        }
-        write_protection(&self.rtc, true);
+    pub fn set_date_time(&mut self, date: Date, time: Time) {
+        self.write(true, |rtc| {
+            set_time_raw(rtc, time);
+            set_date_raw(rtc, date);
+        })
     }
 
     /// Set Time
     /// Note: If setting both time and date, use set_date_time(...) to avoid errors.
-    pub fn set_time(&self, time: Time) {
-        write_protection(&self.rtc, false);
-        {
-            init_mode(&self.rtc, true);
-            {
-                set_time_raw(&self.rtc, time);
-            }
-            init_mode(&self.rtc, false);
-        }
-        write_protection(&self.rtc, true);
+    pub fn set_time(&mut self, time: Time) {
+        self.write(true, |rtc| {
+            set_time_raw(rtc, time);
+        })
     }
 
     /// Set Date
     /// Note: If setting both time and date, use set_date_time(...) to avoid errors.
-    pub fn set_date(&self, date: Date) {
-        write_protection(&self.rtc, false);
-        {
-            init_mode(&self.rtc, true);
-            {
-                set_date_raw(&self.rtc, date);
-            }
-            init_mode(&self.rtc, false);
-        }
-        write_protection(&self.rtc, true);
+    pub fn set_date(&mut self, date: Date) {
+        self.write(true, |rtc| {
+            set_date_raw(rtc, date);
+        })
     }
 
     pub fn get_config(&self) -> RtcConfig {
         self.rtc_config
     }
 
+    /// Sets the time at which an alarm will be triggered
+    /// This also clears the alarm flag if it is set
+    pub fn set_alarm(&mut self, alarm: Alarm, date: Date, time: Time) {
+        let (dt, du) = byte_to_bcd2(date.date as u8);
+        let (ht, hu) = byte_to_bcd2(time.hours as u8);
+        let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
+        let (st, su) = byte_to_bcd2(time.seconds as u8);
+
+        self.write(false, |rtc| match alarm {
+            Alarm::AlarmA => {
+                rtc.cr.modify(|_, w| w.alrae().clear_bit());
+
+                // Wait until we're allowed to update the alarm b configuration
+                while rtc.isr.read().alrawf().bit_is_clear() {}
+
+                rtc.alrmar.modify(|_, w| unsafe {
+                    w.dt()
+                        .bits(dt)
+                        .du()
+                        .bits(du)
+                        .ht()
+                        .bits(ht)
+                        .hu()
+                        .bits(hu)
+                        .mnt()
+                        .bits(mnt)
+                        .mnu()
+                        .bits(mnu)
+                        .st()
+                        .bits(st)
+                        .su()
+                        .bits(su)
+                        .pm()
+                        .clear_bit()
+                        .wdsel()
+                        .clear_bit()
+                });
+                rtc.cr.modify(|_, w| w.alrae().set_bit());
+            }
+            Alarm::AlarmB => {
+                rtc.cr.modify(|_, w| w.alrbe().clear_bit());
+
+                // Wait until we're allowed to update the alarm b configuration
+                while rtc.isr.read().alrbwf().bit_is_clear() {}
+
+                rtc.alrmbr.modify(|_, w| unsafe {
+                    w.dt()
+                        .bits(dt)
+                        .du()
+                        .bits(du)
+                        .ht()
+                        .bits(ht)
+                        .hu()
+                        .bits(hu)
+                        .mnt()
+                        .bits(mnt)
+                        .mnu()
+                        .bits(mnu)
+                        .st()
+                        .bits(st)
+                        .su()
+                        .bits(su)
+                        .pm()
+                        .clear_bit()
+                        .wdsel()
+                        .clear_bit()
+                });
+                rtc.cr.modify(|_, w| w.alrbe().set_bit());
+            }
+        });
+        self.clear_interrupt_pending_bit(alarm.into());
+    }
+
+    /// Starts listening for an interrupt event
+    pub fn listen(&mut self, exti: &mut EXTI, event: Event) {
+        self.write(false, |rtc| match event {
+            Event::WakeupTimer => {
+                exti.rtsr1.modify(|_, w| w.tr20().set_bit());
+                exti.imr1.modify(|_, w| w.mr20().set_bit());
+                rtc.cr.modify(|_, w| w.wutie().set_bit())
+            }
+            Event::AlarmA => {
+                // Workaround until tr17() is implemented ()
+                exti.rtsr1.modify(|_, w| w.tr18().set_bit());
+                exti.imr1.modify(|_, w| w.mr18().set_bit());
+                rtc.cr.modify(|_, w| w.alraie().set_bit())
+            }
+            Event::AlarmB => {
+                exti.rtsr1.modify(|_, w| w.tr18().set_bit());
+                exti.imr1.modify(|_, w| w.mr18().set_bit());
+                rtc.cr.modify(|_, w| w.alrbie().set_bit())
+            }
+            Event::Timestamp => {
+                exti.rtsr1.modify(|_, w| w.tr19().set_bit());
+                exti.imr1.modify(|_, w| w.mr19().set_bit());
+                rtc.cr.modify(|_, w| w.tsie().set_bit())
+            }
+        })
+    }
+
+    /// Stops listening for an interrupt event
+    pub fn unlisten(&mut self, exti: &mut EXTI, event: Event) {
+        self.write(false, |rtc| match event {
+            Event::WakeupTimer => {
+                exti.rtsr1.modify(|_, w| w.tr20().clear_bit());
+                exti.imr1.modify(|_, w| w.mr20().clear_bit());
+                rtc.cr.modify(|_, w| w.wutie().clear_bit())
+            }
+            Event::AlarmA => {
+                // Workaround until tr17() is implemented ()
+                exti.rtsr1.modify(|_, w| w.tr18().clear_bit());
+                exti.imr1.modify(|_, w| w.mr18().clear_bit());
+                rtc.cr.modify(|_, w| w.alraie().clear_bit())
+            }
+            Event::AlarmB => {
+                exti.rtsr1.modify(|_, w| w.tr18().clear_bit());
+                exti.imr1.modify(|_, w| w.mr18().clear_bit());
+                rtc.cr.modify(|_, w| w.alrbie().clear_bit())
+            }
+            Event::Timestamp => {
+                exti.rtsr1.modify(|_, w| w.tr19().clear_bit());
+                exti.imr1.modify(|_, w| w.mr19().clear_bit());
+                rtc.cr.modify(|_, w| w.tsie().clear_bit())
+            }
+        })
+    }
+
+    /// Checks for an interrupt event
+    pub fn check_interrupt(&mut self, event: Event) -> bool {
+        match event {
+            Event::WakeupTimer => self.rtc.isr.read().wutf().bit_is_set(),
+            Event::AlarmA => self.rtc.isr.read().alraf().bit_is_set(),
+            Event::AlarmB => self.rtc.isr.read().alrbf().bit_is_set(),
+            Event::Timestamp => self.rtc.isr.read().tsf().bit_is_set(),
+        }
+    }
+
+    /// Clears the RTC interrupt flag
+    pub fn clear_interrupt_pending_bit(&mut self, event: Event) {
+        self.write(false, |rtc| match event {
+            Event::WakeupTimer => rtc.isr.modify(|_, w| w.wutf().clear_bit()),
+            Event::AlarmA => rtc.isr.modify(|_, w| w.alraf().clear_bit()),
+            Event::AlarmB => rtc.isr.modify(|_, w| w.alrbf().clear_bit()),
+            Event::Timestamp => rtc.isr.modify(|_, w| w.tsf().clear_bit()),
+        })
+    }
+
     /// Applies the RTC config
     /// It this changes the RTC clock source the time will be reset
-    pub fn set_config(
-        &mut self,
-        bdcr: &mut BDCR,
-        pwrcr1: &mut pwr::CR1,
-        rtc_config: RtcConfig,
-    ) {
+    pub fn set_config(&mut self, bdcr: &mut BDCR, pwrcr1: &mut pwr::CR1, rtc_config: RtcConfig) {
         // Unlock the backup domain
         pwrcr1.reg().modify(|_, w| w.dbp().set_bit());
         while pwrcr1.reg().read().dbp().bit_is_clear() {}
@@ -189,22 +340,22 @@ impl Rtc {
 
         if reg.rtcen().bit() != true || reg.rtcsel().bits() != rtc_config.clock_config as u8 {
             bdcr.enr().modify(|_, w| w.bdrst().set_bit());
-    
+
             bdcr.enr().modify(|_, w| unsafe {
-                //Reset
+                // Reset
                 w.bdrst().clear_bit();
-                //Select RTC source
+                // Select RTC source
                 w.rtcsel()
                     .bits(rtc_config.clock_config as u8)
                     .rtcen()
                     .set_bit();
-    
-                //Restore bcdr
+
+                // Restore bcdr
                 w.lscosel()
                     .bit(reg.lscosel().bit())
                     .lscoen()
                     .bit(reg.lscoen().bit());
-    
+
                 w.lseon()
                     .bit(reg.lseon().bit())
                     .lsedrv()
@@ -214,73 +365,191 @@ impl Rtc {
             });
         }
 
+        self.write(true, |rtc| {
+            rtc.cr.modify(|_, w| unsafe {
+                w.fmt()
+                    .clear_bit() // 24hr
+                    .osel()
+                    /*
+                        00: Output disabled
+                        01: Alarm A output enabled
+                        10: Alarm B output enabled
+                        11: Wakeup output enabled
+                    */
+                    .bits(0b00)
+                    .pol()
+                    .clear_bit() // pol high
+            });
 
-        write_protection(&self.rtc, false);
-        {
-            init_mode(&self.rtc, true);
-            {
-                self.rtc.cr.modify(|_, w| unsafe {
-                    w.fmt()
-                        .clear_bit() // 24hr
-                        .osel()
-                        /*
-                            00: Output disabled
-                            01: Alarm A output enabled
-                            10: Alarm B output enabled
-                            11: Wakeup output enabled
-                        */
-                        .bits(0b00)
-                        .pol()
-                        .clear_bit() // pol high
-                });
-
-                self.rtc.prer.modify(|_, w| unsafe {
-                    w.prediv_s()
-                        .bits(rtc_config.sync_prescaler)
-                        .prediv_a()
-                        .bits(rtc_config.async_prescaler)
-                });
-            }
-            init_mode(&self.rtc, false);
+            rtc.prer.modify(|_, w| unsafe {
+                w.prediv_s()
+                    .bits(rtc_config.sync_prescaler)
+                    .prediv_a()
+                    .bits(rtc_config.async_prescaler)
+            });
 
             // TODO configuration for output pins
-            self.rtc
-                .or
+            rtc.or
                 .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
-        }
-        write_protection(&self.rtc, true);
+        });
 
         self.rtc_config = rtc_config;
     }
-}
 
-fn write_protection(rtc: &RTC, enable: bool) {
-    if enable {
-        rtc.wpr.write(|w| unsafe { w.bits(0xFF) });
-    } else {
-        rtc.wpr.write(|w| unsafe { w.bits(0xCA) });
+    /// Access the wakeup timer
+    pub fn wakeup_timer(&mut self) -> WakeupTimer {
+        WakeupTimer { rtc: self }
+    }
 
-        rtc.wpr.write(|w| unsafe { w.bits(0x53) });
+    fn write<F, R>(&mut self, init_mode: bool, f: F) -> R
+    where
+        F: FnOnce(&RTC) -> R,
+    {
+        // Disable write protection.
+        // This is safe, as we're only writin the correct and expected values.
+        self.rtc.wpr.write(|w| unsafe { w.key().bits(0xca) });
+        self.rtc.wpr.write(|w| unsafe { w.key().bits(0x53) });
+
+        if init_mode {
+            if self.rtc.isr.read().initf().bit_is_clear() {
+                // are we already in init mode?
+                self.rtc.isr.modify(|_, w| w.init().set_bit());
+                while self.rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
+            }
+        }
+
+        let result = f(&self.rtc);
+
+        if init_mode {
+            self.rtc.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+        }
+
+        // Re-enable write protection.
+        // This is safe, as the field accepts the full range of 8-bit values.
+        self.rtc.wpr.write(|w| unsafe { w.key().bits(0xff) });
+
+        result
     }
 }
 
-fn init_mode(rtc: &RTC, enabled: bool) {
-    if enabled {
-        let isr = rtc.isr.read();
-        if isr.initf().bit_is_clear() {
-            // are we already in init mode?
-            rtc.isr.write(|w| w.init().set_bit());
-            // rtc.isr.write(|w| unsafe { w.bits(0xFFFFFFFF) }); // Sets init mode
-            while rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
+/// The RTC wakeup timer
+///
+/// This timer can be used in two ways:
+/// 1. Continually call `wait` until it returns `Ok(())`.
+/// 2. Set up the RTC interrupt.
+///
+/// If you use an interrupt, you should still call `wait` once, after the
+/// interrupt fired. This should return `Ok(())` immediately. Doing this will
+/// reset the timer flag. If you don't do this, the interrupt will not fire
+/// again, if you go to sleep.
+///
+/// You don't need to call `wait`, if you call `cancel`, as that also resets the
+/// flag. Restarting the timer by calling `start` will also reset the flag.
+pub struct WakeupTimer<'r> {
+    rtc: &'r mut Rtc,
+}
+
+impl timer::Periodic for WakeupTimer<'_> {}
+
+impl timer::CountDown for WakeupTimer<'_> {
+    type Time = u32;
+
+    /// Starts the wakeup timer
+    ///
+    /// The `delay` argument specifies the timer delay in seconds. Up to 17 bits
+    /// of delay are supported, giving us a range of over 36 hours.
+    ///
+    /// # Panics
+    ///
+    /// The `delay` argument must be in the range `1 <= delay <= 2^17`.
+    /// Panics, if `delay` is outside of that range.
+    fn start<T>(&mut self, delay: T)
+    where
+        T: Into<Self::Time>,
+    {
+        let delay = delay.into();
+        assert!(1 <= delay && delay <= 2 ^ 17);
+
+        let delay = delay - 1;
+
+        // Can't panic, as the error type is `Void`.
+        self.cancel().unwrap();
+
+        self.rtc.write(false, |rtc| {
+            // Set the wakeup delay
+            rtc.wutr.write(|w|
+                // Write the lower 16 bits of `delay`. The 17th bit is taken
+                // care of via WUCKSEL in CR (see below).
+                // This is safe, as the field accepts a full 16 bit value.
+                unsafe { w.wut().bits(delay as u16) });
+
+            rtc.cr.modify(|_, w| {
+                if delay & 0x1_00_00 != 0 {
+                    unsafe {
+                        w.wcksel().bits(0b110);
+                    }
+                } else {
+                    unsafe {
+                        w.wcksel().bits(0b100);
+                    }
+                }
+
+                // Enable wakeup timer
+                w.wute().set_bit()
+            });
+        });
+
+        // Let's wait for WUTWF to clear. Otherwise we might run into a race
+        // condition, if the user calls this method again really quickly.
+        while self.rtc.rtc.isr.read().wutwf().bit_is_set() {}
+    }
+
+    fn wait(&mut self) -> nb::Result<(), Void> {
+        if self.rtc.check_interrupt(Event::WakeupTimer) {
+            // Clear wakeup timer flag
+            self.rtc.clear_interrupt_pending_bit(Event::WakeupTimer);
+
+            return Ok(());
         }
-    } else {
-        rtc.isr.write(|w| w.init().clear_bit()); // Exits init mode
+
+        Err(nb::Error::WouldBlock)
+    }
+}
+
+impl timer::Cancel for WakeupTimer<'_> {
+    type Error = Void;
+
+    fn cancel(&mut self) -> Result<(), Self::Error> {
+        self.rtc.write(false, |rtc| {
+            // Disable the wakeup timer
+            rtc.cr.modify(|_, w| w.wute().clear_bit());
+
+            // Wait until we're allowed to update the wakeup timer configuration
+            while rtc.isr.read().wutwf().bit_is_clear() {}
+
+            // Clear wakeup timer flag
+            rtc.isr.modify(|_, w| w.wutf().clear_bit());
+
+            // According to the reference manual, section 26.7.4, the WUTF flag
+            // must be cleared at least 1.5 RTCCLK periods "before WUTF is set
+            // to 1 again". If that's true, we're on the safe side, because we
+            // use ck_spre as the clock for this timer, which we've scaled to 1
+            // Hz.
+            //
+            // I have the sneaking suspicion though that this is a typo, and the
+            // quote in the previous paragraph actually tries to refer to WUTE
+            // instead of WUTF. In that case, this might be a bug, so if you're
+            // seeing something weird, adding a busy loop of some length here
+            // would be a good start of your investigation.
+        });
+
+        Ok(())
     }
 }
 
 /// Raw set time
 /// Expects init mode enabled and write protection disabled
-fn set_time_raw (rtc: &RTC, time: Time){
+fn set_time_raw(rtc: &RTC, time: Time) {
     let (ht, hu) = byte_to_bcd2(time.hours as u8);
     let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
     let (st, su) = byte_to_bcd2(time.seconds as u8);
@@ -302,14 +571,12 @@ fn set_time_raw (rtc: &RTC, time: Time){
             .clear_bit()
     });
 
-    rtc
-        .cr
-        .modify(|_, w| w.bkp().bit(time.daylight_savings));
+    rtc.cr.modify(|_, w| w.bkp().bit(time.daylight_savings));
 }
 
 /// Raw set date
 /// Expects init mode enabled and write protection disabled
-fn set_date_raw (rtc: &RTC, date: Date){
+fn set_date_raw(rtc: &RTC, date: Date) {
     let (dt, du) = byte_to_bcd2(date.date as u8);
     let (mt, mu) = byte_to_bcd2(date.month as u8);
     let yr = date.year as u16;
