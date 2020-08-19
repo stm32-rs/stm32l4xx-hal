@@ -248,7 +248,7 @@ impl Rtc {
                 rtc.cr.modify(|_, w| w.alrbe().set_bit());
             }
         });
-        self.clear_interrupt_pending_bit(alarm.into());
+        self.check_interrupt(alarm.into(), true);
     }
 
     /// Starts listening for an interrupt event
@@ -306,23 +306,23 @@ impl Rtc {
     }
 
     /// Checks for an interrupt event
-    pub fn check_interrupt(&mut self, event: Event) -> bool {
-        match event {
+    pub fn check_interrupt(&mut self, event: Event, clear: bool) -> bool {
+        let result = match event {
             Event::WakeupTimer => self.rtc.isr.read().wutf().bit_is_set(),
             Event::AlarmA => self.rtc.isr.read().alraf().bit_is_set(),
             Event::AlarmB => self.rtc.isr.read().alrbf().bit_is_set(),
             Event::Timestamp => self.rtc.isr.read().tsf().bit_is_set(),
+        };
+        if clear {
+            self.write(false, |rtc| match event {
+                Event::WakeupTimer => rtc.isr.modify(|_, w| w.wutf().clear_bit()),
+                Event::AlarmA => rtc.isr.modify(|_, w| w.alraf().clear_bit()),
+                Event::AlarmB => rtc.isr.modify(|_, w| w.alrbf().clear_bit()),
+                Event::Timestamp => rtc.isr.modify(|_, w| w.tsf().clear_bit()),
+            })
         }
-    }
 
-    /// Clears the RTC interrupt flag
-    pub fn clear_interrupt_pending_bit(&mut self, event: Event) {
-        self.write(false, |rtc| match event {
-            Event::WakeupTimer => rtc.isr.modify(|_, w| w.wutf().clear_bit()),
-            Event::AlarmA => rtc.isr.modify(|_, w| w.alraf().clear_bit()),
-            Event::AlarmB => rtc.isr.modify(|_, w| w.alrbf().clear_bit()),
-            Event::Timestamp => rtc.isr.modify(|_, w| w.tsf().clear_bit()),
-        })
+        result
     }
 
     /// Applies the RTC config
@@ -505,10 +505,7 @@ impl timer::CountDown for WakeupTimer<'_> {
     }
 
     fn wait(&mut self) -> nb::Result<(), Void> {
-        if self.rtc.check_interrupt(Event::WakeupTimer) {
-            // Clear wakeup timer flag
-            self.rtc.clear_interrupt_pending_bit(Event::WakeupTimer);
-
+        if self.rtc.check_interrupt(Event::WakeupTimer, true) {
             return Ok(());
         }
 

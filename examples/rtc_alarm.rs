@@ -87,10 +87,8 @@ fn RTC_WKUP() {
     free(|cs| {
         let mut rtc_ref = RTC.borrow(cs).borrow_mut();
         if let Some(ref mut rtc) = rtc_ref.deref_mut() {
-            if rtc.check_interrupt(Event::WakeupTimer) {
+            if rtc.check_interrupt(Event::WakeupTimer, true) {
                 writeln!(hstdout, "RTC Wakeup!").unwrap();
-                // if we don't clear this bit, the ISR would trigger indefinitely
-                rtc.clear_interrupt_pending_bit(Event::WakeupTimer);
             }
         }
     });
