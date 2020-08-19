@@ -315,10 +315,22 @@ impl Rtc {
         };
         if clear {
             self.write(false, |rtc| match event {
-                Event::WakeupTimer => rtc.isr.modify(|_, w| w.wutf().clear_bit()),
-                Event::AlarmA => rtc.isr.modify(|_, w| w.alraf().clear_bit()),
-                Event::AlarmB => rtc.isr.modify(|_, w| w.alrbf().clear_bit()),
-                Event::Timestamp => rtc.isr.modify(|_, w| w.tsf().clear_bit()),
+                Event::WakeupTimer => {
+                    rtc.isr.modify(|_, w| w.wutf().clear_bit());
+                    unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 20)) };
+                }
+                Event::AlarmA => {
+                    rtc.isr.modify(|_, w| w.alraf().clear_bit());
+                    unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
+                }
+                Event::AlarmB => {
+                    rtc.isr.modify(|_, w| w.alrbf().clear_bit());
+                    unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
+                }
+                Event::Timestamp => {
+                    rtc.isr.modify(|_, w| w.tsf().clear_bit());
+                    unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 19)) };
+                }
             })
         }
 
