@@ -1,0 +1,38 @@
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+name: Continuous integration
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:                   # All permutations of {rust, mcu}
+        rust:
+          - stable
+        mcu:
+          - stm32l4x1
+          - stm32l4x2
+          - stm32l4x3
+          - stm32l4x5
+          - stm32l4x6
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          target: thumbv7em-none-eabihf
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --verbose --release --examples --target thumbv7em-none-eabihf --features rt,${{ matrix.mcu }}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --target x86_64-unknown-linux-gnu --features rt,${{ matrix.mcu }}
