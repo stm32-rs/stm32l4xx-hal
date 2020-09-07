@@ -1,6 +1,6 @@
 //! Blinks an LED
 
-#![deny(unsafe_code)]
+// #![deny(unsafe_code)]
 // #![deny(warnings)]
 #![no_std]
 #![no_main]
@@ -17,6 +17,7 @@ use crate::hal::prelude::*;
 use crate::hal::timer::{Event, Timer};
 use crate::rt::entry;
 use crate::rt::ExceptionFrame;
+use cortex_m::peripheral::NVIC;
 
 use crate::sh::hio;
 use core::fmt::Write;
@@ -26,7 +27,7 @@ fn main() -> ! {
     let mut hstdout = hio::hstdout().unwrap();
     writeln!(hstdout, "Hello, world!").unwrap();
 
-    let cp = cortex_m::Peripherals::take().unwrap();
+    // let cp = cortex_m::Peripherals::take().unwrap();
     let dp = hal::stm32::Peripherals::take().unwrap();
 
     let mut flash = dp.FLASH.constrain(); // .constrain();
@@ -39,8 +40,7 @@ fn main() -> ! {
     // let mut gpiob = dp.GPIOB.split(&mut rcc.ahb2);
     // let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
 
-    let mut nvic = cp.NVIC;
-    nvic.enable(hal::stm32::Interrupt::TIM7);
+    unsafe { NVIC::unmask(hal::stm32::Interrupt::TIM7) };
     let mut timer = Timer::tim7(dp.TIM7, 1.hz(), clocks, &mut rcc.apb1r1);
     timer.listen(Event::TimeOut);
 

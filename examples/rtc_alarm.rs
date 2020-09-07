@@ -13,7 +13,7 @@ extern crate stm32l4xx_hal as hal;
 use crate::hal::datetime::{Date, Time};
 use crate::hal::prelude::*;
 use crate::hal::rcc::{ClockSecuritySystem, CrystalBypass};
-use crate::hal::rtc::{Alarm, Event, Rtc, RtcClockSource, RtcConfig};
+use crate::hal::rtc::{Event, Rtc, RtcClockSource, RtcConfig};
 use crate::rt::ExceptionFrame;
 use cortex_m::interrupt::{free, Mutex};
 
@@ -42,7 +42,6 @@ fn main() -> ! {
     rcc.cfgr
         .lse(CrystalBypass::Disable, ClockSecuritySystem::Disable)
         .freeze(&mut flash.acr, &mut pwr);
-
 
     let mut rtc = Rtc::rtc(
         dp.RTC,
@@ -77,7 +76,6 @@ fn main() -> ! {
 
         // nb::block!(wkp.wait()).unwrap();
         // writeln!(hstdout, "Good bye!").unwrap();
-
     }
 }
 

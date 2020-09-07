@@ -15,12 +15,11 @@ pub use generic_array::typenum::{self, consts};
 use generic_array::{ArrayLength, GenericArray};
 use stable_deref_trait::StableDeref;
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {
     Overrun,
     BufferError,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 pub enum Event {
@@ -130,6 +129,15 @@ where
     }
 }
 
+impl<N> Default for DMAFrame<N>
+where
+    N: ArrayLength<MaybeUninit<u8>>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<N> DMAFrame<N>
 where
     N: ArrayLength<MaybeUninit<u8>>,
@@ -140,6 +148,7 @@ where
         // Create an uninitialized array of `MaybeUninit<u8>`. The `assume_init` is
         // safe because the type we are claiming to have initialized here is a
         // bunch of `MaybeUninit`s, which do not require initialization.
+        #[allow(clippy::uninit_assumed_init)]
         Self {
             len: 0,
             buf: unsafe { MaybeUninit::uninit().assume_init() },
@@ -180,6 +189,8 @@ where
 
     /// Used to set the current size of the frame, used in conjunction with `write_uninit` to have an
     /// interface for uninitialized memory. Use with care!
+    ///
+    /// # Safety
     ///
     /// NOTE(unsafe): This must be set so that the final buffer is only referencing initialized
     /// memory.
@@ -246,6 +257,12 @@ where
     #[inline]
     pub fn max_len(&self) -> usize {
         N::to_usize()
+    }
+
+    /// Checks if the frame is empty
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
     #[inline]
@@ -388,6 +405,7 @@ macro_rules! dma {
                 use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W};
                 use crate::rcc::AHB1;
 
+                #[allow(clippy::manual_non_exhaustive)]
                 pub struct Channels((), $(pub $CX),+);
 
                 $(

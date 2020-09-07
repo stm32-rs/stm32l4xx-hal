@@ -491,11 +491,9 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             absize = a_bytes.len() as u8 - 1;
 
             self.qspi.abr.write(|w| {
-                let mut i = 0;
                 let mut reg_byte: u32 = 0;
-                for element in a_bytes.iter().rev() {
-                    reg_byte = reg_byte | ((*element as u32) << i * 8);
-                    i += 1;
+                for (i, element) in a_bytes.iter().rev().enumerate() {
+                    reg_byte |= (*element as u32) << (i * 8);
                 }
                 unsafe { w.alternate().bits(reg_byte) }
             });
@@ -636,11 +634,9 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             absize = a_bytes.len() as u8 - 1;
 
             self.qspi.abr.write(|w| {
-                let mut i = 0;
                 let mut reg_byte: u32 = 0;
-                for element in a_bytes.iter().rev() {
-                    reg_byte = reg_byte | ((*element as u32) << i * 8);
-                    i += 1;
+                for (i, element) in a_bytes.iter().rev().enumerate() {
+                    reg_byte |= (*element as u32) << (i * 8);
                 }
                 unsafe { w.alternate().bits(reg_byte) }
             });

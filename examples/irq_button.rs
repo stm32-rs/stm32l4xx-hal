@@ -12,12 +12,12 @@ use crate::hal::{
     prelude::*,
     stm32,
 };
-use cortex_m::{
-    interrupt::{free, Mutex},
-    peripheral::NVIC
-};
 use core::cell::RefCell;
 use core::ops::DerefMut;
+use cortex_m::{
+    interrupt::{free, Mutex},
+    peripheral::NVIC,
+};
 use rt::entry;
 
 // Set up global state. It's all mutexed up for concurrency safety.
@@ -44,12 +44,14 @@ fn main() -> ! {
         let mut board_btn = gpioc
             .pc13
             .into_pull_up_input(&mut gpioc.moder, &mut gpioc.pupdr);
-        board_btn.make_interrupt_source(&mut dp.SYSCFG);
+        board_btn.make_interrupt_source(&mut dp.SYSCFG, &mut rcc.apb2);
         board_btn.enable_interrupt(&mut dp.EXTI);
         board_btn.trigger_on_edge(&mut dp.EXTI, Edge::FALLING);
 
         // Enable interrupts
-        unsafe { NVIC::unmask(stm32::Interrupt::EXTI15_10); }
+        unsafe {
+            NVIC::unmask(stm32::Interrupt::EXTI15_10);
+        }
 
         free(|cs| {
             BUTTON.borrow(cs).replace(Some(board_btn));

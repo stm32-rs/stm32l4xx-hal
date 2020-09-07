@@ -59,7 +59,7 @@ fn main() -> ! {
     let mosi = gpioa.pa7.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
 
     // nss.set_high();
-    dc.set_low();
+    dc.set_low().ok();
 
     let mut spi = Spi::spi1(
         p.SPI1,
