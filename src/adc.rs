@@ -4,11 +4,6 @@ use crate::rcc::AHB2;
 //use core::marker::PhantomData;
 use embedded_hal::adc::{Channel, OneShot};
 
-#[cfg(feature = "stm32l4x6")]
-use stm32l4::stm32l4x6::{
-    rcc::CCIPR,
-    ADC1
-};
 
 #[cfg(feature = "stm32l4x6")]
 pub struct Adc<ADC1> {
@@ -79,7 +74,7 @@ where
 {
     type Error = ();
 
-    fn read(&mut self, pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
+    fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
         self.power_up();
         self.adc.cfgr.modify(|_, w| unsafe { w.exten().bits(0b00) });
         self.adc

@@ -6,10 +6,8 @@
         "**/node_modules/*/**": true
     },
     "rust-client.engine":"rust-analyzer",
-    "rust.target": "thumbv7em-none-eabi",
     "rust-analyzer.cargo.features": ["stm32l4x6"],
-    "rust-analyzer.cargo.target": "thumbv7em-none-eabi",
+    "rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
     "rust-analyzer.checkOnSave.allTargets": false,
-    "rust.all_targets": false,
     "rust.unstable_features": true
 }
