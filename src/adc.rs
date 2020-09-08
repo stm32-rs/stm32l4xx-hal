@@ -24,7 +24,7 @@ impl Adc<crate::device::ADC1> {
         // Disable deep power down and start ADC voltage regulator
         adc.cr.modify(|_, w| w.deeppwd().clear_bit());
         adc.cr.modify(|_, w| w.advregen().set_bit());
-        cortex_m::asm::delay(8_000_000);
+        // cortex_m::asm::delay(8_000_000);
 
         // Calibrate
         adc.cr.modify(|_, w| w.adcaldif().clear_bit());
