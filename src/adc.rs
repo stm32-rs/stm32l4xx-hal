@@ -4,8 +4,13 @@ use crate::rcc::AHB2;
 use core::marker::PhantomData;
 use embedded_hal::adc::{Channel, OneShot};
 
-#[cfg(feature = "stm32l4x2",feature = "stm32l4x6")]
+#[cfg(feature = "stm32l4x2")]
 use stm32l4::stm32l4x2::{
+    rcc::CCIPR,
+    ADC
+};
+#[cfg(feature = "stm32l4x6")]
+use stm32l4::stm32l4x6::{
     rcc::CCIPR,
     ADC
 };
