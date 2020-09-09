@@ -193,11 +193,8 @@ impl<'a> WriteErase for FlashProgramming<'a> {
 
         if sr.bsy().bit_is_set() {
             Err(flash_trait::Error::Busy)
-        } else if sr.pgaerr().bit_is_set() {
-            Err(flash_trait::Error::Illegal)
-        } else if sr.progerr().bit_is_set() {
-            Err(flash_trait::Error::Illegal)
-        } else if sr.wrperr().bit_is_set() {
+        } else if sr.pgaerr().bit_is_set() || sr.progerr().bit_is_set() || sr.wrperr().bit_is_set()
+        {
             Err(flash_trait::Error::Illegal)
         } else {
             Ok(())
@@ -306,7 +303,7 @@ impl<'a> WriteErase for FlashProgramming<'a> {
 
         let rem = chunks.remainder();
 
-        if rem.len() > 0 {
+        if !rem.is_empty() {
             let mut data = 0xffff_ffff_ffff_ffffu64;
             // Write remainder
             for b in rem.iter().rev() {

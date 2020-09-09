@@ -3,13 +3,13 @@
 use core::ptr;
 
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
-use nb;
 
 use crate::gpio::{Alternate, Floating, Input, AF5};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
 /// SPI error
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {
     /// Overrun occurred
@@ -18,8 +18,6 @@ pub enum Error {
     ModeFault,
     /// CRC error
     Crc,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 #[doc(hidden)]

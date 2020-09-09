@@ -68,7 +68,7 @@ cortex-m-rt = "0.6.12"
 usb-device = "0.2.3"
 usbd-serial = "0.1.0"
 heapless = "0.5"
-cortex-m-rtfm = "0.5"
+cortex-m-rtic = "0.5.5"
 
 [profile.dev]
 incremental = false
@@ -86,3 +86,9 @@ required-features = ["rt", "stm32l4x2", "stm32-usbd"]
 [[example]]
 name = "qspi"
 required-features = ["rt", "stm32l4x5"]
+
+
+[[example]]
+name = "rtic_frame_serial_dma"
+required-features = ["rt", "stm32l4x2"]
+

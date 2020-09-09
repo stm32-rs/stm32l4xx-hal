@@ -100,19 +100,19 @@ pub enum ClockPrescaler {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MaxCountError {
     /// 000: 255
-    U255 = 000,
+    U255 = 0b000,
     /// 001: 511
-    U511 = 001,
+    U511 = 0b001,
     /// 010: 1023
-    U1023 = 010,
+    U1023 = 0b010,
     /// 011: 2047
-    U2047 = 011,
+    U2047 = 0b011,
     /// 100: 4095
-    U4095 = 100,
+    U4095 = 0b100,
     /// 101: 8191
-    U8191 = 101,
+    U8191 = 0b101,
     /// 110: 16383
-    U16383 = 110,
+    U16383 = 0b110,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -193,10 +193,7 @@ impl<SPIN> Tsc<SPIN> {
         // clear interrupt & flags
         tsc.icr.write(|w| w.eoaic().set_bit().mceic().set_bit());
 
-        Tsc {
-            tsc: tsc,
-            sample_pin: sample_pin,
-        }
+        Tsc { tsc, sample_pin }
     }
 
     /// Starts a charge acquisition

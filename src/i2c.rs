@@ -9,6 +9,7 @@ use crate::rcc::{Clocks, APB1R1};
 use crate::time::Hertz;
 
 /// I2C error
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {
     /// Bus error
@@ -21,8 +22,6 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
-    #[doc(hidden)]
-    _Extensible,
 }
 
 #[doc(hidden)]
@@ -331,28 +330,13 @@ pins!(I2C1, AF4,
     SCL: [PA9, PB6],
     SDA: [PA10, PB7]);
 
-pins!(I2C2, AF4,
-    SCL: [PB10],
-    SDA: [PB11]);
+pins!(I2C2, AF4, SCL: [PB10], SDA: [PB11]);
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x6"
-))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
 use crate::gpio::gpiob::{PB13, PB14, PB8, PB9};
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x6"
-))]
-pins!(I2C1, AF4,
-    SCL: [PB8],
-    SDA: [PB9]);
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
+pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x6"
-))]
-pins!(I2C2, AF4,
-    SCL: [PB13],
-    SDA: [PB14]);
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
+pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);

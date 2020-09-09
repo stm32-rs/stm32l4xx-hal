@@ -13,7 +13,6 @@ use generic_array::ArrayLength;
 use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
-use nb;
 
 use crate::stm32::{USART1, USART2};
 
@@ -102,6 +101,7 @@ pub enum Event {
 }
 
 /// Serial error
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {
     /// Framing error
@@ -112,8 +112,6 @@ pub enum Error {
     Overrun,
     /// Parity check error
     Parity,
-    #[doc(hidden)]
-    _Extensible,
 }
 
 /// Pins trait for detecting hardware flow control or RS485 mode.
@@ -728,7 +726,7 @@ macro_rules! hal {
                             w.add().bits(c);
                         }
 
-                        if let Some(_) = config.receiver_timeout {
+                        if config.receiver_timeout.is_some() {
                             w.rtoen().set_bit();
                         }
 
@@ -1125,7 +1123,7 @@ where
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s
             .as_bytes()
-            .into_iter()
+            .iter()
             .map(|c| nb::block!(self.write(*c)))
             .last();
         Ok(())
@@ -1139,7 +1137,7 @@ where
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s
             .as_bytes()
-            .into_iter()
+            .iter()
             .map(|c| nb::block!(self.write(*c)))
             .last();
         Ok(())

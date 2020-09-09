@@ -1,7 +1,9 @@
-//! Test the serial interface with the frame DMA engine in RTFM. This will echo frames sent to the
+//! Test the serial interface with the frame DMA engine in RTIC. This will echo frames sent to the
 //! board via the debuggers VCP.
 //!
 //! This is tested on Nucleo-64 STM32L412 over the debuggers VCP.
+//!
+//! This example only compiles for some targets so it is not part of the CI for now.
 
 #![deny(unsafe_code)]
 // #![deny(warnings)]
@@ -19,7 +21,7 @@ use heapless::{
     pool::singleton::{Box, Pool},
 };
 use panic_halt as _;
-use rtfm::app;
+use rtic::app;
 use stm32l4xx_hal as hal;
 
 // The pool gives out `Box<DMAFrame>`s that can hold 8 bytes

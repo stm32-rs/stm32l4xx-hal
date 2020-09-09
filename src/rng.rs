@@ -53,9 +53,8 @@ impl Rng {
 
     pub fn get_random_data(&self) -> u32 {
         while !self.is_data_ready() {}
-        let word = self.possibly_invalid_random_data();
+        self.possibly_invalid_random_data()
         // NB: no need to clear bit here
-        word
     }
 
     // RNG_CR

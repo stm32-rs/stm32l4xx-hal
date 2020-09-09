@@ -350,7 +350,7 @@ impl Rtc {
             "RTC is not compatible with LSE CSS, yet."
         );
 
-        if reg.rtcen().bit() != true || reg.rtcsel().bits() != rtc_config.clock_config as u8 {
+        if !reg.rtcen().bit() || reg.rtcsel().bits() != rtc_config.clock_config as u8 {
             bdcr.enr().modify(|_, w| w.bdrst().set_bit());
 
             bdcr.enr().modify(|_, w| unsafe {
@@ -422,12 +422,10 @@ impl Rtc {
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0xca) });
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0x53) });
 
-        if init_mode {
-            if self.rtc.isr.read().initf().bit_is_clear() {
-                // are we already in init mode?
-                self.rtc.isr.modify(|_, w| w.init().set_bit());
-                while self.rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
-            }
+        if init_mode && self.rtc.isr.read().initf().bit_is_clear() {
+            // are we already in init mode?
+            self.rtc.isr.modify(|_, w| w.init().set_bit());
+            while self.rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
         }
 
         let result = f(&self.rtc);
