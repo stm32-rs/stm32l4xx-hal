@@ -11,6 +11,7 @@ use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::hal::stm32;
+use hal::hal::blocking::rng::Read;
 
 macro_rules! uprint {
     ($serial:expr, $($arg:tt)*) => {

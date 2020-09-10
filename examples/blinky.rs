@@ -54,10 +54,10 @@ fn main() -> ! {
     loop {
         // block!(timer.wait()).unwrap();
         timer.delay_ms(1000 as u32);
-        led.set_high();
+        led.set_high().ok();
         // block!(timer.wait()).unwrap();
         timer.delay_ms(1000 as u32);
-        led.set_low();
+        led.set_low().ok();
     }
 }
 

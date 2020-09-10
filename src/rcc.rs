@@ -347,8 +347,8 @@ impl CFGR {
     {
         self.hse = Some(HseConfig {
             speed: freq.into().0,
-            bypass: bypass,
-            css: css,
+            bypass,
+            css,
         });
 
         self
@@ -356,10 +356,7 @@ impl CFGR {
 
     /// Add an 32.768 kHz LSE to the system
     pub fn lse(mut self, bypass: CrystalBypass, css: ClockSecuritySystem) -> Self {
-        self.lse = Some(LseConfig {
-            bypass: bypass,
-            css: css,
-        });
+        self.lse = Some(LseConfig { bypass, css });
 
         self
     }
@@ -524,7 +521,7 @@ impl CFGR {
                         .set_bit();
 
                     // If LSE is enabled, enable calibration of MSI
-                    if let Some(_) = self.lse {
+                    if self.lse.is_some() {
                         w.msipllen().set_bit();
                     }
 
@@ -777,8 +774,8 @@ impl CFGR {
             hsi48: self.hsi48,
             pclk1: Hertz(pclk1),
             pclk2: Hertz(pclk2),
-            ppre1: ppre1,
-            ppre2: ppre2,
+            ppre1,
+            ppre2,
             sysclk: Hertz(sysclk),
             pll_source: pllconf.map(|_| pll_source),
         }
