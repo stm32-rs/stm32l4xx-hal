@@ -85,6 +85,7 @@ impl RccExt for RCC {
                 pll_source: None,
                 pll_config: None,
             },
+            ccipr: CCIPR { _0: () },
         }
     }
 }
@@ -111,6 +112,22 @@ pub struct Rcc {
     pub csr: CSR,
     /// Clock recovery RC register
     pub crrcr: CRRCR,
+    /// Peripherals independent clock configuration register
+    pub ccipr : CCIPR,
+}
+
+/// Peripherals independent clock configuration register
+pub struct CCIPR {
+    _0: (),
+}
+
+impl CCIPR {
+    // TODO remove `allow`
+    #[allow(dead_code)]
+    pub(crate) fn ccipr(&mut self) -> &rcc::CCIPR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ccipr }
+    }
 }
 
 /// CSR Control/Status Register

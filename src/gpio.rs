@@ -459,13 +459,19 @@ macro_rules! gpio {
                     }
                     
                     /// Configures the pin to operate as an analog pin
-                    pub fn into_analog(
+                    pub fn into_analog_with_adc(
                         self,
                         moder: &mut MODER,
-                        pupdr: &mut PUPDR,
-//                        ascr: &mut ASCR,
+                        pupdr: &mut PUPDR
                     ) -> $PXi<Analog> {
                         let offset = 2 * $i;
+                        
+                        // stitch control register
+                        unsafe {
+                            &(*$GPIOX::ptr()).ascr.modify(|r, w| {
+                                w.bits(r.bits() | 0b1 << $i)
+                            })
+                        };
 
                         // analog mode
                         let mode = 0b11;
@@ -476,8 +482,9 @@ macro_rules! gpio {
                         pupdr
                             .pupdr()
                             .modify(|r, w| unsafe { w.bits(r.bits() & !(0b11 << offset)) });
-
-//                        ascr.ascr().modify(|r, w| unsafe { w.bits(r.bits() | 0b1 << $i) });
+                        
+                        // not supported 
+                        // ascr.ascr().modify(|r, w| unsafe { w.bits(r.bits() | 0b1 << $i) });
 
                         $PXi { _mode: PhantomData }
                     }
