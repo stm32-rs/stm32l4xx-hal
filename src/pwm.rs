@@ -77,7 +77,7 @@ pins_to_channels_mapping! {
     TIM2: (PA2), (C3), (AF1);
     TIM2: (PA3), (C4), (AF1);
 
-    // TIM15
+    // TIM15 - TODO: The uncommented lines are awaiting PAC updates to be valid.
     TIM15: (PB14), (C1), (AF14);
     // TIM15: (PB15), (C2), (AF14);
     TIM15: (PA2), (C1), (AF14);
@@ -311,6 +311,7 @@ macro_rules! small_timer {
                     tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
                 }
 
+                // TODO: The uncommented lines are awaiting PAC updates to be valid.
                 // if PINS::C2 {
                 //     tim.ccmr1_output().modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
                 // }
@@ -339,6 +340,7 @@ macro_rules! small_timer {
 
             pwm_channels! {
                 $TIMX:  (C1, $arr_width, cc1e, ccr1, ccr1),
+                // TODO: The uncommented line is awaiting PAC updates to be valid.
                 //        (C2, $arr_width, cc2e, ccr2, ccr2),
             }
 
