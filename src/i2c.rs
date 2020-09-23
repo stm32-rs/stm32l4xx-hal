@@ -125,8 +125,9 @@ impl<SCL, SDA, I2C> I2c<I2C, (SCL, SDA)> where I2C: Deref<Target = i2c1::Registe
         SDA: SdaPin<I2C>,
     {
         let freq = freq.into().0;
-
         assert!(freq <= 1_000_000);
+        // Make sure the I2C unit is disabled so we can configure it
+        i2c.cr1.modify(|_, w| w.pe().clear_bit());
 
         // TODO review compliance with the timing requirements of I2C
         // t_I2CCLK = 1 / PCLK1
