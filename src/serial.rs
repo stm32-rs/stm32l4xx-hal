@@ -77,6 +77,9 @@ use crate::gpio::gpiob::PB5;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpioc::PC12;
 
+#[cfg(any(feature = "stm32l4x5"))]
+use crate::gpio::gpiod::{PD8, PD9};
+
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::AF8;
 
@@ -437,6 +440,15 @@ pins! {
     USART3: (PC10, PC11, PD2, AF7),
     USART3: (PC10, PC11, PD12, AF7),
 }
+
+#[cfg(any(
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+pins! {
+    USART3: (PD8, PD9, PB1, PA6, AF7),
+}
+
 
 // UART 4
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
