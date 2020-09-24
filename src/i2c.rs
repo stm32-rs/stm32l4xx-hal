@@ -8,12 +8,16 @@ use crate::time::Hertz;
 use cast::u8;
 use core::ops::Deref;
 
+const COUNTDOWN_TIMER: u32 = 100000;
+
 /// I2C error
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {
     /// RXNE error
     Rxne,
+    /// TIMEOUT error
+    Timeout,
     /// Bus error
     Bus,
     /// Arbitration loss
@@ -68,7 +72,11 @@ where
         if self.i2c.isr.read().nackf().bit_is_set() {
             /* Wait until STOP Flag is reset */
             /* AutoEnd should be initiate after AF */
-            while self.i2c.isr.read().stopf().is_no_stop() { /* TODO: Check for the Timeout */ }
+            let mut clock = (0..COUNTDOWN_TIMER).into_iter();
+            while self.i2c.isr.read().stopf().is_no_stop() {
+                /* Check for the Timeout */
+                clock.next().ok_or(Error::Timeout)?;
+            }
 
             /* Clear NACKF Flag (Not available) */
             /* Clear STOP Flag (Not available) */
@@ -120,27 +128,35 @@ where
     /// Handles I2C communication timeout.
     /// I2C_WaitOnFlagUntilTimeout(_, I2C_FLAG_BUSY, SET, _, _)
     fn wait_on_busy_until_timeout(&self) -> Result<(), Error> {
-        while self.i2c.isr.read().busy().is_busy() { /* TODO: Check for the Timeout */ }
+        let mut clock = (0..COUNTDOWN_TIMER).into_iter();
+        while self.i2c.isr.read().busy().is_busy() {
+            /* Check for the Timeout */
+            clock.next().ok_or(Error::Timeout)?;
+        }
         Ok(())
     }
 
     /// Handles I2C communication timeout.
     /// I2C_WaitOnTXISFlagUntilTimeout(_, _, _)
     fn wait_on_txis_until_timeout(&self) -> Result<(), Error> {
+        let mut clock = (0..COUNTDOWN_TIMER).into_iter();
         while self.i2c.isr.read().txis().is_not_empty() {
             /* Check if a NACK is detected */
             self.check_acknowledge_failed()?;
-            /* TODO: Check for the Timeout */
+            /* Check for the Timeout */
+            clock.next().ok_or(Error::Timeout)?;
         }
         Ok(())
     }
 
     /// I2C_WaitOnSTOPFlagUntilTimeout
     fn wait_on_stopf_until_timeout(&self) -> Result<(), Error> {
+        let mut clock = (0..COUNTDOWN_TIMER).into_iter();
         while self.i2c.isr.read().stopf().is_no_stop() {
             /* Check if a NACK is detected */
             self.check_acknowledge_failed()?;
-            /* TODO: Check for the Timeout */
+            /* Check for the Timeout */
+            clock.next().ok_or(Error::Timeout)?;
         }
         Ok(())
     }
@@ -148,6 +164,7 @@ where
     /// Handles I2C communication timeout.
     /// I2C_WaitOnRXNEFlagUntilTimeout(_, _, _)
     fn wait_on_rxne_until_timeout(&self) -> Result<(), Error> {
+        let mut clock = (0..COUNTDOWN_TIMER).into_iter();
         while self.i2c.isr.read().rxne().is_empty() {
             /* Check if a NACK is detected */
             self.check_acknowledge_failed()?;
@@ -167,7 +184,8 @@ where
                     return Err(Error::Rxne);
                 }
             }
-            /* TODO: Check for the Timeout */
+            /* Check for the Timeout */
+            clock.next().ok_or(Error::Timeout)?;
         }
         Ok(())
     }
