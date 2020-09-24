@@ -218,7 +218,7 @@ where
 
     /// Basic building block for Master mode data receiving.
     pub fn master_receive(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
-        self.wait_on_busy_until_timeout()?;
+        self.wait_on_busy_until_timeout().unwrap();
 
         self.i2c.cr2.write(|w| {
             w.sadd()
@@ -235,12 +235,12 @@ where
 
         for byte in buffer {
             /* Wait until RXNE flag is set */
-            self.wait_on_rxne_until_timeout()?;
+            self.wait_on_rxne_until_timeout().unwrap();
             *byte = self.i2c.rxdr.read().rxdata().bits();
         }
 
         /* Wait until STOPF flag is set */
-        self.wait_on_stopf_until_timeout()?;
+        self.wait_on_stopf_until_timeout().unwrap();
 
         /* Clear STOP Flag (Not avaialble) */
         /* Clear Configuration Register 2 */
