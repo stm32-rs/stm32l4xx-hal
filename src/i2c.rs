@@ -218,7 +218,7 @@ where
 
     /// Basic building block for Master mode data receiving.
     pub fn master_receive(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
-        self.wait_on_busy_until_timeout().unwrap();
+        // self.wait_on_busy_until_timeout().unwrap();
 
         self.i2c.cr2.write(|w| {
             w.sadd()
