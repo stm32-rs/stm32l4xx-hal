@@ -8,7 +8,7 @@ use crate::time::Hertz;
 use cast::u8;
 use core::ops::Deref;
 
-const COUNTDOWN_TIMER: u32 = 100;
+const COUNTDOWN_TIMER: u32 = 10_000;
 
 /// I2C error
 #[non_exhaustive]
@@ -207,7 +207,7 @@ where
 
         /* No need to Check TC flag, with AUTOEND mode the stop is automatically generated */
         /* Wait until STOPF flag is set */
-        self.wait_on_stopf_until_timeout()?;
+        //self.wait_on_stopf_until_timeout()?;
 
         /* Clear STOP Flag (Not avaialble) */
         /* Clear Configuration Register 2 */
