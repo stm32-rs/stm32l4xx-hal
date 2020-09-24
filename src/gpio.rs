@@ -466,12 +466,8 @@ macro_rules! gpio {
                     ) -> $PXi<Analog> {
                         let offset = 2 * $i;
                         
-                        // stitch control register
-                        unsafe {
-                            &(*$GPIOX::ptr()).ascr.modify(|r, w| {
-                                w.bits(r.bits() | 0b1 << $i)
-                            })
-                        };
+                        // switch control register
+                        
 
                         // analog mode
                         let mode = 0b11;
@@ -483,6 +479,11 @@ macro_rules! gpio {
                             .pupdr()
                             .modify(|r, w| unsafe { w.bits(r.bits() & !(0b11 << offset)) });
                         
+                        unsafe {
+                            &(*$GPIOX::ptr()).ascr.modify(|r, w| {
+                                w.bits(r.bits() | 0b1 << $i)
+                            })
+                        };
                         // not supported 
                         // ascr.ascr().modify(|r, w| unsafe { w.bits(r.bits() | 0b1 << $i) });
 

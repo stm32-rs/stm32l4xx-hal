@@ -1,15 +1,11 @@
 use crate::gpio::gpioa;
+use crate::gpio::gpioc;
+use crate::gpio::gpiob;
 use crate::gpio::{Analog};
-use crate::rcc::{AHB2,CCIPR};
+use crate::rcc::{AHB2, CCIPR};
 use embedded_hal::adc::{Channel, OneShot};
-use crate::pac::ADC1;
-use core::ptr;
-
-const VREFCAL: *const u16 = 0x1FFF_75AA as *const u16;
-const VTEMPCAL30: *const u16 = 0x1FFF_75A8 as *const u16;
-const VTEMPCAL110: *const u16 = 0x1FFF_75CA as *const u16;
-const VDD_CALIB: u16 = 3000;
-
+use crate::pac::{ADC1};
+use cortex_m_semihosting::hprintln;
 
 /// Inspiration has been drawn from three different ADC libs
 /// https://github.com/stm32-rs/stm32l1xx-hal/blob/master/src/adc.rs
@@ -179,9 +175,9 @@ impl Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            resolution: Resolution::B12,
             align : Align::Right,
-            sample_time: SampleTime::T640_5,
+            resolution: Resolution::B12,
+            sample_time: SampleTime::T2_5,
             reg_oversampl : RegularOversampling::Off,
             inj_oversampl : InjectedOversampling::Off,
             oversampl_ratio : OversamplingRatio::X16,
@@ -240,7 +236,7 @@ impl CommonConfig {
 impl Default for CommonConfig {
     fn default() -> CommonConfig {
         CommonConfig {
-            clock_mode : ClockMode::HclkDiv1,
+            clock_mode : ClockMode::HclkDiv2,
             adc_clk_sel : AdcClockSelect::Pllsai1,
         }
     }
@@ -261,21 +257,37 @@ pub fn adc_global_setup(config : CommonConfig, ahb2 : &mut AHB2, ccipr : &mut CC
     let adc_common = unsafe { &*crate::device::ADC_COMMON::ptr() };
     if !any_adc_active() {
         adc_common.ccr.modify(|_, w| unsafe {w.ckmode().bits(config.clock_mode as u8)} );
+        adc_common.ccr.modify(|_,w| unsafe { w.dual().bits(0)});
     }
 
     // Not possible yet, due to missing register
-    //        adc_common.ccr.modify(|_, w| unsafe { w.presc().bits(0b1011) });
+    //        
+    // adc_common.ccr.modify(|_, w| unsafe { w.presc().bits(0b1111) });
 }
 
 /// Checks if any ADCs are enabled or running
 fn any_adc_active() -> bool{
     let adc1 = unsafe { &*crate::device::ADC1::ptr() };
+    let adc2 = unsafe { &*crate::device::ADC2::ptr() };
+    let adc3 = unsafe { &*crate::device::ADC3::ptr() };
     adc1.cr.read().adcal().bit_is_set()       |
         adc1.cr.read().adstp().bit_is_set()     |
         adc1.cr.read().jadstart().bit_is_set()  |
         adc1.cr.read().adstart().bit_is_set()   |
         adc1.cr.read().addis().bit_is_set()     |
-        adc1.cr.read().aden().bit_is_set()      
+        adc1.cr.read().aden().bit_is_set()      |
+        adc2.cr.read().adcal().bit_is_set()   |
+        adc2.cr.read().adstp().bit_is_set()     |
+        adc2.cr.read().jadstart().bit_is_set()  |
+        adc2.cr.read().adstart().bit_is_set()   |
+        adc2.cr.read().addis().bit_is_set()     |
+        adc2.cr.read().aden().bit_is_set()      |
+        adc3.cr.read().adcal().bit_is_set()   |
+        adc3.cr.read().adstp().bit_is_set()     |
+        adc3.cr.read().jadstart().bit_is_set()  |
+        adc3.cr.read().adstart().bit_is_set()   |
+        adc3.cr.read().addis().bit_is_set()     |
+        adc3.cr.read().aden().bit_is_set() 
 }
 
 
@@ -288,14 +300,21 @@ pub struct Adc<ADC1> {
 impl Adc<ADC1> {
     /// Sets up the ADC
     pub fn adc1(adc: ADC1, config : Config, ahb2 : &mut AHB2, ccipr : &mut CCIPR) -> Self {
-        
-
 
         //Check these two registers for 0
         if ahb2.enr().read().adcen().bit_is_clear(){
+            // Only single ended mode availible
+            unsafe {
+                adc.difsel.write(|w|{w.bits(0)});
+                adc.ofr1.modify(|_,w| {w.offset1_en().clear_bit()});
+                adc.ofr2.modify(|_,w| {w.offset2_en().clear_bit()});
+                adc.ofr3.modify(|_,w| {w.offset3_en().clear_bit()});
+                adc.ofr4.modify(|_,w| {w.offset4_en().clear_bit()});
+            }
             adc_global_setup(CommonConfig::default(), ahb2, ccipr);
         }
 
+        
         // Disable deep power down and start ADC voltage regulator
         adc.cr.modify(|_, w| w.deeppwd().clear_bit());
         adc.cr.modify(|_, w| w.advregen().set_bit());
@@ -396,7 +415,6 @@ where
     type Error = ();
 
     fn read(&mut self, pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-        
         self.power_up();
 
         //Save ADC state
@@ -413,6 +431,9 @@ where
             .modify(|_, w| w.cont().clear_bit());
         self.adc
             .cfgr
+            .modify(|_, w| w.discen().clear_bit());
+        self.adc
+            .cfgr
             .modify(|_, w| unsafe { w.exten().bits(0b00) });
         self.adc
             .sqr1
@@ -421,12 +442,17 @@ where
             .sqr1
             .modify(|_, w| unsafe { w.l().bits(0b0000)});
 
-        self.adc.isr.modify(|_, w| w.eoc().set_bit());
-        self.adc.cr.modify(|_, w| w.adstart().set_bit());
 
+        self.adc.isr.modify(|_, w| w.eoc().clear_bit());
+        self.adc.cr.modify(|_, w| w.adstart().set_bit());
+        cortex_m::asm::delay(80_000_000);
         while self.adc.isr.read().eoc().bit_is_clear() {}
 
         let val = self.adc.dr.read().rdata().bits().into();
+
+        self.adc.isr.modify(|_, w| w.eoc().clear_bit());
+
+        self.power_down();
 
         //Restore state
         self.adc
@@ -441,10 +467,9 @@ where
         self.adc
             .sqr1
             .modify(|_, w| unsafe { w.l().bits(seq_len)});
-
-        self.power_down();
         Ok(val)
     }
+    
 }
 
 
@@ -507,7 +532,7 @@ macro_rules! adc_pins {
                         bits |= (sample_time as u32) << OFFSET;
                         w.bits(bits)
                     });
-                    // adc.rb.sqr5.write(|w| unsafe { w.sq1().bits($chan) });
+                    adc.sqr1.write(|w| unsafe { w.sq1().bits($chan) });
                 }
             }
         )+
@@ -515,108 +540,22 @@ macro_rules! adc_pins {
 }
 
 adc_pins! {
-    ADC1: (Channel5: (gpioa::PA0<Analog>, 5_u8, smpr1)),
-    ADC1: (Channel6: (gpioa::PA1<Analog>, 6_u8, smpr1)),
-    
+    ADC1: (Channel0: (gpioc::PC0<Analog>, 1_u8, smpr1)),
+    ADC1: (Channel1: (gpioc::PC1<Analog>, 2_u8, smpr1)),
+    ADC1: (Channel2: (gpioc::PC2<Analog>, 3_u8, smpr1)),
+    ADC1: (Channel3: (gpioc::PC3<Analog>, 4_u8, smpr1)),
+    ADC1: (Channel4: (gpioa::PA0<Analog>, 5_u8, smpr1)),
+    ADC1: (Channel5: (gpioa::PA1<Analog>, 6_u8, smpr1)),
+    ADC1: (Channel6: (gpioa::PA2<Analog>, 7_u8, smpr1)),
+    ADC1: (Channel7: (gpioa::PA3<Analog>, 8_u8, smpr1)),
+    ADC1: (Channel8: (gpioa::PA4<Analog>, 9_u8, smpr1)),
+    ADC1: (Channel9: (gpioa::PA5<Analog>, 10_u8, smpr2)),
+    ADC1: (Channel10: (gpioa::PA6<Analog>, 11_u8, smpr2)),
+    ADC1: (Channel11: (gpioa::PA7<Analog>, 12_u8, smpr2)),
+    ADC1: (Channel12: (gpioc::PC4<Analog>, 13_u8, smpr2)),
+    ADC1: (Channel13: (gpioc::PC5<Analog>, 14_u8, smpr2)),
+    ADC1: (Channel14: (gpiob::PB0<Analog>, 15_u8, smpr2)),
+    ADC1: (Channel15: (gpiob::PB1<Analog>, 16_u8, smpr2)),
     ADC1: (VTemp: (VTemp, 17_u8, smpr2)),
     ADC1: (VBat: (VBat, 18_u8, smpr2)),
-}
-
-//Special case Setup for VRef
-impl Channel<Adc<ADC1>> for VRef {
-    type ID = u8;
-
-    fn channel() -> u8 { 0 }
-}
-impl AdcChannel <ADC1> for VRef {
-    fn setup(&mut self, _adc: &mut ADC1, _sample_time : SampleTime) {
-        
-    }
-}
-
-
-impl VTemp{
-    fn convert_temp(vtemp: u16, vdda: u16) -> i16 {
-        let vtemp30_cal = i32::from(unsafe { ptr::read(VTEMPCAL30) }) * 100;
-        let vtemp110_cal = i32::from(unsafe { ptr::read(VTEMPCAL110) }) * 100;
-
-        let mut temperature = i32::from(vtemp) * 100;
-        temperature = (temperature * (i32::from(vdda) / i32::from(VDD_CALIB))) - vtemp30_cal;
-        temperature *= (110 - 30) * 100;
-        temperature /= vtemp110_cal - vtemp30_cal;
-        temperature += 3000;
-        temperature as i16
-
-    }
-
-    pub fn get_cal() -> (i32, i32){
-        let vtemp30_cal = i32::from(unsafe { ptr::read(VTEMPCAL30) }) * 100;
-        let vtemp110_cal = i32::from(unsafe { ptr::read(VTEMPCAL110) }) * 100;
-        (vtemp30_cal, vtemp110_cal)
-    }
-
-    /// Read the value of the internal temperature sensor and return the
-    /// result in 100ths of a degree centigrade.
-    ///
-    /// Given a delay reference it will attempt to restrict to the
-    /// minimum delay needed to ensure a 10 us t<sub>START</sub> value.
-    /// Otherwise it will approximate the required delay using ADC reads.
-    //Presumes ADC is setup for reciving a single measurement
-    pub fn read(adc: &mut Adc<ADC1>) -> i16 {
-        let mut vtemp = Self::new();
-        let vtemp_preenable = vtemp.is_enabled();
-
-        if !vtemp_preenable {
-            vtemp.enable();
-            //Delay set for worst case senario for STM32L475
-            cortex_m::asm::delay(40);
-
-        }
-
-        let vdda = VRef::read_vdda(adc);
-
-        let prev_cfg = adc.get_config();
-        
-        //Sample time dependant on electrical caracteristics for temp sensor here STM32L475
-        adc.apply_config(Config::default().sample_time(SampleTime::T47_5));
-
-        let vtemp_val = adc.read(&mut vtemp).unwrap();
-
-        if !vtemp_preenable {
-            vtemp.disable();
-        }
-
-        adc.apply_config(prev_cfg);
-
-        Self::convert_temp(vtemp_val, vdda)
-    }
-}
-
-
-impl VRef {
-    /// Reads the value of VDDA in milli-volts
-    pub fn read_vdda(adc: &mut Adc<ADC1>) -> u16 {
-        let vrefint_cal = u32::from(unsafe { ptr::read(VREFCAL) });
-        let mut vref = Self::new();
-
-        let prev_cfg = adc.default_config();
-        // let prev_cfg = adc.get_config();
-        // adc.apply_config(Config::default().sample_time(SampleTime::T640_5));
-
-        let vref_preenable = vref.is_enabled();
-
-        if !vref_preenable {
-            vref.enable();
-        }
-
-        let vref_val: u32 = adc.read(&mut vref).unwrap();
-       
-        if !vref_preenable{
-            vref.disable();
-        }
-
-        adc.apply_config(prev_cfg);
-
-        (u32::from(VDD_CALIB) * vrefint_cal / vref_val) as u16
-    }
 }
