@@ -165,7 +165,7 @@ where
     /// I2C_WaitOnRXNEFlagUntilTimeout(_, _, _)
     fn wait_on_rxne_until_timeout(&self) -> Result<(), Error> {
         let mut clock = (0..COUNTDOWN_TIMER).into_iter();
-        while self.i2c.isr.read().rxne().is_empty() {
+        while self.i2c.isr.read().rxne().is_not_empty() {
             /* Check if a NACK is detected */
             self.check_acknowledge_failed()?;
 
@@ -173,7 +173,7 @@ where
             if self.i2c.isr.read().stopf().is_stop() {
                 /* Check if an RXNE is pending */
                 /* Store Last receive data if any */
-                if self.i2c.isr.read().rxne().is_not_empty() {
+                if self.i2c.isr.read().rxne().is_empty() {
                     /* The Reading of data from RXDR will be done in caller function */
                     return Ok(());
                 } else {
@@ -227,7 +227,35 @@ where
     }
 
     /// Basic building block for Master mode data receiving.
-    pub fn master_receive(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+    pub fn master_receive(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
+        self.wait_on_busy_until_timeout()?;
+
+        self.i2c.cr2.write(|w| {
+            w.sadd()
+                .bits((addr as u16) << 1)
+                .rd_wrn()
+                .set_bit()
+                .nbytes()
+                .bits(buffer.len() as u8)
+                .start()
+                .set_bit()
+                .autoend()
+                .set_bit()
+        });
+
+        for byte in buffer {
+            /* Wait until RXNE flag is set */
+            self.wait_on_rxne_until_timeout()?;
+            *byte = self.i2c.rxdr.read().rxdata().bits();
+        }
+
+        /* Wait until STOPF flag is set */
+        self.wait_on_stopf_until_timeout()?;
+
+        /* Clear STOP Flag (Not avaialble) */
+        /* Clear Configuration Register 2 */
+        self.i2c.cr2.reset();
+
         Ok(())
     }
 }
@@ -375,27 +403,7 @@ where
     type Error = Error;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
-        self.i2c.cr2.write(|w| {
-            w.sadd()
-                .bits((addr as u16) << 1)
-                .rd_wrn()
-                .set_bit()
-                .nbytes()
-                .bits(buffer.len() as u8)
-                .start()
-                .set_bit()
-                .autoend()
-                .set_bit()
-        });
-
-        for byte in buffer {
-            // Wait until we have received something
-            busy_wait!(self.i2c, rxne);
-
-            *byte = self.i2c.rxdr.read().rxdata().bits();
-        }
-
-        Ok(())
+        self.master_receive(addr, buffer)
     }
 }
 
