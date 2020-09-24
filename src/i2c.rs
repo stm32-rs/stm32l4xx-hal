@@ -183,7 +183,7 @@ where
     /// Basic building block for Master mode transmittion. A payload size over
     /// MAX_NBYTE_SIZE is not supported.
     pub fn master_transmit(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        self.wait_on_busy_until_timeout()?;
+        // self.wait_on_busy_until_timeout()?;
         /* Send Slave Address and set NBYTES to write */
         self.i2c.cr2.write(|w| {
             w.sadd()
