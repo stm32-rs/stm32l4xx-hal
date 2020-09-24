@@ -140,7 +140,7 @@ where
     /// I2C_WaitOnTXISFlagUntilTimeout(_, _, _)
     fn wait_on_txis_until_timeout(&self) -> Result<(), Error> {
         let mut clock = (0..COUNTDOWN_TIMER).into_iter();
-        while self.i2c.isr.read().txis().is_not_empty() {
+        while self.i2c.isr.read().txis().is_empty() {
             /* Check if a NACK is detected */
             self.check_acknowledge_failed()?;
             /* Check for the Timeout */
