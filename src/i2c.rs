@@ -8,7 +8,7 @@ use crate::time::Hertz;
 use cast::u8;
 use core::ops::Deref;
 
-const COUNTDOWN_TIMER: u32 = 100000;
+const COUNTDOWN_TIMER: u32 = 100;
 
 /// I2C error
 #[non_exhaustive]
