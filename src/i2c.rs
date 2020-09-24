@@ -165,18 +165,19 @@ where
     /// I2C_WaitOnRXNEFlagUntilTimeout(_, _, _)
     fn wait_on_rxne_until_timeout(&self) -> Result<(), Error> {
         let mut clock = (0..COUNTDOWN_TIMER).into_iter();
-        while self.i2c.isr.read().rxne().is_not_empty() {
+        while self.i2c.isr.read().rxne().is_empty() {
             /* Check if a NACK is detected */
             self.check_acknowledge_failed()?;
 
             /* Check if a STOPF is detected */
-            if self.i2c.isr.read().stopf().is_stop() {
+
                 /* Check if an RXNE is pending */
                 /* Store Last receive data if any */
-                if self.i2c.isr.read().rxne().is_empty() {
+                if self.i2c.isr.read().rxne().is_not_empty() {
                     /* The Reading of data from RXDR will be done in caller function */
                     return Ok(());
                 } else {
+            if self.i2c.isr.read().stopf().is_stop() {
                     /* Clear STOP Flag (Not available) */
 
                     /* Clear Configuration Register 2 */
