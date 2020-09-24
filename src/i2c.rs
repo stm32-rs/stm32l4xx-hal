@@ -170,20 +170,9 @@ where
             self.check_acknowledge_failed()?;
 
             /* Check if a STOPF is detected */
-
-                /* Check if an RXNE is pending */
-                /* Store Last receive data if any */
-                if self.i2c.isr.read().rxne().is_not_empty() {
-                    /* The Reading of data from RXDR will be done in caller function */
-                    return Ok(());
-                } else {
             if self.i2c.isr.read().stopf().is_stop() {
-                    /* Clear STOP Flag (Not available) */
-
-                    /* Clear Configuration Register 2 */
-                    self.i2c.cr2.reset();
-                    return Err(Error::Rxne);
-                }
+                /* The Reading of data from RXDR will be done in caller function */
+                return Ok(());
             }
             /* Check for the Timeout */
             clock.next().ok_or(Error::Timeout)?;
