@@ -1,11 +1,11 @@
 use crate::gpio::gpioa;
 use crate::gpio::gpioc;
 use crate::gpio::gpiob;
-use crate::gpio::{Analog};
+use crate::gpio::Analog;
 use crate::rcc::{AHB2, CCIPR};
 use embedded_hal::adc::{Channel, OneShot};
 use crate::pac::{ADC1};
-use cortex_m_semihosting::hprintln;
+
 
 /// Inspiration has been drawn from three different ADC libs
 /// https://github.com/stm32-rs/stm32l1xx-hal/blob/master/src/adc.rs
@@ -177,7 +177,7 @@ impl Default for Config {
         Config {
             align : Align::Right,
             resolution: Resolution::B12,
-            sample_time: SampleTime::T2_5,
+            sample_time: SampleTime::T12_5,
             reg_oversampl : RegularOversampling::Off,
             inj_oversampl : InjectedOversampling::Off,
             oversampl_ratio : OversamplingRatio::X16,
@@ -257,12 +257,8 @@ pub fn adc_global_setup(config : CommonConfig, ahb2 : &mut AHB2, ccipr : &mut CC
     let adc_common = unsafe { &*crate::device::ADC_COMMON::ptr() };
     if !any_adc_active() {
         adc_common.ccr.modify(|_, w| unsafe {w.ckmode().bits(config.clock_mode as u8)} );
-        adc_common.ccr.modify(|_,w| unsafe { w.dual().bits(0)});
     }
 
-    // Not possible yet, due to missing register
-    //        
-    // adc_common.ccr.modify(|_, w| unsafe { w.presc().bits(0b1111) });
 }
 
 /// Checks if any ADCs are enabled or running
@@ -301,15 +297,11 @@ impl Adc<ADC1> {
     /// Sets up the ADC
     pub fn adc1(adc: ADC1, config : Config, ahb2 : &mut AHB2, ccipr : &mut CCIPR) -> Self {
 
-        //Check these two registers for 0
+        // Check if it is already enabled
         if ahb2.enr().read().adcen().bit_is_clear(){
             // Only single ended mode availible
             unsafe {
                 adc.difsel.write(|w|{w.bits(0)});
-                adc.ofr1.modify(|_,w| {w.offset1_en().clear_bit()});
-                adc.ofr2.modify(|_,w| {w.offset2_en().clear_bit()});
-                adc.ofr3.modify(|_,w| {w.offset3_en().clear_bit()});
-                adc.ofr4.modify(|_,w| {w.offset4_en().clear_bit()});
             }
             adc_global_setup(CommonConfig::default(), ahb2, ccipr);
         }
@@ -444,8 +436,9 @@ where
 
 
         self.adc.isr.modify(|_, w| w.eoc().clear_bit());
+        // Start conversion
         self.adc.cr.modify(|_, w| w.adstart().set_bit());
-        cortex_m::asm::delay(80_000_000);
+        // Wait for the conversion
         while self.adc.isr.read().eoc().bit_is_clear() {}
 
         let val = self.adc.dr.read().rdata().bits().into();

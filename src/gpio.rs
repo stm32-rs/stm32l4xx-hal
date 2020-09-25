@@ -458,16 +458,13 @@ macro_rules! gpio {
                         $PXi { _mode: PhantomData }
                     }
                     
-                    /// Configures the pin to operate as an analog pin
+                    /// Configures the pin to operate as an analog pin with adc.
                     pub fn into_analog_with_adc(
                         self,
                         moder: &mut MODER,
                         pupdr: &mut PUPDR
                     ) -> $PXi<Analog> {
-                        let offset = 2 * $i;
-                        
-                        // switch control register
-                        
+                        let offset = 2 * $i;                        
 
                         // analog mode
                         let mode = 0b11;
@@ -479,12 +476,14 @@ macro_rules! gpio {
                             .pupdr()
                             .modify(|r, w| unsafe { w.bits(r.bits() & !(0b11 << offset)) });
                         
+                        // Required for STM32L47x/L48x devices(RM351).
+                        // using more unsafe version since ascr field is not supported yet.
                         unsafe {
                             &(*$GPIOX::ptr()).ascr.modify(|r, w| {
                                 w.bits(r.bits() | 0b1 << $i)
-                            })
+                            });
                         };
-                        // not supported 
+                        // not supported (same as above)
                         // ascr.ascr().modify(|r, w| unsafe { w.bits(r.bits() | 0b1 << $i) });
 
                         $PXi { _mode: PhantomData }
