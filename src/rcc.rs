@@ -113,7 +113,7 @@ pub struct Rcc {
     /// Clock recovery RC register
     pub crrcr: CRRCR,
     /// Peripherals independent clock configuration register
-    pub ccipr : CCIPR,
+    pub ccipr: CCIPR,
 }
 
 /// Peripherals independent clock configuration register

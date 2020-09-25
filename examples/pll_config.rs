@@ -39,9 +39,9 @@ fn main() -> ! {
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     // let clocks = rcc.cfgr.sysclk(80.mhz()).pclk1(80.mhz()).pclk2(80.mhz()).freeze(&mut flash.acr);
     let plls = PllConfig {
-        m: 0b001,  // / 2
-        n: 0b1000, // * 8
-        r: PllDivider::Div8,   // /8
+        m: 0b001,            // / 2
+        n: 0b1000,           // * 8
+        r: PllDivider::Div8, // /8
     };
     // NOTE: it is up to the user to make sure the pll config matches the given sysclk
     let clocks = rcc

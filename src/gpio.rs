@@ -22,7 +22,7 @@ pub struct Input<MODE> {
     _mode: PhantomData<MODE>,
 }
 ///  Analog
-#[cfg(feature="stm32l4x6")]
+#[cfg(feature = "stm32l4x6")]
 pub struct Analog;
 /// Floating input (type state)
 pub struct Floating;
@@ -188,8 +188,6 @@ macro_rules! gpio {
                 Floating, GpioExt, Input, OpenDrain, Output, Edge, ExtiPin,
                 PullDown, PullUp, PushPull, State, Speed,
             };
-            #[cfg(feature="stm32l4x6")]
-            use super::Analog;
             /// GPIO parts
             pub struct Parts {
                 /// Opaque AFRH register
@@ -458,14 +456,14 @@ macro_rules! gpio {
 
                         $PXi { _mode: PhantomData }
                     }
-                    #[cfg(feature="st32l4x6")]
+                    #[cfg(feature = "st32l4x6")]
                     /// Configures the pin to operate as an analog pin with adc.
                     pub fn into_analog_with_adc(
                         self,
                         moder: &mut MODER,
                         pupdr: &mut PUPDR
                     ) -> $PXi<Analog> {
-                        let offset = 2 * $i;                        
+                        let offset = 2 * $i;
 
                         // analog mode
                         let mode = 0b11;
@@ -476,7 +474,7 @@ macro_rules! gpio {
                         pupdr
                             .pupdr()
                             .modify(|r, w| unsafe { w.bits(r.bits() & !(0b11 << offset)) });
-                        
+
                         // Required for STM32L47x/L48x devices(RM351).
                         // using more unsafe version since ascr field is not supported yet.
                         unsafe {

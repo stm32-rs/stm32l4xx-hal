@@ -1,11 +1,10 @@
 use crate::gpio::gpioa;
-use crate::gpio::gpioc;
 use crate::gpio::gpiob;
+use crate::gpio::gpioc;
 use crate::gpio::Analog;
+use crate::pac::ADC1;
 use crate::rcc::{AHB2, CCIPR};
 use embedded_hal::adc::{Channel, OneShot};
-use crate::pac::{ADC1};
-
 
 /// Inspiration has been drawn from three different ADC libs
 /// https://github.com/stm32-rs/stm32l1xx-hal/blob/master/src/adc.rs
@@ -29,68 +28,64 @@ pub enum Align {
     Left,
 }
 
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
-pub enum RegularOversampling{
+pub enum RegularOversampling {
     On = 0b1,
-    Off = 0b0
+    Off = 0b0,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
-pub enum InjectedOversampling{
+pub enum InjectedOversampling {
     On = 0b1,
-    Off = 0b0
+    Off = 0b0,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u16)]
-pub enum OversamplingRatio{
-   /// 2x ADC Oversampling ratio
-   X2 = 0b000,
-   /// 4x ADC Oversampling ratio
-   X4 = 0b001,
-   /// 8x ADC Oversampling ratio
-   X8 = 0b010,
-   /// 16x ADC Oversampling ratio
-   X16 = 0b011,
-   /// 32x ADC Oversampling ratio
-   X32 = 0b100,
-   /// 64x ADC Oversampling ratio
-   X64 = 0b101,
-   /// 128x ADC Oversampling ratio
-   X128 = 0b110,
-   /// 256x ADC Oversampling ratio
-   X256 = 0b111,
+pub enum OversamplingRatio {
+    /// 2x ADC Oversampling ratio
+    X2 = 0b000,
+    /// 4x ADC Oversampling ratio
+    X4 = 0b001,
+    /// 8x ADC Oversampling ratio
+    X8 = 0b010,
+    /// 16x ADC Oversampling ratio
+    X16 = 0b011,
+    /// 32x ADC Oversampling ratio
+    X32 = 0b100,
+    /// 64x ADC Oversampling ratio
+    X64 = 0b101,
+    /// 128x ADC Oversampling ratio
+    X128 = 0b110,
+    /// 256x ADC Oversampling ratio
+    X256 = 0b111,
 }
-
 
 ///
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u16)]
-pub enum OversamplingShift{
+pub enum OversamplingShift {
     /// 0 bit Oversampling shift. Same as divide by 0
-   S0 = 0b0000,
-   /// 1 bits Oversampling shift. Same as divide by 2
-   S1 = 0b0001,
-   /// 2 bits Oversampling shift. Same as divide by 4
-   S2 = 0b0010,
-   /// 3 bits Oversampling shift. Same as divide by 8
-   S3 = 0b0011,
-   /// 4 bits Oversampling shift. Same as divide by 16
-   S4 = 0b0100,
-   /// 5 bits Oversampling shift. Same as divide by 32
-   S5 = 0b0101,
-   /// 6 bits Oversampling shift. Same as divide by 64
-   S6 = 0b0110,
-   /// 7 bits Oversampling shift. Same as divide by 128
-   S7 = 0b0111,
-   /// 8 bits Oversampling shift. Same as divide by 256
-   S8 = 0b1000,
+    S0 = 0b0000,
+    /// 1 bits Oversampling shift. Same as divide by 2
+    S1 = 0b0001,
+    /// 2 bits Oversampling shift. Same as divide by 4
+    S2 = 0b0010,
+    /// 3 bits Oversampling shift. Same as divide by 8
+    S3 = 0b0011,
+    /// 4 bits Oversampling shift. Same as divide by 16
+    S4 = 0b0100,
+    /// 5 bits Oversampling shift. Same as divide by 32
+    S5 = 0b0101,
+    /// 6 bits Oversampling shift. Same as divide by 64
+    S6 = 0b0110,
+    /// 7 bits Oversampling shift. Same as divide by 128
+    S7 = 0b0111,
+    /// 8 bits Oversampling shift. Same as divide by 256
+    S8 = 0b1000,
 }
-
-
 
 /// ADC Sampling Resolution
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -133,10 +128,10 @@ pub struct Config {
     pub align: Align,
     pub resolution: Resolution,
     pub sample_time: SampleTime,
-    pub reg_oversampl : RegularOversampling,
-    pub inj_oversampl : InjectedOversampling,
-    pub oversampl_ratio : OversamplingRatio,
-    pub oversampl_shift : OversamplingShift,
+    pub reg_oversampl: RegularOversampling,
+    pub inj_oversampl: InjectedOversampling,
+    pub oversampl_ratio: OversamplingRatio,
+    pub oversampl_shift: OversamplingShift,
 }
 
 impl Config {
@@ -145,7 +140,7 @@ impl Config {
         self
     }
 
-    pub fn resolution(mut self, resolution : Resolution) -> Self {
+    pub fn resolution(mut self, resolution: Resolution) -> Self {
         self.resolution = resolution;
         self
     }
@@ -154,19 +149,19 @@ impl Config {
         self.sample_time = sample_time;
         self
     }
-    pub fn reg_oversampl(mut self, reg_oversampl: RegularOversampling) -> Self{
+    pub fn reg_oversampl(mut self, reg_oversampl: RegularOversampling) -> Self {
         self.reg_oversampl = reg_oversampl;
         self
     }
-    pub fn inj_oversampl(mut self, inj_oversampl: InjectedOversampling) -> Self{
+    pub fn inj_oversampl(mut self, inj_oversampl: InjectedOversampling) -> Self {
         self.inj_oversampl = inj_oversampl;
         self
     }
-    pub fn oversampl_ratio(mut self, oversampl_ratio: OversamplingRatio) -> Self{
+    pub fn oversampl_ratio(mut self, oversampl_ratio: OversamplingRatio) -> Self {
         self.oversampl_ratio = oversampl_ratio;
         self
     }
-    pub fn oversampl_shift(mut self, oversampl_shift: OversamplingShift) -> Self{
+    pub fn oversampl_shift(mut self, oversampl_shift: OversamplingShift) -> Self {
         self.oversampl_shift = oversampl_shift;
         self
     }
@@ -175,13 +170,13 @@ impl Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            align : Align::Right,
+            align: Align::Right,
             resolution: Resolution::B12,
             sample_time: SampleTime::T12_5,
-            reg_oversampl : RegularOversampling::Off,
-            inj_oversampl : InjectedOversampling::Off,
-            oversampl_ratio : OversamplingRatio::X16,
-            oversampl_shift : OversamplingShift::S4,
+            reg_oversampl: RegularOversampling::Off,
+            inj_oversampl: InjectedOversampling::Off,
+            oversampl_ratio: OversamplingRatio::X16,
+            oversampl_shift: OversamplingShift::S4,
         }
     }
 }
@@ -191,7 +186,7 @@ pub enum ClockMode {
     /// Makes use of the ADC select from RCC (Asynchronous clock mode),
     /// generated at product level (refer to Section 6: Reset and clock control (RCC))
     CkAdc = 0b00,
-    /// HCLK/1 (Synchronous clock mode). 
+    /// HCLK/1 (Synchronous clock mode).
     /// This configuration must be enabled only if the AHB
     /// clock prescaler is set to 1 (HPRE[3:0] = 0xxx in RCC_CFGR register) and if the system clock
     HclkDiv1 = 0b01,
@@ -200,7 +195,6 @@ pub enum ClockMode {
     /// 6 bit Resolution
     HclkDiv4 = 0b11,
 }
-
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
@@ -217,8 +211,8 @@ pub enum AdcClockSelect {
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct CommonConfig {
-    pub clock_mode : ClockMode,
-    pub adc_clk_sel : AdcClockSelect,
+    pub clock_mode: ClockMode,
+    pub adc_clk_sel: AdcClockSelect,
 }
 
 impl CommonConfig {
@@ -236,82 +230,81 @@ impl CommonConfig {
 impl Default for CommonConfig {
     fn default() -> CommonConfig {
         CommonConfig {
-            clock_mode : ClockMode::HclkDiv2,
-            adc_clk_sel : AdcClockSelect::Pllsai1,
+            clock_mode: ClockMode::HclkDiv2,
+            adc_clk_sel: AdcClockSelect::Pllsai1,
         }
     }
 }
 
 /// Global setup for ADC
-pub fn adc_global_setup(config : CommonConfig, ahb2 : &mut AHB2, ccipr : &mut CCIPR) {
-
+pub fn adc_global_setup(config: CommonConfig, ahb2: &mut AHB2, ccipr: &mut CCIPR) {
     // Setup Rcc clock select
-    ccipr.ccipr().modify(|_, w|unsafe { w.adcsel().bits(config.adc_clk_sel as u8) } );  
-    
+    ccipr
+        .ccipr()
+        .modify(|_, w| unsafe { w.adcsel().bits(config.adc_clk_sel as u8) });
+
     // Enable clock for ADC
     ahb2.enr().modify(|_r, w| w.adcen().set_bit());
-    
+
     // Set ADC common clock
     // The software is allowed to write these bits only when the ADCs are disabled
-    //  (ADCAL=0, JADSTART=0, ADSTART=0, ADSTP=0, ADDIS=0 and ADEN=0) in all adc_cr registers.    
+    //  (ADCAL=0, JADSTART=0, ADSTART=0, ADSTP=0, ADDIS=0 and ADEN=0) in all adc_cr registers.
     let adc_common = unsafe { &*crate::device::ADC_COMMON::ptr() };
     if !any_adc_active() {
-        adc_common.ccr.modify(|_, w| unsafe {w.ckmode().bits(config.clock_mode as u8)} );
+        adc_common
+            .ccr
+            .modify(|_, w| unsafe { w.ckmode().bits(config.clock_mode as u8) });
     }
-
 }
 
 /// Checks if any ADCs are enabled or running
-fn any_adc_active() -> bool{
+fn any_adc_active() -> bool {
     let adc1 = unsafe { &*crate::device::ADC1::ptr() };
     let adc2 = unsafe { &*crate::device::ADC2::ptr() };
     let adc3 = unsafe { &*crate::device::ADC3::ptr() };
-    adc1.cr.read().adcal().bit_is_set()       |
-        adc1.cr.read().adstp().bit_is_set()     |
-        adc1.cr.read().jadstart().bit_is_set()  |
-        adc1.cr.read().adstart().bit_is_set()   |
-        adc1.cr.read().addis().bit_is_set()     |
-        adc1.cr.read().aden().bit_is_set()      |
-        adc2.cr.read().adcal().bit_is_set()   |
-        adc2.cr.read().adstp().bit_is_set()     |
-        adc2.cr.read().jadstart().bit_is_set()  |
-        adc2.cr.read().adstart().bit_is_set()   |
-        adc2.cr.read().addis().bit_is_set()     |
-        adc2.cr.read().aden().bit_is_set()      |
-        adc3.cr.read().adcal().bit_is_set()   |
-        adc3.cr.read().adstp().bit_is_set()     |
-        adc3.cr.read().jadstart().bit_is_set()  |
-        adc3.cr.read().adstart().bit_is_set()   |
-        adc3.cr.read().addis().bit_is_set()     |
-        adc3.cr.read().aden().bit_is_set() 
+    adc1.cr.read().adcal().bit_is_set()
+        | adc1.cr.read().adstp().bit_is_set()
+        | adc1.cr.read().jadstart().bit_is_set()
+        | adc1.cr.read().adstart().bit_is_set()
+        | adc1.cr.read().addis().bit_is_set()
+        | adc1.cr.read().aden().bit_is_set()
+        | adc2.cr.read().adcal().bit_is_set()
+        | adc2.cr.read().adstp().bit_is_set()
+        | adc2.cr.read().jadstart().bit_is_set()
+        | adc2.cr.read().adstart().bit_is_set()
+        | adc2.cr.read().addis().bit_is_set()
+        | adc2.cr.read().aden().bit_is_set()
+        | adc3.cr.read().adcal().bit_is_set()
+        | adc3.cr.read().adstp().bit_is_set()
+        | adc3.cr.read().jadstart().bit_is_set()
+        | adc3.cr.read().adstart().bit_is_set()
+        | adc3.cr.read().addis().bit_is_set()
+        | adc3.cr.read().aden().bit_is_set()
 }
-
 
 pub struct Adc<ADC1> {
     adc: ADC1,
-    config : Config,
+    config: Config,
 }
 
 #[cfg(feature = "stm32l4x6")]
 impl Adc<ADC1> {
     /// Sets up the ADC
-    pub fn adc1(adc: ADC1, config : Config, ahb2 : &mut AHB2, ccipr : &mut CCIPR) -> Self {
-
+    pub fn adc1(adc: ADC1, config: Config, ahb2: &mut AHB2, ccipr: &mut CCIPR) -> Self {
         // Check if it is already enabled
-        if ahb2.enr().read().adcen().bit_is_clear(){
+        if ahb2.enr().read().adcen().bit_is_clear() {
             // Only single ended mode availible
             unsafe {
-                adc.difsel.write(|w|{w.bits(0)});
+                adc.difsel.write(|w| w.bits(0));
             }
             adc_global_setup(CommonConfig::default(), ahb2, ccipr);
         }
 
-        
         // Disable deep power down and start ADC voltage regulator
         adc.cr.modify(|_, w| w.deeppwd().clear_bit());
         adc.cr.modify(|_, w| w.advregen().set_bit());
         cortex_m::asm::delay(8_000_000); //Delay at 80MHz for L475
-        if adc.cr.read().advregen().bit_is_clear(){
+        if adc.cr.read().advregen().bit_is_clear() {
             panic!("ADC Vreg not enabled corectly")
         }
 
@@ -322,7 +315,7 @@ impl Adc<ADC1> {
         while adc.cr.read().adcal().bit_is_set() {}
 
         let temp_c = Config::default();
-        let mut adc = Self{
+        let mut adc = Self {
             adc,
             config: temp_c,
         };
@@ -343,7 +336,7 @@ impl Adc<ADC1> {
     }
 
     /// Apply a configuration to the ADC
-    pub fn apply_config(&mut self, config : Config){
+    pub fn apply_config(&mut self, config: Config) {
         self.set_align(config.align);
         self.set_injected_oversampling(config.inj_oversampl);
         self.set_oversampling_ratio(config.oversampl_ratio);
@@ -357,46 +350,53 @@ impl Adc<ADC1> {
     /// a stored config.
     pub fn default_config(&mut self) -> Config {
         let cfg = self.get_config();
-        if !(cfg == Config::default()){
+        if !(cfg == Config::default()) {
             self.apply_config(Config::default());
         }
         cfg
     }
 
     /// Returns a copy of the current configuration
-    pub fn get_config(&mut self) -> Config{
+    pub fn get_config(&mut self) -> Config {
         self.config
     }
 
-
-
     pub fn set_align(&mut self, align: Align) {
-        self.adc.cfgr.modify(|_, w| w.align().bit(align == Align::Left))
+        self.adc
+            .cfgr
+            .modify(|_, w| w.align().bit(align == Align::Left))
     }
 
     pub fn set_resolution(&mut self, resolution: Resolution) {
-        self.adc.cfgr.modify(|_, w| unsafe {w.res().bits(resolution as u8)})
+        self.adc
+            .cfgr
+            .modify(|_, w| unsafe { w.res().bits(resolution as u8) })
     }
 
-    pub fn set_regular_oversampling(&mut self, reg_oversampl : RegularOversampling){
-        self.adc.cfgr2.modify(|_, w| w.rovse().bit(reg_oversampl == RegularOversampling::On))
+    pub fn set_regular_oversampling(&mut self, reg_oversampl: RegularOversampling) {
+        self.adc
+            .cfgr2
+            .modify(|_, w| w.rovse().bit(reg_oversampl == RegularOversampling::On))
     }
 
-    pub fn set_injected_oversampling(&mut self, inj_oversampl : InjectedOversampling){
-        self.adc.cfgr2.modify(|_, w| w.jovse().bit(inj_oversampl == InjectedOversampling::On))
+    pub fn set_injected_oversampling(&mut self, inj_oversampl: InjectedOversampling) {
+        self.adc
+            .cfgr2
+            .modify(|_, w| w.jovse().bit(inj_oversampl == InjectedOversampling::On))
     }
 
-    pub fn set_oversampling_ratio(&mut self, oversampl_ratio : OversamplingRatio){
-        self.adc.cfgr2.modify(|_, w| unsafe{ w.ovsr().bits(oversampl_ratio as u8)})
+    pub fn set_oversampling_ratio(&mut self, oversampl_ratio: OversamplingRatio) {
+        self.adc
+            .cfgr2
+            .modify(|_, w| unsafe { w.ovsr().bits(oversampl_ratio as u8) })
     }
 
-    pub fn set_oversampling_shift(&mut self, oversampl_shift : OversamplingShift){
-        self.adc.cfgr2.modify(|_, w| unsafe{ w.ovss().bits(oversampl_shift as u8)})
+    pub fn set_oversampling_shift(&mut self, oversampl_shift: OversamplingShift) {
+        self.adc
+            .cfgr2
+            .modify(|_, w| unsafe { w.ovss().bits(oversampl_shift as u8) })
     }
-
 }
-
-
 
 #[cfg(feature = "stm32l4x6")]
 impl<WORD, PIN> OneShot<Adc<ADC1>, WORD, PIN> for Adc<ADC1>
@@ -418,22 +418,13 @@ where
 
         pin.setup(&mut self.adc, self.config.sample_time);
 
-        self.adc
-            .cfgr
-            .modify(|_, w| w.cont().clear_bit());
-        self.adc
-            .cfgr
-            .modify(|_, w| w.discen().clear_bit());
-        self.adc
-            .cfgr
-            .modify(|_, w| unsafe { w.exten().bits(0b00) });
+        self.adc.cfgr.modify(|_, w| w.cont().clear_bit());
+        self.adc.cfgr.modify(|_, w| w.discen().clear_bit());
+        self.adc.cfgr.modify(|_, w| unsafe { w.exten().bits(0b00) });
         self.adc
             .sqr1
             .modify(|_, w| unsafe { w.sq1().bits(PIN::channel()) });
-        self.adc
-            .sqr1
-            .modify(|_, w| unsafe { w.l().bits(0b0000)});
-
+        self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(0b0000) });
 
         self.adc.isr.modify(|_, w| w.eoc().clear_bit());
         // Start conversion
@@ -448,24 +439,15 @@ where
         self.power_down();
 
         //Restore state
-        self.adc
-            .cfgr
-            .modify(|_, w| w.cont().bit(cont_mode));
+        self.adc.cfgr.modify(|_, w| w.cont().bit(cont_mode));
         self.adc
             .cfgr
             .modify(|_, w| unsafe { w.exten().bits(external_trig) });
-        self.adc
-            .sqr1
-            .modify(|_, w| unsafe { w.sq1().bits(seq_1) });
-        self.adc
-            .sqr1
-            .modify(|_, w| unsafe { w.l().bits(seq_len)});
+        self.adc.sqr1.modify(|_, w| unsafe { w.sq1().bits(seq_1) });
+        self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(seq_len) });
         Ok(val)
     }
-    
 }
-
-
 
 macro_rules! int_adc {
     ($($Chan:ident: ($chan:expr, $en:ident)),+ $(,)*) => {
@@ -502,9 +484,8 @@ int_adc! {
     VBat: (18, ch18sel)
 }
 
-
 pub trait AdcChannel<T> {
-    fn setup(&mut self, adc: &mut T, sample_time : SampleTime);
+    fn setup(&mut self, adc: &mut T, sample_time: SampleTime);
 }
 
 macro_rules! adc_pins {

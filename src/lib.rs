@@ -22,7 +22,6 @@ compile_error!("This crate requires one of the following features enabled: stm32
 
 pub use embedded_hal as hal;
 
-
 pub use stm32l4;
 #[cfg(feature = "stm32l4x1")]
 pub use stm32l4::stm32l4x1 as pac;

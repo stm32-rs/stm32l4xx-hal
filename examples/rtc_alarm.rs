@@ -43,7 +43,6 @@ fn main() -> ! {
         .lse(CrystalBypass::Disable, ClockSecuritySystem::Disable)
         .freeze(&mut flash.acr, &mut pwr);
 
-
     let mut rtc = Rtc::rtc(
         dp.RTC,
         &mut rcc.apb1r1,
@@ -77,7 +76,6 @@ fn main() -> ! {
 
         // nb::block!(wkp.wait()).unwrap();
         // writeln!(hstdout, "Good bye!").unwrap();
-
     }
 }
 

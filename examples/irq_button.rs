@@ -12,12 +12,12 @@ use crate::hal::{
     prelude::*,
     stm32,
 };
-use cortex_m::{
-    interrupt::{free, Mutex},
-    peripheral::NVIC
-};
 use core::cell::RefCell;
 use core::ops::DerefMut;
+use cortex_m::{
+    interrupt::{free, Mutex},
+    peripheral::NVIC,
+};
 use rt::entry;
 
 // Set up global state. It's all mutexed up for concurrency safety.
@@ -49,7 +49,9 @@ fn main() -> ! {
         board_btn.trigger_on_edge(&mut dp.EXTI, Edge::FALLING);
 
         // Enable interrupts
-        unsafe { NVIC::unmask(stm32::Interrupt::EXTI15_10); }
+        unsafe {
+            NVIC::unmask(stm32::Interrupt::EXTI15_10);
+        }
 
         free(|cs| {
             BUTTON.borrow(cs).replace(Some(board_btn));
