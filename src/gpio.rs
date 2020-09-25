@@ -22,6 +22,7 @@ pub struct Input<MODE> {
     _mode: PhantomData<MODE>,
 }
 ///  Analog
+#[cfg(feature="stm32l4x6")]
 pub struct Analog;
 /// Floating input (type state)
 pub struct Floating;
@@ -182,13 +183,13 @@ macro_rules! gpio {
 
             use crate::rcc::{AHB2, APB2};
             use super::{
-
                 Alternate, AlternateOD,
                 AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
-                Floating, GpioExt, Input, OpenDrain, Output, Edge, ExtiPin, Analog,
+                Floating, GpioExt, Input, OpenDrain, Output, Edge, ExtiPin,
                 PullDown, PullUp, PushPull, State, Speed,
             };
-
+            #[cfg(feature="stm32l4x6")]
+            use super::Analog;
             /// GPIO parts
             pub struct Parts {
                 /// Opaque AFRH register
@@ -457,7 +458,7 @@ macro_rules! gpio {
 
                         $PXi { _mode: PhantomData }
                     }
-                    
+                    #[cfg(feature="st32l4x6")]
                     /// Configures the pin to operate as an analog pin with adc.
                     pub fn into_analog_with_adc(
                         self,
