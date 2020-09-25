@@ -93,6 +93,8 @@ where
 
             /* Clear Configuration Register 2 */
             self.i2c.cr2.reset();
+
+            return Err(Error::Nack);
         }
         Ok(())
     }
@@ -174,6 +176,7 @@ where
                 /* The Reading of data from RXDR will be done in caller function */
                 return Ok(());
             }
+
             /* Check for the Timeout */
             clock.next().ok_or(Error::Timeout)?;
         }
@@ -296,15 +299,19 @@ where
 
         // Configure for "Standard mode" (100 KHz)
         let _ = clocks;
-        
-        const B_L475E_IOT01A_I2C_TIMING: u32 = 0x00702681u32;
+
+        // Tried all candidates one by one.
+        // 0x00702681; Write OK, Read No
+        // 0x40E03E53; Write No, Read No
+        // 0x00D00E28; Write OK, Read No
+        const I2C_TIMING: u32 = 0x00D00E28;
         const TIMING_CLEAR_MASK: u32 = 0xF0FFFFFFu32;
         i2c.timingr.write(|w| {
-            unsafe { w.bits(B_L475E_IOT01A_I2C_TIMING & TIMING_CLEAR_MASK) }
+            unsafe { w.bits(I2C_TIMING & TIMING_CLEAR_MASK) }
         });
 
         // Check if the value matches.
-        assert_eq!(B_L475E_IOT01A_I2C_TIMING & TIMING_CLEAR_MASK, i2c.timingr.read().bits());
+        assert_eq!(I2C_TIMING & TIMING_CLEAR_MASK, i2c.timingr.read().bits());
 
         // Enable the peripheral
         i2c.cr1.write(|w| w.pe().set_bit().anfoff().enabled());
