@@ -79,7 +79,9 @@ where
             }
 
             /* Clear NACKF Flag (Not available) */
-            /* Clear STOP Flag (Not available) */
+            self.i2c.icr.write(|w| w.nackcf().clear());
+            /* Clear STOP Flag (via ICR) */
+            self.i2c.icr.write(|w| w.stopcf().clear());
 
             /* If a pending TXIS flag is set */
             /* Write a dummy data in TXDR to clear it */
@@ -186,10 +188,10 @@ where
     /// Basic building block for Master mode transmittion. A payload size over
     /// MAX_NBYTE_SIZE is not supported.
     pub fn master_transmit(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+        self.wait_on_busy_until_timeout()?;
+
         // Send a START condition
         self.i2c.cr2.write(|w| w.start().set_bit());
-
-        self.wait_on_busy_until_timeout()?;
 
         /* Send Slave Address and set NBYTES to write */
         self.i2c.cr2.write(|w| {
@@ -225,10 +227,10 @@ where
 
     /// Basic building block for Master mode data receiving.
     pub fn master_receive(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
+        self.wait_on_busy_until_timeout()?;
+
         // Send a START condition
         self.i2c.cr2.write(|w| w.start().set_bit());
-
-        self.wait_on_busy_until_timeout()?;
 
         self.i2c.cr2.write(|w| {
             w.sadd()
