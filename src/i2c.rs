@@ -186,6 +186,9 @@ where
     /// Basic building block for Master mode transmittion. A payload size over
     /// MAX_NBYTE_SIZE is not supported.
     pub fn master_transmit(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+        // Send a START condition
+        self.i2c.cr2.write(|w| w.start().set_bit());
+
         self.wait_on_busy_until_timeout()?;
         /* Send Slave Address and set NBYTES to write */
         self.i2c.cr2.write(|w| {
@@ -195,8 +198,6 @@ where
                 .clear_bit()
                 .nbytes()
                 .bits(bytes.len() as u8)
-                .start()
-                .set_bit()
                 .autoend()
                 .set_bit()
         });
@@ -221,6 +222,9 @@ where
 
     /// Basic building block for Master mode data receiving.
     pub fn master_receive(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
+        // Send a START condition
+        self.i2c.cr2.write(|w| w.start().set_bit());
+
         self.wait_on_busy_until_timeout()?;
 
         self.i2c.cr2.write(|w| {
@@ -230,8 +234,6 @@ where
                 .set_bit()
                 .nbytes()
                 .bits(buffer.len() as u8)
-                .start()
-                .set_bit()
                 .autoend()
                 .set_bit()
         });
@@ -304,7 +306,7 @@ where
         // 0x00702681; Write OK, Read No
         // 0x40E03E53; Write No, Read No
         // 0x00D00E28; Write OK, Read No
-        const I2C_TIMING: u32 = 0x00D00E28;
+        const I2C_TIMING: u32 = 0x40E03E53;
         const TIMING_CLEAR_MASK: u32 = 0xF0FFFFFFu32;
         i2c.timingr.write(|w| {
             unsafe { w.bits(I2C_TIMING & TIMING_CLEAR_MASK) }
