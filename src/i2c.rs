@@ -190,6 +190,7 @@ where
         self.i2c.cr2.write(|w| w.start().set_bit());
 
         self.wait_on_busy_until_timeout()?;
+
         /* Send Slave Address and set NBYTES to write */
         self.i2c.cr2.write(|w| {
             w.sadd()
@@ -213,7 +214,9 @@ where
         /* Wait until STOPF flag is set */
         self.wait_on_stopf_until_timeout()?;
 
-        /* Clear STOP Flag (Not avaialble) */
+        /* Clear STOP Flag (via ICR) */
+        self.i2c.icr.write(|w| w.stopcf().clear());
+
         /* Clear Configuration Register 2 */
         self.i2c.cr2.reset();
 
@@ -247,7 +250,9 @@ where
         /* Wait until STOPF flag is set */
         self.wait_on_stopf_until_timeout()?;
 
-        /* Clear STOP Flag (Not avaialble) */
+        /* Clear STOP Flag (via ICR) */
+        self.i2c.icr.write(|w| w.stopcf().clear());
+
         /* Clear Configuration Register 2 */
         self.i2c.cr2.reset();
 
