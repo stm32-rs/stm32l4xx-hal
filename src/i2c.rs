@@ -56,15 +56,21 @@ pub struct I2c<I2C, PINS> {
     pins: PINS,
 }
 
+/// Start conditions that govern repeated sequential transfer
 #[derive(Debug, Clone)]
 enum StartCondition {
+    /// Non-sequential transfer. Generate both start and stop.
     FirstAndLast,
+    /// First transfer in a sequence. Generate start and reload for the next.
     First,
+    /// In the middle of sequential transfer. No start/stop generation.
     Middle,
+    /// Generate stop to terminate the sequence.
     Last,
 }
 
 impl StartCondition {
+    /// Configures the I2C sequential transfer
     fn config<'a>(&self, w: &'a mut i2c1::cr2::W) -> &'a mut i2c1::cr2::W {
         use StartCondition::*;
         match self {
@@ -76,6 +82,7 @@ impl StartCondition {
     }
 }
 
+/// Yields start/stop direction from chunks of a payload
 #[derive(Debug, Default, Clone)]
 struct State {
     total_length: usize,
@@ -116,8 +123,9 @@ struct Blocking<'a> {
 }
 
 impl<'a> Blocking<'a> {
-    // Creation succeeds only if busy wait is happy.
-    // Instead of this potentially infinte loop, ideally set up a timer and raise a timeout error.
+    /// Creation succeeds if the I2C interface is not busy. Instead of this
+    /// potentially infinite loop, ideally set up a timer and raise a timeout
+    /// error.
     fn new(i2c: &'a i2c1::RegisterBlock) -> Result<Self, Error> {
         while i2c.isr.read().busy().is_busy() {}
 
@@ -128,16 +136,18 @@ impl<'a> Blocking<'a> {
         })
     }
 
+    /// Checks NACK error flag
     fn check_acknowledge_failed(&self) -> Result<(), Error> {
         if self.isr.read().nackf().bit_is_set() {
-            // Wait until STOP Flag is reset
-            // AutoEnd should be initiate after AF
+            // Wait until STOP Flag is reset. AutoEnd should be initiated after
+            // AF.
             while self.isr.read().stopf().is_no_stop() {}
             return Err(Error::Nack);
         }
         Ok(())
     }
 
+    /// Waits for a stop detected
     fn wait_on_stop(&mut self) -> Result<(), Error> {
         while self.isr.read().stopf().is_no_stop() {
             self.check_acknowledge_failed()?;
@@ -145,9 +155,20 @@ impl<'a> Blocking<'a> {
         Ok(())
     }
 
+    /// Waits for a reloaded transfer completed
     fn wait_on_reload(&self) -> Result<(), Error> {
         while self.isr.read().tcr().is_not_complete() {}
         Ok(())
+    }
+}
+
+/// Normal graceful shutdown procedure
+impl<'a> Drop for Blocking<'a> {
+    fn drop(&mut self) {
+        // Clear STOP flag
+        self.icr.write(|w| w.stopcf().clear());
+        // Clear configuration register 2
+        self.cr2.reset();
     }
 }
 
@@ -159,7 +180,6 @@ struct Tx<'a> {
 }
 
 impl<'a> Tx<'a> {
-    // Creation succeeds only if busy wait is happy.
     fn new(i2c: &'a i2c1::RegisterBlock) -> Result<Self, Error> {
         let master = Blocking::new(i2c)?;
 
@@ -170,6 +190,7 @@ impl<'a> Tx<'a> {
         })
     }
 
+    // Blocks and sends a single byte.
     fn send_byte(&mut self, byte: u8) -> Result<(), Error> {
         while self.master.isr.read().txis().is_not_empty() {
             self.master.check_acknowledge_failed()?;
@@ -184,12 +205,12 @@ impl<'a> Tx<'a> {
 impl<'a> Drop for Tx<'a> {
     fn drop(&mut self) {
         if self.aborted {
-            // **ABORTED** Register state requires post processing for the error recovery.
-            // Clear NACKF Flag
+            // The session was aborted. Register state requires post processing
+            // for the error recovery. Clear NACKF flag
             self.master.icr.write(|w| w.nackcf().clear());
 
-            // If a pending TXIS flag is set
-            // Write a dummy data in TXDR to clear it
+            // If a pending TXIS flag is set, write a dummy data in TXDR to
+            // clear it
             if self.master.isr.read().txis().is_empty() {
                 self.txdr.write(|w| w.txdata().bits(0x00u8));
             }
@@ -203,11 +224,6 @@ impl<'a> Drop for Tx<'a> {
                 }
             });
         }
-        // Normal graceful shutdown procedure
-        // Clear STOP Flag
-        self.master.icr.write(|w| w.stopcf().clear());
-        // Clear Configuration Register 2
-        self.master.cr2.reset();
     }
 }
 
@@ -224,7 +240,6 @@ impl<'a> Write for Tx<'a> {
             })
             .try_for_each(|(sc, chunk)| {
                 use StartCondition::*;
-                // Wait until TCR flag is set
                 if let Middle | Last = sc {
                     self.master.wait_on_reload()?;
                 }
@@ -250,7 +265,7 @@ impl<'a> Write for Tx<'a> {
     }
 }
 
-/// I2C receiver for master mode
+/// I2C blocking receiver for master mode
 struct Rx<'a> {
     master: Blocking<'a>,
     rxdr: &'a i2c1::RXDR,
@@ -258,7 +273,6 @@ struct Rx<'a> {
 }
 
 impl<'a> Rx<'a> {
-    // Creation succeeds only if busy wait is happy.
     fn new(i2c: &'a i2c1::RegisterBlock) -> Result<Self, Error> {
         let master = Blocking::new(i2c)?;
 
@@ -269,24 +283,25 @@ impl<'a> Rx<'a> {
         })
     }
 
-    fn receive_byte(&mut self, byte: &mut u8) -> Result<(), Error> {
+    // Waits for a single byte on this receiver.
+    fn recv_byte(&mut self) -> Result<u8, Error> {
         while self.master.isr.read().rxne().is_empty() {
             self.master.check_acknowledge_failed()?;
 
             // Check if a STOPF is detected
             if self.master.isr.read().stopf().is_stop() {
                 if self.master.isr.read().rxne().is_not_empty() {
-                    // The Reading of data from RXDR will be done later.
+                    // Reading data from RXDR will be done later.
                     break;
                 } else {
+                    // TODO: Define and raise a tailored error variant.
                     return Err(Error::Nack);
                 }
             }
         }
 
         // Read data from RXDR
-        *byte = self.rxdr.read().rxdata().bits();
-        Ok(())
+        Ok(self.rxdr.read().rxdata().bits())
     }
 }
 
@@ -294,15 +309,9 @@ impl<'a> Rx<'a> {
 impl<'a> Drop for Rx<'a> {
     fn drop(&mut self) {
         if self.aborted {
-            // **ABORTED** PostProcessing from I2C_IsAcknowledgeFailed
             // Clear NACKF Flag
             self.master.icr.write(|w| w.nackcf().clear());
         }
-        // **Graceful shutdown**
-        // Clear STOP Flag
-        self.master.icr.write(|w| w.stopcf().clear());
-        // Clear Configuration Register 2
-        self.master.cr2.reset();
     }
 }
 
@@ -319,7 +328,6 @@ impl<'a> Read for Rx<'a> {
             })
             .try_for_each(|(sc, chunk)| {
                 use StartCondition::*;
-                // Wait until TCR flag is set
                 if let Middle | Last = sc {
                     self.master.wait_on_reload()?;
                 }
@@ -336,11 +344,12 @@ impl<'a> Read for Rx<'a> {
 
                 chunk
                     .iter_mut()
-                    .try_for_each(|byte| self.receive_byte(byte))
+                    .try_for_each(|byte| self.recv_byte().map(|v| *byte = v))
             })?;
 
         self.master.wait_on_stop()?;
 
+        // No error was detected.
         self.aborted = false;
         Ok(())
     }
