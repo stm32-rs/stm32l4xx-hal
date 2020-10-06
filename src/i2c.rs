@@ -176,7 +176,7 @@ macro_rules! hal {
             impl<PINS> Write for I2c<$I2CX, PINS> {
                 type Error = Error;
 
-                fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+                fn try_write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
                     // TODO support transfers of more than 255 bytes
                     assert!(bytes.len() < 256 && bytes.len() > 0);
 
@@ -212,7 +212,7 @@ macro_rules! hal {
             impl<PINS> Read for I2c<$I2CX, PINS> {
                 type Error = Error;
 
-                fn read(&mut self,
+                fn try_read(&mut self,
                     addr: u8,
                     buffer: &mut [u8],) -> Result<(), Error> {
                     self.i2c.cr2.write(|w| {
@@ -242,7 +242,7 @@ macro_rules! hal {
             impl<PINS> WriteRead for I2c<$I2CX, PINS> {
                 type Error = Error;
 
-                fn write_read(
+                fn try_write_read(
                     &mut self,
                     addr: u8,
                     bytes: &[u8],

@@ -5,6 +5,7 @@ use crate::{
     stm32::{DBGMCU, IWDG},
     time::MilliSeconds,
 };
+use core::convert::Infallible;
 
 /// Wraps the Independent Watchdog (IWDG) peripheral
 pub struct IndependentWatchdog {
@@ -94,17 +95,23 @@ impl IndependentWatchdog {
 }
 
 impl WatchdogEnable for IndependentWatchdog {
+    type Error = Infallible;
+
     type Time = MilliSeconds;
 
-    fn start<T: Into<Self::Time>>(&mut self, period: T) {
+    fn try_start<T: Into<Self::Time>>(&mut self, period: T) -> Result<(), Self::Error> {
         self.setup(period.into().0);
 
         self.iwdg.kr.write(|w| unsafe { w.key().bits(KR_START) });
+        Ok(())
     }
 }
 
 impl Watchdog for IndependentWatchdog {
-    fn feed(&mut self) {
+    type Error = Infallible;
+
+    fn try_feed(&mut self) -> Result<(), Self::Error> {
         self.iwdg.kr.write(|w| unsafe { w.key().bits(KR_RELOAD) });
+        Ok(())
     }
 }

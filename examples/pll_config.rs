@@ -31,18 +31,13 @@ fn main() -> ! {
     let mut rcc = p.RCC.constrain();
     let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
-    let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
     // let clocks = rcc.cfgr.freeze(&mut flash.acr);
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     // let clocks = rcc.cfgr.sysclk(80.mhz()).pclk1(80.mhz()).pclk2(80.mhz()).freeze(&mut flash.acr);
-    let plls = PllConfig {
-        m: 0b001,  // / 2
-        n: 0b1000, // * 8
-        r: PllDivider::Div8,   // /8
-    };
+    let plls = PllConfig::new(0b001, 0b1000, PllDivider::Div8);
     // NOTE: it is up to the user to make sure the pll config matches the given sysclk
     let clocks = rcc
         .cfgr
@@ -74,9 +69,9 @@ fn main() -> ! {
     // The `block!` macro makes an operation block until it finishes
     // NOTE the error type is `!`
 
-    block!(tx.write(sent)).ok();
+    block!(tx.try_write(sent)).ok();
 
-    let received = block!(rx.read()).unwrap();
+    let received = block!(rx.try_read()).unwrap();
 
     assert_eq!(received, sent);
 

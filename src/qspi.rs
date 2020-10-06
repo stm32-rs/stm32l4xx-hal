@@ -32,7 +32,7 @@ use crate::gpio::{
     gpiof::{PF6, PF7, PF8, PF9},
 };
 
-use crate::gpio::{Alternate, Floating, Input, AF10, Speed};
+use crate::gpio::{Alternate, Floating, Input, Speed, AF10};
 use crate::rcc::AHB3;
 use crate::stm32::QUADSPI;
 use core::ptr;
@@ -152,7 +152,7 @@ pub enum ClockMode {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum QspiError{
+pub enum QspiError {
     Busy,
     Address,
     Unknown,
@@ -380,9 +380,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
     /// Aborts any ongoing transaction
     /// Note can cause problems if aborting writes to flash satus register
     pub fn abort_transmission(&self) {
-        self.qspi.cr.modify(|_, w|
-            w.abort().set_bit()
-        );
+        self.qspi.cr.modify(|_, w| w.abort().set_bit());
         while self.qspi.sr.read().busy().bit_is_set() {}
     }
 
@@ -428,9 +426,9 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         self.config = config;
     }
 
-    pub fn transfer(&self, command: QspiReadCommand, buffer: &mut [u8]) -> Result<(), QspiError>{
+    pub fn transfer(&self, command: QspiReadCommand, buffer: &mut [u8]) -> Result<(), QspiError> {
         if self.is_busy() {
-            return Err(QspiError::Busy)
+            return Err(QspiError::Busy);
         }
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
@@ -530,13 +528,13 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
 
             // Transfer error
             if self.qspi.sr.read().tef().bit_is_set() {
-                return Err(QspiError::Address)
+                return Err(QspiError::Address);
             }
         }
 
         // Transfer error
         if self.qspi.sr.read().tef().bit_is_set() {
-            return Err(QspiError::Unknown)
+            return Err(QspiError::Unknown);
         }
 
         // Read data from the buffer
@@ -573,9 +571,9 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         Ok(())
     }
 
-    pub fn write(&self, command: QspiWriteCommand) -> Result<(), QspiError>{
+    pub fn write(&self, command: QspiWriteCommand) -> Result<(), QspiError> {
         if self.is_busy() {
-            return Err(QspiError::Busy)
+            return Err(QspiError::Busy);
         }
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
@@ -676,7 +674,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
 
         // Transfer error
         if self.qspi.sr.read().tef().bit_is_set() {
-            return Err(QspiError::Unknown)
+            return Err(QspiError::Unknown);
         }
 
         // Write data to the FIFO
@@ -740,7 +738,7 @@ pins!(
 
 #[cfg(feature = "stm32l4x2")]
 impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, Input<Floating>>> {
-    fn set_speed(self, speed: Speed) -> Self{
+    fn set_speed(self, speed: Speed) -> Self {
         self.set_speed(speed)
     }
 }
@@ -748,7 +746,7 @@ impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, Input<Floating>>> {
 impl private::Sealed for PB2<Alternate<AF10, Input<Floating>>> {}
 #[cfg(feature = "stm32l4x2")]
 impl IO1Pin<QUADSPI> for PB2<Alternate<AF10, Input<Floating>>> {
-    fn set_speed(self, speed: Speed) -> Self{
+    fn set_speed(self, speed: Speed) -> Self {
         self.set_speed(speed)
     }
 }

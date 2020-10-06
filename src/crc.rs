@@ -119,17 +119,15 @@ impl Config {
             Some(BitReversal::ByWord) => 0b11,
         };
 
-        crc.init.write(|w| unsafe { w.crc_init().bits(init) });
+        crc.init.write(|w| w.init().bits(init));
         crc.pol.write(|w| unsafe { w.bits(poly) });
         crc.cr.write(|w| {
-            unsafe {
-                w.rev_in()
-                    .bits(in_rev_bits)
-                    .polysize()
-                    .bits(poly_bits)
-                    .reset()
-                    .set_bit();
-            }
+            w.rev_in()
+                .bits(in_rev_bits)
+                .polysize()
+                .bits(poly_bits)
+                .reset()
+                .set_bit();
 
             if self.output_bit_reversal {
                 w.rev_out().set_bit()
@@ -162,8 +160,7 @@ impl Crc {
     pub fn reset_with_inital_value(&mut self, initial_value: u32) {
         let crc = unsafe { &(*CRC::ptr()) };
 
-        crc.init
-            .write(|w| unsafe { w.crc_init().bits(initial_value) });
+        crc.init.write(|w| w.init().bits(initial_value));
         crc.cr.modify(|_, w| w.reset().set_bit());
     }
 
@@ -175,7 +172,7 @@ impl Crc {
             unsafe {
                 // Workaround with svd2rust, it does not generate the byte interface to the DR
                 // register
-                ptr::write_volatile(&crc.dr as *const _ as *mut u8, *byte);
+                ptr::write_volatile(&crc.dr() as *const _ as *mut u8, *byte);
             }
         }
     }
@@ -197,7 +194,7 @@ impl Crc {
     pub fn peek_result(&self) -> u32 {
         let crc = unsafe { &(*CRC::ptr()) };
 
-        crc.dr.read().bits()
+        crc.dr().read().bits()
     }
 }
 

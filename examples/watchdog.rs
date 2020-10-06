@@ -15,7 +15,6 @@ extern crate stm32l4xx_hal as hal;
 
 use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
-use crate::hal::rcc::{CrystalBypass, ClockSecuritySystem};
 use crate::hal::time::MilliSeconds;
 use crate::hal::watchdog::IndependentWatchdog;
 use crate::rt::ExceptionFrame;
@@ -35,25 +34,22 @@ fn main() -> ! {
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
-    
+
     // Try a different clock configuration
-    let clocks = rcc
-        .cfgr
-        .lsi(true)
-        .freeze(&mut flash.acr, &mut pwr);
-    
+    let clocks = rcc.cfgr.lsi(true).freeze(&mut flash.acr, &mut pwr);
+
     let mut timer = Delay::new(cp.SYST, clocks);
-  
+
     let mut watchdog = IndependentWatchdog::new(dp.IWDG);
     watchdog.stop_on_debug(&dp.DBGMCU, true);
 
-    watchdog.start(MilliSeconds(980));
-    timer.delay_ms(1000_u32);
-    watchdog.feed();
-    timer.delay_ms(1000_u32);
-    watchdog.feed();
-    timer.delay_ms(1000_u32);
-    watchdog.feed();
+    watchdog.try_start(MilliSeconds(980)).ok();
+    timer.try_delay_ms(1000_u32).ok();
+    watchdog.try_feed().ok();
+    timer.try_delay_ms(1000_u32).ok();
+    watchdog.try_feed().ok();
+    timer.try_delay_ms(1000_u32).ok();
+    watchdog.try_feed().ok();
     writeln!(hstdout, "Good bye!").unwrap();
     loop {}
 }

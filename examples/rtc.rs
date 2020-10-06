@@ -17,7 +17,7 @@ extern crate stm32l4xx_hal as hal;
 use crate::hal::datetime::{Date, Time};
 use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
-use crate::hal::rcc::{CrystalBypass, ClockSecuritySystem};
+use crate::hal::rcc::{ClockSecuritySystem, CrystalBypass};
 use crate::hal::rtc::{Rtc, RtcClockSource, RtcConfig};
 use crate::rt::ExceptionFrame;
 
@@ -50,7 +50,7 @@ fn main() -> ! {
         &mut rcc.apb1r1,
         &mut rcc.bdcr,
         &mut pwr.cr1,
-        RtcConfig::default().clock_config(RtcClockSource::LSE)
+        RtcConfig::default().clock_config(RtcClockSource::LSE),
     );
 
     let time = Time::new(21.hours(), 57.minutes(), 32.seconds(), 0.micros(), false);
@@ -58,9 +58,9 @@ fn main() -> ! {
 
     rtc.set_date_time(date, time);
 
-    timer.delay_ms(1000_u32);
-    timer.delay_ms(1000_u32);
-    timer.delay_ms(1000_u32);
+    timer.try_delay_ms(1000_u32).ok();
+    timer.try_delay_ms(1000_u32).ok();
+    timer.try_delay_ms(1000_u32).ok();
 
     let (rtc_date, rtc_time) = rtc.get_date_time();
 

@@ -5,8 +5,8 @@ use crate::stm32::{TIM15, TIM16, TIM2, TIM6, TIM7};
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::stm32::{TIM17, TIM4, TIM5};
 use cast::{u16, u32};
+use core::convert::Infallible;
 use nb;
-use void::Void;
 
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
@@ -30,12 +30,14 @@ macro_rules! hal {
             impl Periodic for Timer<$TIM> {}
 
             impl CountDown for Timer<$TIM> {
+                type Error = Infallible;
+
                 type Time = Hertz;
 
                 // NOTE(allow) `w.psc().bits()` is safe for TIM{6,7} but not for TIM{2,3,4} due to
                 // some SVD omission
                 #[allow(unused_unsafe)]
-                fn start<T>(&mut self, timeout: T)
+                fn try_start<T>(&mut self, timeout: T) -> Result<(), Self::Error>
                 where
                     T: Into<Hertz>,
                 {
@@ -62,9 +64,10 @@ macro_rules! hal {
 
                     // start counter
                     self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                    Ok(())
                 }
 
-                fn wait(&mut self) -> nb::Result<(), Void> {
+                fn try_wait(&mut self) -> nb::Result<(), Self::Error> {
                     if self.tim.sr.read().uif().bit_is_clear() {
                         Err(nb::Error::WouldBlock)
                     } else {
@@ -93,7 +96,7 @@ macro_rules! hal {
                         tim,
                         timeout: Hertz(0),
                     };
-                    timer.start(timeout);
+                    timer.try_start(timeout).ok();
 
                     timer
                 }

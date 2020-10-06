@@ -809,18 +809,18 @@ macro_rules! hal {
             impl<PINS> serial::Read<u8> for Serial<$USARTX, PINS> {
                 type Error = Error;
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
+                fn try_read(&mut self) -> nb::Result<u8, Error> {
                     let mut rx: Rx<$USARTX> = Rx {
                         _usart: PhantomData,
                     };
-                    rx.read()
+                    rx.try_read()
                 }
             }
 
             impl serial::Read<u8> for Rx<$USARTX> {
                 type Error = Error;
 
-                fn read(&mut self) -> nb::Result<u8, Error> {
+                fn try_read(&mut self) -> nb::Result<u8, Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -853,18 +853,18 @@ macro_rules! hal {
             impl<PINS> serial::Write<u8> for Serial<$USARTX, PINS> {
                 type Error = Error;
 
-                fn flush(&mut self) -> nb::Result<(), Error> {
+                fn try_flush(&mut self) -> nb::Result<(), Error> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
-                    tx.flush()
+                    tx.try_flush()
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
+                fn try_write(&mut self, byte: u8) -> nb::Result<(), Error> {
                     let mut tx: Tx<$USARTX> = Tx {
                         _usart: PhantomData,
                     };
-                    tx.write(byte)
+                    tx.try_write(byte)
                 }
             }
 
@@ -875,7 +875,7 @@ macro_rules! hal {
                 // our hardware configuration
                 type Error = Error;
 
-                fn flush(&mut self) -> nb::Result<(), Error> {
+                fn try_flush(&mut self) -> nb::Result<(), Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -886,7 +886,7 @@ macro_rules! hal {
                     }
                 }
 
-                fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
+                fn try_write(&mut self, byte: u8) -> nb::Result<(), Error> {
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*$USARTX::ptr()).isr.read() };
 
@@ -1126,7 +1126,7 @@ where
         let _ = s
             .as_bytes()
             .into_iter()
-            .map(|c| nb::block!(self.write(*c)))
+            .map(|c| nb::block!(self.try_write(*c)))
             .last();
         Ok(())
     }
@@ -1140,7 +1140,7 @@ where
         let _ = s
             .as_bytes()
             .into_iter()
-            .map(|c| nb::block!(self.write(*c)))
+            .map(|c| nb::block!(self.try_write(*c)))
             .last();
         Ok(())
     }
