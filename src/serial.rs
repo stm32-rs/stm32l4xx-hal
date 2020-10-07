@@ -441,7 +441,7 @@ pins! {
     USART3: (PC10, PC11, PD12, AF7),
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins! {
     USART3: (PD8, PD9, PB1, PA6, AF7),
 }
