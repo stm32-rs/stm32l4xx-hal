@@ -43,7 +43,7 @@ fn main() -> ! {
     let mut watchdog = IndependentWatchdog::new(dp.IWDG);
     watchdog.stop_on_debug(&dp.DBGMCU, true);
 
-    watchdog.try_start(MilliSeconds(980)).ok();
+    watchdog = watchdog.try_start(MilliSeconds(980)).unwrap();
     timer.try_delay_ms(1000_u32).ok();
     watchdog.try_feed().ok();
     timer.try_delay_ms(1000_u32).ok();
