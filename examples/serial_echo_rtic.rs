@@ -1,9 +1,13 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_halt;
+extern crate panic_rtt_target;
 
 use nb::block;
+use rtt_target::{
+    rprint,
+    rprintln,
+};
 use stm32l4xx_hal::{
     prelude::*,
     pac::{
@@ -26,6 +30,9 @@ const APP: () = {
 
     #[init]
     fn init(_: init::Context) -> init::LateResources {
+        rtt_target::rtt_init_print!();
+        rprint!("Initializing... ");
+
         let p = pac::Peripherals::take().unwrap();
 
         let mut rcc = p.RCC.constrain();
@@ -48,6 +55,8 @@ const APP: () = {
             &mut rcc.apb1r1,
         );
         let (tx, rx) = serial.split();
+
+        rprintln!("done.");
 
         init::LateResources {
             rx,
