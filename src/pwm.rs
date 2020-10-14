@@ -1,8 +1,8 @@
 //! # Pulse Width Modulation
 
+use core::convert::Infallible;
 use core::marker::PhantomData;
 use core::mem;
-use core::convert::Infallible;
 
 use crate::hal;
 use crate::stm32::{TIM1, TIM15, TIM2};

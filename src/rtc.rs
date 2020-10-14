@@ -513,7 +513,7 @@ impl timer::CountDown for WakeupTimer<'_> {
 
         // Let's wait for WUTWF to clear. Otherwise we might run into a race
         // condition, if the user calls this method again really quickly.
-        while self.rtc.rtc.isr.read().wutwf().bit_is_set() {};
+        while self.rtc.rtc.isr.read().wutwf().bit_is_set() {}
         Ok(())
     }
 

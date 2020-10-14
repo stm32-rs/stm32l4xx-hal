@@ -1,9 +1,9 @@
 //! Delays
 
 use cast::u32;
+use core::convert::Infallible;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
-use core::convert::Infallible;
 
 use crate::hal::blocking::delay::{DelayMs, DelayUs};
 use crate::rcc::Clocks;

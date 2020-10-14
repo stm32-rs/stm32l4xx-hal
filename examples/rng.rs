@@ -11,6 +11,7 @@ use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::hal::stm32;
+use hal::flash::FlashVariant;
 
 macro_rules! uprint {
     ($serial:expr, $($arg:tt)*) => {
@@ -32,7 +33,7 @@ fn main() -> ! {
     let core = cortex_m::Peripherals::take().unwrap();
     let device = stm32::Peripherals::take().unwrap();
 
-    let mut flash = device.FLASH.constrain();
+    let mut flash = device.FLASH.constrain(FlashVariant::Size256KB);
     let mut rcc = device.RCC.constrain();
     let mut pwr = device.PWR.constrain(&mut rcc.apb1r1);
 

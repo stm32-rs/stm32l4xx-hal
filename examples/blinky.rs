@@ -21,6 +21,7 @@ use crate::rt::ExceptionFrame;
 
 use crate::sh::hio;
 use core::fmt::Write;
+use hal::flash::FlashVariant;
 
 #[entry]
 fn main() -> ! {
@@ -31,7 +32,7 @@ fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = hal::stm32::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain(); // .constrain();
+    let mut flash = dp.FLASH.constrain(FlashVariant::Size256KB);
     let mut rcc = dp.RCC.constrain();
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 

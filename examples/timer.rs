@@ -21,6 +21,7 @@ use cortex_m::peripheral::NVIC;
 
 use crate::sh::hio;
 use core::fmt::Write;
+use hal::flash::FlashVariant;
 
 #[entry]
 fn main() -> ! {
@@ -30,7 +31,7 @@ fn main() -> ! {
     // let cp = cortex_m::Peripherals::take().unwrap();
     let dp = hal::stm32::Peripherals::take().unwrap();
 
-    let mut flash = dp.FLASH.constrain(); // .constrain();
+    let mut flash = dp.FLASH.constrain(FlashVariant::Size256KB);
     let mut rcc = dp.RCC.constrain();
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
@@ -49,8 +50,10 @@ fn main() -> ! {
 
 #[interrupt]
 fn TIM7() {
-    static mut COUNT: u32 = 0;
-    *COUNT += 1;
+    unsafe {
+        static mut COUNT: u32 = 0;
+        COUNT += 1;
+    }
     // let mut hstdout = hio::hstdout().unwrap();
     // writeln!(hstdout, "Hello, TIM!").unwrap();
 }

@@ -15,6 +15,7 @@ use hal::{
     prelude::*,
     rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
     serial::{self, Config, Serial},
+    flash::FlashVariant
 };
 use heapless::{
     pool,
@@ -47,7 +48,7 @@ const APP: () = {
 
         let dp = cx.device;
 
-        let mut flash = dp.FLASH.constrain();
+        let mut flash = dp.FLASH.constrain(FlashVariant::Size256KB);
         let mut rcc = dp.RCC.constrain();
         let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
         let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);

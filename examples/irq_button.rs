@@ -19,6 +19,7 @@ use cortex_m::{
     peripheral::NVIC,
 };
 use rt::entry;
+use hal::flash::FlashVariant;
 
 // Set up global state. It's all mutexed up for concurrency safety.
 static BUTTON: Mutex<RefCell<Option<PC13<Input<PullUp>>>>> = Mutex::new(RefCell::new(None));
@@ -29,7 +30,7 @@ fn main() -> ! {
         dp.RCC.apb2enr.write(|w| w.syscfgen().set_bit());
 
         let mut rcc = dp.RCC.constrain();
-        let mut flash = dp.FLASH.constrain(); // .constrain();
+        let mut flash = dp.FLASH.constrain(FlashVariant::Size256KB);
         let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
         rcc.cfgr

@@ -9,14 +9,14 @@ extern crate panic_halt;
 
 // use cortex_m::asm;
 use cortex_m_rt::entry;
-use stm32l4xx_hal::{delay, prelude::*, stm32};
+use stm32l4xx_hal::{delay, prelude::*, stm32, flash::FlashVariant};
 
 #[entry]
 fn main() -> ! {
     let c = cortex_m::Peripherals::take().unwrap();
     let p = stm32::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain();
+    let mut flash = p.FLASH.constrain(FlashVariant::Size256KB);
     let mut rcc = p.RCC.constrain();
     let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
 

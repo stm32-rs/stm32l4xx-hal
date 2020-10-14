@@ -21,12 +21,13 @@ use crate::hal::prelude::*;
 use crate::hal::qspi::{Qspi, QspiConfig, QspiMode, QspiReadCommand};
 use crate::rt::ExceptionFrame;
 use cortex_m::asm;
+use hal::flash::FlashVariant;
 
 #[entry]
 fn main() -> ! {
     let p = hal::stm32::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain();
+    let mut flash = p.FLASH.constrain(FlashVariant::Size256KB);
     let mut rcc = p.RCC.constrain();
     let mut gpioe = p.GPIOE.split(&mut rcc.ahb2);
     let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);

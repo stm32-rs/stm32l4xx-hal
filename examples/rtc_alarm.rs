@@ -20,7 +20,7 @@ use cortex_m::interrupt::{free, Mutex};
 use crate::sh::hio;
 use core::{cell::RefCell, fmt::Write, ops::DerefMut};
 use hal::interrupt;
-use hal::pac;
+use hal::{flash::FlashVariant, pac};
 use pac::NVIC;
 
 static RTC: Mutex<RefCell<Option<Rtc>>> = Mutex::new(RefCell::new(None));
@@ -34,7 +34,7 @@ fn main() -> ! {
     let mut dp = hal::stm32::Peripherals::take().unwrap();
     dp.RCC.apb2enr.write(|w| w.syscfgen().set_bit());
 
-    let mut flash = dp.FLASH.constrain();
+    let mut flash = dp.FLASH.constrain(FlashVariant::Size256KB);
     let mut rcc = dp.RCC.constrain();
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 

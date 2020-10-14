@@ -16,6 +16,7 @@ use crate::hal::prelude::*;
 use crate::hal::spi::Spi;
 use crate::rt::ExceptionFrame;
 use cortex_m::asm;
+use hal::flash::FlashVariant;
 
 /// SPI mode
 pub const MODE: Mode = Mode {
@@ -27,7 +28,7 @@ pub const MODE: Mode = Mode {
 fn main() -> ! {
     let p = hal::stm32::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain();
+    let mut flash = p.FLASH.constrain(FlashVariant::Size256KB);
     let mut rcc = p.RCC.constrain();
     let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
 
