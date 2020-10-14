@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.cargo.features": [
+        "stm32l4x3",
+        "rt"
+    ],
+    "rust-analyzer.checkOnSave.allTargets": false
+}
