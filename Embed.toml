@@ -1,0 +1,12 @@
+[default.general]
+# This is just an example that might not fit your target hardware. Create a file
+# called "Embed.local.toml" in the same directory, and override this setting
+# there. You can get a list of valid options by running
+# `cargo embed --list-chips`.
+chip = "STM32L433RCTx"
+
+[default.rtt]
+# Disabled by default, as RTT is not enabled for all examples in this
+# repository. Enable it in "Embed.local.toml", if you need it.
+enabled = false
+log_enabled = true
