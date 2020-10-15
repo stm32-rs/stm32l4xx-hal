@@ -3,26 +3,13 @@
 
 extern crate panic_rtt_target;
 
-use heapless::{
-    consts::U8,
-    spsc,
-};
+use heapless::{consts::U8, spsc};
 use nb::block;
-use rtt_target::{
-    rprint,
-    rprintln,
-};
+use rtt_target::{rprint, rprintln};
 use stm32l4xx_hal::{
+    pac::{self, USART2},
     prelude::*,
-    pac::{
-        self,
-        USART2,
-    },
-    serial::{
-        self,
-        Config,
-        Serial,
-    },
+    serial::{self, Config, Serial},
 };
 
 #[rtic::app(device = stm32l4xx_hal::pac)]
@@ -37,8 +24,7 @@ const APP: () = {
 
     #[init]
     fn init(_: init::Context) -> init::LateResources {
-        static mut RX_QUEUE: spsc::Queue<u8, U8> =
-            spsc::Queue(heapless::i::Queue::new());
+        static mut RX_QUEUE: spsc::Queue<u8, U8> = spsc::Queue(heapless::i::Queue::new());
 
         rtt_target::rtt_init_print!();
         rprint!("Initializing... ");
@@ -59,8 +45,7 @@ const APP: () = {
         let mut serial = Serial::usart2(
             p.USART2,
             (tx_pin, rx_pin),
-            Config::default()
-                .baudrate(115_200.bps()),
+            Config::default().baudrate(115_200.bps()),
             clocks,
             &mut rcc.apb1r1,
         );
