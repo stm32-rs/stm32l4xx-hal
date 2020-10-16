@@ -39,11 +39,7 @@ use embedded_hal::storage::{Address, BitSubset, IterableByOverlaps, ReadWrite, R
 /// Size of the MCU flash
 pub enum FlashVariant {
     /// 1MB flash size
-    #[cfg(any(
-        feature = "stm32l4x1",
-        feature = "stm32l4x5",
-        feature = "stm32l4x6"
-    ))]
+    #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x5", feature = "stm32l4x6"))]
     Size1024KB = 1024,
     /// 512KB flash size
     #[cfg(any(
@@ -62,11 +58,7 @@ pub enum FlashVariant {
         feature = "stm32l4x6"
     ))]
     Size256KB = 256,
-    #[cfg(any(
-        feature = "stm32l4x1",
-        feature = "stm32l4x2",
-        feature = "stm32l4x3",
-    ))]
+    #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3",))]
     Size128KB = 128,
     #[cfg(feature = "stm32l4x2")]
     Size64KB = 64,
@@ -254,7 +246,7 @@ impl<'a> FlashProgramming<'a> {
     }
 
     fn erase_page(&mut self, page: &Page) -> Result<(), Error> {
-        let page_number = (MemoryMap::start() - page.location).0 / page.size as u32;
+        let page_number = (MemoryMap::start() + page.location).0 / page.size as u32;
         match page.area {
             Area::Main(MemoryBank::Bank1) => {
                 self.cr.cr().modify(|_, w| unsafe {
@@ -407,6 +399,8 @@ struct Page {
     size: usize,
 }
 
+const MAX_PAGE_SIZE: usize = 2048;
+
 #[derive(Clone, Copy)]
 /// Memory map describing the sections and pages of the flash
 struct MemoryMap(FlashVariant);
@@ -481,23 +475,25 @@ impl<'a> ReadWrite for FlashProgramming<'a> {
     }
 
     fn try_write(&mut self, address: Address, bytes: &[u8]) -> nb::Result<(), Self::Error> {
-        for (block, page, address) in self.memory_map.pages().overlaps(bytes, address) {
-            let merge_buffer = &mut [0u8; 2048][0..page.size];
-            let offset_into_sector = address.0.saturating_sub(page.location.0) as usize;
+        self.write_bytes(bytes, address)?;
+        // for (block, page, addr) in self.memory_map.pages().overlaps(bytes, address) {
+        //     let merge_buffer = &mut [0u8; MAX_PAGE_SIZE][0..page.size];
+        //     let offset_into_page = addr.0.saturating_sub(page.location.0) as usize;
 
-            self.try_read(page.location, merge_buffer)?;
-            if block.is_subset_of(&merge_buffer[offset_into_sector..page.size]) {
-                self.write_bytes(block, address)?;
-            } else {
-                self.erase_page(&page)?;
-                merge_buffer
-                    .iter_mut()
-                    .skip(offset_into_sector)
-                    .zip(block)
-                    .for_each(|(byte, input)| *byte = *input);
-                self.write_bytes(merge_buffer, page.location)?;
-            }
-        }
+        //     self.try_read(page.location, merge_buffer)?;
+
+        //     if block.is_subset_of(&merge_buffer[offset_into_page..page.size]) {
+        //         self.write_bytes(block, addr)?;
+        //     } else {
+        //         self.erase_page(&page)?;
+        //         merge_buffer
+        //             .iter_mut()
+        //             .skip(offset_into_page)
+        //             .zip(block)
+        //             .for_each(|(byte, input)| *byte = *input);
+        //         self.write_bytes(merge_buffer, page.location)?;
+        //     }
+        // }
 
         Ok(())
     }
@@ -506,7 +502,11 @@ impl<'a> ReadWrite for FlashProgramming<'a> {
         (MemoryMap::start(), self.memory_map.end())
     }
 
-    fn try_erase(&mut self) -> nb::Result<(), Self::Error> {
-        self.erase_all_pages().map_err(nb::Error::Other)
+    fn try_erase(&mut self, from: Address, to: Address) -> nb::Result<(), Self::Error> {
+        self.memory_map
+            .pages()
+            .skip_while(|page| !page.contains(from))
+            .take_while(|page| page.contains(to))
+            .try_for_each(|page| self.erase_page(&page).map_err(nb::Error::Other))
     }
 }
