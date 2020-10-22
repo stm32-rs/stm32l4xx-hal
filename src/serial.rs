@@ -14,24 +14,9 @@ use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 
-use crate::stm32::{USART1, USART2};
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::stm32::USART3;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::stm32::UART4;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::stm32::UART5;
-
 use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
 use crate::gpio::{self, Alternate, Floating, Input};
+use crate::pac;
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
 
@@ -203,7 +188,7 @@ macro_rules! hal {
         ),
     )+) => {
         $(
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl<PINS> Serial<pac::$USARTX, PINS> {
                 /// Configures the serial interface and creates the interface
                 /// struct.
                 ///
@@ -220,14 +205,14 @@ macro_rules! hal {
                 /// configuration. (`MAPR` is used to map the USART to the
                 /// corresponding pins. `APBX` is used to reset the USART.)
                 pub fn $usartX(
-                    usart: $USARTX,
+                    usart: pac::$USARTX,
                     pins: PINS,
                     config: Config,
                     clocks: Clocks,
                     apb: &mut $APB,
                 ) -> Self
                 where
-                    PINS: Pins<$USARTX>,
+                    PINS: Pins<pac::$USARTX>,
                 {
                     // enable or reset $USARTX
                     apb.enr().modify(|_, w| w.$usartXen().set_bit());
@@ -374,7 +359,7 @@ macro_rules! hal {
                 }
 
                 /// Splits the `Serial` abstraction into a transmitter and a receiver half
-                pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>) {
+                pub fn split(self) -> (Tx<pac::$USARTX>, Rx<pac::$USARTX>) {
                     (
                         Tx {
                             _usart: PhantomData,
@@ -386,31 +371,31 @@ macro_rules! hal {
                 }
 
                 /// Frees the USART peripheral
-                pub fn release(self) -> ($USARTX, PINS) {
+                pub fn release(self) -> (pac::$USARTX, PINS) {
                     (self.usart, self.pins)
                 }
             }
 
-            impl<PINS> serial::Read<u8> for Serial<$USARTX, PINS> {
+            impl<PINS> serial::Read<u8> for Serial<pac::$USARTX, PINS> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
-                    let mut rx: Rx<$USARTX> = Rx {
+                    let mut rx: Rx<pac::$USARTX> = Rx {
                         _usart: PhantomData,
                     };
                     rx.read()
                 }
             }
 
-            impl serial::Read<u8> for Rx<$USARTX> {
+            impl serial::Read<u8> for Rx<pac::$USARTX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
 
                     // NOTE(unsafe): Only used for atomic writes, to clear error flags.
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
                     Err(if isr.pe().bit_is_set() {
                         icr.write(|w| w.pecf().clear());
@@ -427,7 +412,7 @@ macro_rules! hal {
                     } else if isr.rxne().bit_is_set() {
                         // NOTE(read_volatile) see `write_volatile` below
                         return Ok(unsafe {
-                            ptr::read_volatile(&(*$USARTX::ptr()).rdr as *const _ as *const _)
+                            ptr::read_volatile(&(*pac::$USARTX::ptr()).rdr as *const _ as *const _)
                         });
                     } else {
                         nb::Error::WouldBlock
@@ -435,25 +420,25 @@ macro_rules! hal {
                 }
             }
 
-            impl<PINS> serial::Write<u8> for Serial<$USARTX, PINS> {
+            impl<PINS> serial::Write<u8> for Serial<pac::$USARTX, PINS> {
                 type Error = Error;
 
                 fn flush(&mut self) -> nb::Result<(), Error> {
-                    let mut tx: Tx<$USARTX> = Tx {
+                    let mut tx: Tx<pac::$USARTX> = Tx {
                         _usart: PhantomData,
                     };
                     tx.flush()
                 }
 
                 fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
-                    let mut tx: Tx<$USARTX> = Tx {
+                    let mut tx: Tx<pac::$USARTX> = Tx {
                         _usart: PhantomData,
                     };
                     tx.write(byte)
                 }
             }
 
-            impl serial::Write<u8> for Tx<$USARTX> {
+            impl serial::Write<u8> for Tx<pac::$USARTX> {
                 // NOTE(Void) See section "29.7 USART interrupts"; the only possible errors during
                 // transmission are: clear to send (which is disabled in this case) errors and
                 // framing errors (which only occur in SmartCard mode); neither of these apply to
@@ -462,7 +447,7 @@ macro_rules! hal {
 
                 fn flush(&mut self) -> nb::Result<(), Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
 
                     if isr.tc().bit_is_set() {
                         Ok(())
@@ -473,13 +458,13 @@ macro_rules! hal {
 
                 fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
 
                     if isr.txe().bit_is_set() {
                         // NOTE(unsafe) atomic write to stateless register
                         // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
                         unsafe {
-                            ptr::write_volatile(&(*$USARTX::ptr()).tdr as *const _ as *mut _, byte)
+                            ptr::write_volatile(&(*pac::$USARTX::ptr()).tdr as *const _ as *mut _, byte)
                         }
                         Ok(())
                     } else {
@@ -488,7 +473,7 @@ macro_rules! hal {
                 }
             }
 
-            impl Rx<$USARTX> {
+            impl Rx<pac::$USARTX> {
                 pub fn circ_read<B, H>(
                     &self,
                     mut chan: $rx_chan,
@@ -499,7 +484,7 @@ macro_rules! hal {
                     H: AsMutSlice<Element = u8>
                 {
                     let buf = buffer[0].as_mut_slice();
-                    chan.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).rdr as *const _ as u32 }, false);
+                    chan.set_peripheral_address(unsafe{ &(*pac::$USARTX::ptr()).rdr as *const _ as u32 }, false);
                     chan.set_memory_address(buf.as_ptr() as u32, true);
                     chan.set_transfer_length((buf.len() * 2) as u16);
 
@@ -546,7 +531,7 @@ macro_rules! hal {
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
-                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
 
                     // Setup DMA transfer
                     let buf = &*buffer;
@@ -588,8 +573,8 @@ macro_rules! hal {
                 /// Checks to see if the USART peripheral has detected an idle line and clears
                 /// the flag
                 pub fn is_idle(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
                     if isr.idle().bit_is_set() {
                         if clear {
@@ -604,8 +589,8 @@ macro_rules! hal {
                 /// Checks to see if the USART peripheral has detected an character match and
                 /// clears the flag
                 pub fn is_character_match(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
                     if isr.cmf().bit_is_set() {
                         if clear {
@@ -620,8 +605,8 @@ macro_rules! hal {
                 /// Checks to see if the USART peripheral has detected an receiver timeout and
                 /// clears the flag
                 pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
                     if isr.rtof().bit_is_set() {
                         if clear {
@@ -634,7 +619,7 @@ macro_rules! hal {
                 }
             }
 
-            impl Tx<$USARTX> {
+            impl Tx<pac::$USARTX> {
                 /// Creates a new DMA frame sender
                 pub fn frame_sender<BUFFER, N>(
                     &self,
@@ -644,7 +629,7 @@ macro_rules! hal {
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
-                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
 
                     // Setup DMA
                     channel.set_peripheral_address(&usart.tdr as *const _ as u32, false);
@@ -763,28 +748,28 @@ macro_rules! impl_pin_traits {
                 $(
                     impl private::SealedTx for
                         gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
-                    impl TxPin<$instance> for
+                    impl TxPin<pac::$instance> for
                         gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedRx for
                         gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
-                    impl RxPin<$instance> for
+                    impl RxPin<pac::$instance> for
                         gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedRtsDe for
                         gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
-                    impl RtsDePin<$instance> for
+                    impl RtsDePin<pac::$instance> for
                         gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedCts for
                         gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
-                    impl CtsPin<$instance> for
+                    impl CtsPin<pac::$instance> for
                         gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
             )*
