@@ -30,53 +30,8 @@ use crate::stm32::UART4;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::stm32::UART5;
 
-use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA12, PA2, PA3, PA9};
-use crate::gpio::gpiob::{PB3, PB4, PB6, PB7};
-use crate::gpio::gpiod::{PD3, PD4, PD5, PD6};
-use crate::gpio::{self, Alternate, Floating, Input};
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpioa::PA6;
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpiob::{PB1, PB10, PB11, PB13, PB14};
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpiod::{PD11, PD12, PD2};
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpioc::{PC10, PC11, PC4, PC5};
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpioa::PA15;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpiob::PB5;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpioc::PC12;
-
 use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
+use crate::gpio::{self, Alternate, Floating, Input};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
 
@@ -807,30 +762,30 @@ macro_rules! impl_pin_traits {
             $(
                 $(
                     impl private::SealedTx for
-                        $tx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
                     impl TxPin<$instance> for
-                        $tx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedRx for
-                        $rx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
                     impl RxPin<$instance> for
-                        $rx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedRtsDe for
-                        $rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
                     impl RtsDePin<$instance> for
-                        $rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedCts for
-                        $cts<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
                     impl CtsPin<$instance> for
-                        $cts<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
             )*
         )*
