@@ -117,376 +117,6 @@ pub enum Error {
     Parity,
 }
 
-/// Pins trait for detecting hardware flow control or RS485 mode.
-pub trait Pins<USART> {
-    const FLOWCTL: bool;
-    const DEM: bool;
-}
-
-macro_rules! pins {
-    // Hardware flow control, Rx+Tx+Rts+Cts
-    ($(
-        $(#[$meta:meta])*
-        $USARTX:ident: (
-            $tx:ident,
-            $rx:ident,
-            $rts:ident,
-            $cts:ident,
-            $af:ident
-        ),
-    )+) => {
-        $(
-            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>, $rts<Alternate<$af, Input<Floating>>>, $cts<Alternate<$af, Input<Floating>>>) {
-                const FLOWCTL: bool = true;
-                const DEM: bool = false;
-            }
-        )+
-    };
-
-    // DEM for RS485 mode
-    ($(
-        $(#[$meta:meta])*
-        $USARTX:ident: (
-            $tx:ident,
-            $rx:ident,
-            $de:ident,
-            $af:ident
-        ),
-    )+) => {
-        $(
-            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>, $de<Alternate<$af, Input<Floating>>>) {
-                const FLOWCTL: bool = false;
-                const DEM: bool = true;
-            }
-        )+
-    };
-
-    // No flow control, just Rx+Tx
-    ($(
-        $(#[$meta:meta])*
-        $USARTX:ident: (
-            $tx:ident,
-            $rx:ident,
-            $af:ident
-        ),
-    )+) => {
-        $(
-            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>) {
-                const FLOWCTL: bool = false;
-                const DEM: bool = false;
-            }
-        )+
-    };
-}
-
-// USART 1
-pins! {
-    // USART1: (tx: (PA9, PB6), rx: (PA10, PB7), rts: (PA12, PB3), cts: (PA11, PB4), AF7),
-    USART1: (PA9, PA10, AF7),
-    USART1: (PB6, PA10, AF7),
-    USART1: (PA9, PB7, AF7),
-    USART1: (PB6, PB7, AF7),
-}
-
-pins! {
-    USART1: (PA9, PA10, PA12, PA11, AF7),
-    USART1: (PA9, PA10, PA12, PB4, AF7),
-    USART1: (PA9, PA10, PB3, PA11, AF7),
-    USART1: (PA9, PA10, PB3, PB4, AF7),
-    USART1: (PB6, PA10, PA12, PA11, AF7),
-    USART1: (PB6, PA10, PA12, PB4, AF7),
-    USART1: (PB6, PA10, PB3, PA11, AF7),
-    USART1: (PB6, PA10, PB3, PB4, AF7),
-    USART1: (PA9, PB7, PA12, PA11, AF7),
-    USART1: (PA9, PB7, PA12, PB4, AF7),
-    USART1: (PA9, PB7, PB3, PA11, AF7),
-    USART1: (PA9, PB7, PB3, PB4, AF7),
-    USART1: (PB6, PB7, PA12, PA11, AF7),
-    USART1: (PB6, PB7, PA12, PB4, AF7),
-    USART1: (PB6, PB7, PB3, PA11, AF7),
-    USART1: (PB6, PB7, PB3, PB4, AF7),
-}
-
-pins! {
-    USART1: (PA9, PA10, PA12, AF7),
-    USART1: (PA9, PA10, PB3,  AF7),
-    USART1: (PB6, PA10, PA12, AF7),
-    USART1: (PB6, PA10, PB3,  AF7),
-    USART1: (PA9, PB7,  PA12, AF7),
-    USART1: (PA9, PB7,  PB3,  AF7),
-    USART1: (PB6, PB7,  PA12, AF7),
-    USART1: (PB6, PB7,  PB3,  AF7),
-}
-
-// USART 2
-pins! {
-    // USART2: (tx: (PA2, PD5), rx: (PA3, PD6), rts: (PA1, PD4), cts: (PA0, PD3), AF7),
-    USART2: (PA2, PA3, AF7),
-    USART2: (PD5, PA3, AF7),
-    USART2: (PA2, PD6, AF7),
-    USART2: (PD5, PD6, AF7),
-}
-
-pins! {
-    USART2: (PA2, PA3, PA1, PA0, AF7),
-    USART2: (PA2, PA3, PA1, PD3, AF7),
-    USART2: (PA2, PA3, PD4, PA0, AF7),
-    USART2: (PA2, PA3, PD4, PD3, AF7),
-    USART2: (PD5, PA3, PA1, PA0, AF7),
-    USART2: (PD5, PA3, PA1, PD3, AF7),
-    USART2: (PD5, PA3, PD4, PA0, AF7),
-    USART2: (PD5, PA3, PD4, PD3, AF7),
-    USART2: (PA2, PD6, PA1, PA0, AF7),
-    USART2: (PA2, PD6, PA1, PD3, AF7),
-    USART2: (PA2, PD6, PD4, PA0, AF7),
-    USART2: (PA2, PD6, PD4, PD3, AF7),
-    USART2: (PD5, PD6, PA1, PA0, AF7),
-    USART2: (PD5, PD6, PA1, PD3, AF7),
-    USART2: (PD5, PD6, PD4, PA0, AF7),
-    USART2: (PD5, PD6, PD4, PD3, AF7),
-}
-
-pins! {
-    USART2: (PA2, PA3, PA1, AF7),
-    USART2: (PA2, PA3, PD4, AF7),
-    USART2: (PD5, PA3, PA1, AF7),
-    USART2: (PD5, PA3, PD4, AF7),
-    USART2: (PA2, PD6, PA1, AF7),
-    USART2: (PA2, PD6, PD4, AF7),
-    USART2: (PD5, PD6, PA1, AF7),
-    USART2: (PD5, PD6, PD4, AF7),
-}
-
-// USART 3
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins! {
-    //  USART3: (tx: (PB10, PC4, PC10), rx: (PB11, PC5, PC11), rts: (PB1, PB14, PD2, PD12), cts: (PA6, PB13, PD11), AF7),
-    USART3: (PB10, PB11, AF7),
-    USART3: (PC4, PB11, AF7),
-    USART3: (PC10, PB11, AF7),
-    USART3: (PB10, PC5, AF7),
-    USART3: (PC4, PC5, AF7),
-    USART3: (PC10, PC5, AF7),
-    USART3: (PB10, PC11, AF7),
-    USART3: (PC4, PC11, AF7),
-    USART3: (PC10, PC11, AF7),
-}
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins! {
-    USART3: (PB10, PB11, PB1, PA6, AF7),
-    USART3: (PB10, PB11, PB1, PB13, AF7),
-    USART3: (PB10, PB11, PB1, PD11, AF7),
-    USART3: (PB10, PB11, PB14, PA6, AF7),
-    USART3: (PB10, PB11, PB14, PB13, AF7),
-    USART3: (PB10, PB11, PB14, PD11, AF7),
-    USART3: (PB10, PB11, PD2, PA6, AF7),
-    USART3: (PB10, PB11, PD2, PB13, AF7),
-    USART3: (PB10, PB11, PD2, PD11, AF7),
-    USART3: (PB10, PB11, PD12, PA6, AF7),
-    USART3: (PB10, PB11, PD12, PB13, AF7),
-    USART3: (PB10, PB11, PD12, PD11, AF7),
-    USART3: (PC4, PB11, PB1, PA6, AF7),
-    USART3: (PC4, PB11, PB1, PB13, AF7),
-    USART3: (PC4, PB11, PB1, PD11, AF7),
-    USART3: (PC4, PB11, PB14, PA6, AF7),
-    USART3: (PC4, PB11, PB14, PB13, AF7),
-    USART3: (PC4, PB11, PB14, PD11, AF7),
-    USART3: (PC4, PB11, PD2, PA6, AF7),
-    USART3: (PC4, PB11, PD2, PB13, AF7),
-    USART3: (PC4, PB11, PD2, PD11, AF7),
-    USART3: (PC4, PB11, PD12, PA6, AF7),
-    USART3: (PC4, PB11, PD12, PB13, AF7),
-    USART3: (PC4, PB11, PD12, PD11, AF7),
-    USART3: (PC10, PB11, PB1, PA6, AF7),
-    USART3: (PC10, PB11, PB1, PB13, AF7),
-    USART3: (PC10, PB11, PB1, PD11, AF7),
-    USART3: (PC10, PB11, PB14, PA6, AF7),
-    USART3: (PC10, PB11, PB14, PB13, AF7),
-    USART3: (PC10, PB11, PB14, PD11, AF7),
-    USART3: (PC10, PB11, PD2, PA6, AF7),
-    USART3: (PC10, PB11, PD2, PB13, AF7),
-    USART3: (PC10, PB11, PD2, PD11, AF7),
-    USART3: (PC10, PB11, PD12, PA6, AF7),
-    USART3: (PC10, PB11, PD12, PB13, AF7),
-    USART3: (PC10, PB11, PD12, PD11, AF7),
-    USART3: (PB10, PC5, PB1, PA6, AF7),
-    USART3: (PB10, PC5, PB1, PB13, AF7),
-    USART3: (PB10, PC5, PB1, PD11, AF7),
-    USART3: (PB10, PC5, PB14, PA6, AF7),
-    USART3: (PB10, PC5, PB14, PB13, AF7),
-    USART3: (PB10, PC5, PB14, PD11, AF7),
-    USART3: (PB10, PC5, PD2, PA6, AF7),
-    USART3: (PB10, PC5, PD2, PB13, AF7),
-    USART3: (PB10, PC5, PD2, PD11, AF7),
-    USART3: (PB10, PC5, PD12, PA6, AF7),
-    USART3: (PB10, PC5, PD12, PB13, AF7),
-    USART3: (PB10, PC5, PD12, PD11, AF7),
-    USART3: (PC4, PC5, PB1, PA6, AF7),
-    USART3: (PC4, PC5, PB1, PB13, AF7),
-    USART3: (PC4, PC5, PB1, PD11, AF7),
-    USART3: (PC4, PC5, PB14, PA6, AF7),
-    USART3: (PC4, PC5, PB14, PB13, AF7),
-    USART3: (PC4, PC5, PB14, PD11, AF7),
-    USART3: (PC4, PC5, PD2, PA6, AF7),
-    USART3: (PC4, PC5, PD2, PB13, AF7),
-    USART3: (PC4, PC5, PD2, PD11, AF7),
-    USART3: (PC4, PC5, PD12, PA6, AF7),
-    USART3: (PC4, PC5, PD12, PB13, AF7),
-    USART3: (PC4, PC5, PD12, PD11, AF7),
-    USART3: (PC10, PC5, PB1, PA6, AF7),
-    USART3: (PC10, PC5, PB1, PB13, AF7),
-    USART3: (PC10, PC5, PB1, PD11, AF7),
-    USART3: (PC10, PC5, PB14, PA6, AF7),
-    USART3: (PC10, PC5, PB14, PB13, AF7),
-    USART3: (PC10, PC5, PB14, PD11, AF7),
-    USART3: (PC10, PC5, PD2, PA6, AF7),
-    USART3: (PC10, PC5, PD2, PB13, AF7),
-    USART3: (PC10, PC5, PD2, PD11, AF7),
-    USART3: (PC10, PC5, PD12, PA6, AF7),
-    USART3: (PC10, PC5, PD12, PB13, AF7),
-    USART3: (PC10, PC5, PD12, PD11, AF7),
-    USART3: (PB10, PC11, PB1, PA6, AF7),
-    USART3: (PB10, PC11, PB1, PB13, AF7),
-    USART3: (PB10, PC11, PB1, PD11, AF7),
-    USART3: (PB10, PC11, PB14, PA6, AF7),
-    USART3: (PB10, PC11, PB14, PB13, AF7),
-    USART3: (PB10, PC11, PB14, PD11, AF7),
-    USART3: (PB10, PC11, PD2, PA6, AF7),
-    USART3: (PB10, PC11, PD2, PB13, AF7),
-    USART3: (PB10, PC11, PD2, PD11, AF7),
-    USART3: (PB10, PC11, PD12, PA6, AF7),
-    USART3: (PB10, PC11, PD12, PB13, AF7),
-    USART3: (PB10, PC11, PD12, PD11, AF7),
-    USART3: (PC4, PC11, PB1, PA6, AF7),
-    USART3: (PC4, PC11, PB1, PB13, AF7),
-    USART3: (PC4, PC11, PB1, PD11, AF7),
-    USART3: (PC4, PC11, PB14, PA6, AF7),
-    USART3: (PC4, PC11, PB14, PB13, AF7),
-    USART3: (PC4, PC11, PB14, PD11, AF7),
-    USART3: (PC4, PC11, PD2, PA6, AF7),
-    USART3: (PC4, PC11, PD2, PB13, AF7),
-    USART3: (PC4, PC11, PD2, PD11, AF7),
-    USART3: (PC4, PC11, PD12, PA6, AF7),
-    USART3: (PC4, PC11, PD12, PB13, AF7),
-    USART3: (PC4, PC11, PD12, PD11, AF7),
-    USART3: (PC10, PC11, PB1, PA6, AF7),
-    USART3: (PC10, PC11, PB1, PB13, AF7),
-    USART3: (PC10, PC11, PB1, PD11, AF7),
-    USART3: (PC10, PC11, PB14, PA6, AF7),
-    USART3: (PC10, PC11, PB14, PB13, AF7),
-    USART3: (PC10, PC11, PB14, PD11, AF7),
-    USART3: (PC10, PC11, PD2, PA6, AF7),
-    USART3: (PC10, PC11, PD2, PB13, AF7),
-    USART3: (PC10, PC11, PD2, PD11, AF7),
-    USART3: (PC10, PC11, PD12, PA6, AF7),
-    USART3: (PC10, PC11, PD12, PB13, AF7),
-    USART3: (PC10, PC11, PD12, PD11, AF7),
-}
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins! {
-    USART3: (PB10, PB11, PB1, AF7),
-    USART3: (PB10, PB11, PB14, AF7),
-    USART3: (PB10, PB11, PD2, AF7),
-    USART3: (PB10, PB11, PD12, AF7),
-    USART3: (PC4,  PB11, PB1, AF7),
-    USART3: (PC4,  PB11, PB14, AF7),
-    USART3: (PC4,  PB11, PD2, AF7),
-    USART3: (PC4,  PB11, PD12, AF7),
-    USART3: (PC10, PB11, PB1, AF7),
-    USART3: (PC10, PB11, PB14, AF7),
-    USART3: (PC10, PB11, PD2, AF7),
-    USART3: (PC10, PB11, PD12, AF7),
-    USART3: (PB10, PC5,  PB1, AF7),
-    USART3: (PB10, PC5,  PB14, AF7),
-    USART3: (PB10, PC5,  PD2, AF7),
-    USART3: (PB10, PC5,  PD12, AF7),
-    USART3: (PC4,  PC5,  PB1, AF7),
-    USART3: (PC4,  PC5,  PB14, AF7),
-    USART3: (PC4,  PC5,  PD2, AF7),
-    USART3: (PC4,  PC5,  PD12, AF7),
-    USART3: (PC10, PC5,  PB1, AF7),
-    USART3: (PC10, PC5,  PB14, AF7),
-    USART3: (PC10, PC5,  PD2, AF7),
-    USART3: (PC10, PC5,  PD12, AF7),
-    USART3: (PB10, PC11, PB1, AF7),
-    USART3: (PB10, PC11, PB14, AF7),
-    USART3: (PB10, PC11, PD2, AF7),
-    USART3: (PB10, PC11, PD12, AF7),
-    USART3: (PC4,  PC11, PB1, AF7),
-    USART3: (PC4,  PC11, PB14, AF7),
-    USART3: (PC4,  PC11, PD2, AF7),
-    USART3: (PC4,  PC11, PD12, AF7),
-    USART3: (PC10, PC11, PB1, AF7),
-    USART3: (PC10, PC11, PB14, AF7),
-    USART3: (PC10, PC11, PD2, AF7),
-    USART3: (PC10, PC11, PD12, AF7),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    USART3: (PD8, PD9, PB1, PA6, AF7),
-}
-
-// UART 4
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    // UART4: (tx: (PA0, PC10), rx: (PA1, PC11), rts: (PA15), cts: (PB7), AF8),
-    UART4: (PA0, PA1, AF8),
-    UART4: (PC10, PA1, AF8),
-    UART4: (PA0, PC11, AF8),
-    UART4: (PC10, PC11, AF8),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    UART4: (PA0, PA1, PA15, PB7, AF8),
-    UART4: (PC10, PA1, PA15, PB7, AF8),
-    UART4: (PA0, PC11, PA15, PB7, AF8),
-    UART4: (PC10, PC11, PA15, PB7, AF8),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    UART4: (PA0, PA1, PA15, AF8),
-    UART4: (PC10, PA1, PA15, AF8),
-    UART4: (PA0, PC11, PA15, AF8),
-    UART4: (PC10, PC11, PA15, AF8),
-}
-
-// UART 5
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    // UART5: (tx: (PC12), rx: (PD2), rts: (PB4), cts: (PB5), AF8),
-    UART5: (PC12, PD2, AF8),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    UART5: (PC12, PD2, PB4, PB5, AF8),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    UART5: (PC12, PD2, PB4, AF8),
-}
-
 /// USART parity settings
 pub enum Parity {
     /// No parity
@@ -1150,4 +780,168 @@ where
             .last();
         Ok(())
     }
+}
+
+/// Marks pins as being as being TX pins for the given USART instance
+pub trait TxPin<Instance>: private::SealedTx {}
+
+/// Marks pins as being as being RX pins for the given USART instance
+pub trait RxPin<Instance>: private::SealedRx {}
+
+/// Marks pins as being as being RTS pins for the given USART instance
+pub trait RtsDePin<Instance>: private::SealedRtsDe {}
+
+/// Marks pins as being as being CTS pins for the given USART instance
+pub trait CtsPin<Instance>: private::SealedCts {}
+
+macro_rules! impl_pin_traits {
+    (
+        $(
+            $instance:ident: {
+                $(
+                    $af:ident: {
+                        TX: $($tx:ident),*;
+                        RX: $($rx:ident),*;
+                        RTS_DE: $($rts_de:ident),*;
+                        CTS: $($cts:ident),*;
+                    }
+                )*
+            }
+        )*
+    ) => {
+        $(
+            $(
+                $(
+                    impl private::SealedTx for
+                        $tx<Alternate<$af, Input<Floating>>> {}
+                    impl TxPin<$instance> for
+                        $tx<Alternate<$af, Input<Floating>>> {}
+                )*
+
+                $(
+                    impl private::SealedRx for
+                        $rx<Alternate<$af, Input<Floating>>> {}
+                    impl RxPin<$instance> for
+                        $rx<Alternate<$af, Input<Floating>>> {}
+                )*
+
+                $(
+                    impl private::SealedRtsDe for
+                        $rts_de<Alternate<$af, Input<Floating>>> {}
+                    impl RtsDePin<$instance> for
+                        $rts_de<Alternate<$af, Input<Floating>>> {}
+                )*
+
+                $(
+                    impl private::SealedCts for
+                        $cts<Alternate<$af, Input<Floating>>> {}
+                    impl CtsPin<$instance> for
+                        $cts<Alternate<$af, Input<Floating>>> {}
+                )*
+            )*
+        )*
+    };
+}
+
+impl_pin_traits! {
+    USART1: {
+        AF7: {
+            TX: PA9, PB6;
+            RX: PA10, PB7;
+            RTS_DE: PA12, PB3;
+            CTS: PA11, PB4;
+        }
+    }
+    USART2: {
+        AF7: {
+            TX: PA2, PD5;
+            RX: PA3, PD6;
+            RTS_DE: PA1, PD4;
+            CTS: PA0, PD3;
+        }
+    }
+}
+
+#[cfg(any(
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+impl_pin_traits! {
+    USART3: {
+        AF7: {
+            TX: PB10, PC4, PC10, PD8;
+            RX: PB11, PC5, PC11, PD9;
+            RTS_DE: PB1, PB14, PD2, PD12;
+            CTS: PA6, PB13, PD11;
+        }
+    }
+}
+
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+impl_pin_traits! {
+    UART4: {
+        AF8: {
+            TX: PA0, PC10;
+            RX: PA1, PC11;
+            RTS_DE: PA15;
+            CTS: PB7;
+        }
+    }
+    UART5: {
+        AF8: {
+            TX: PC12;
+            RX: PD2;
+            RTS_DE: PB4;
+            CTS: PB5;
+        }
+    }
+}
+
+/// Pins trait for detecting hardware flow control or RS485 mode.
+pub trait Pins<USART> {
+    const FLOWCTL: bool;
+    const DEM: bool;
+}
+
+// No flow control, just Rx+Tx
+impl<Instance, Tx, Rx> Pins<Instance> for (Tx, Rx)
+where
+    Tx: TxPin<Instance>,
+    Rx: RxPin<Instance>,
+{
+    const FLOWCTL: bool = false;
+    const DEM: bool = false;
+}
+
+// Hardware flow control, Rx+Tx+Rts+Cts
+impl<Instance, Tx, Rx, Rts, Cts> Pins<Instance> for (Tx, Rx, Rts, Cts)
+where
+    Tx: TxPin<Instance>,
+    Rx: RxPin<Instance>,
+    Rts: RtsDePin<Instance>,
+    Cts: CtsPin<Instance>,
+{
+    const FLOWCTL: bool = true;
+    const DEM: bool = false;
+}
+
+// DEM for RS485 mode
+impl<Instance, Tx, Rx, De> Pins<Instance> for (Tx, Rx, De)
+where
+    Tx: TxPin<Instance>,
+    Rx: RxPin<Instance>,
+    De: RtsDePin<Instance>,
+{
+    const FLOWCTL: bool = false;
+    const DEM: bool = true;
+}
+
+/// Contains supertraits used to restrict which traits users can implement
+mod private {
+    pub trait SealedTx {}
+    pub trait SealedRx {}
+    pub trait SealedRtsDe {}
+    pub trait SealedCts {}
 }
