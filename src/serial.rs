@@ -33,7 +33,7 @@ use crate::stm32::UART5;
 use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA12, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB3, PB4, PB6, PB7};
 use crate::gpio::gpiod::{PD3, PD4, PD5, PD6};
-use crate::gpio::{Alternate, Floating, Input, AF7};
+use crate::gpio::{self, Alternate, Floating, Input};
 
 #[cfg(any(
     feature = "stm32l4x2",
@@ -75,12 +75,6 @@ use crate::gpio::gpiob::PB5;
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::gpio::gpioc::PC12;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpiod::{PD8, PD9};
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::AF8;
 
 use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
 use crate::rcc::{Clocks, APB1R1, APB2};
@@ -813,30 +807,30 @@ macro_rules! impl_pin_traits {
             $(
                 $(
                     impl private::SealedTx for
-                        $tx<Alternate<$af, Input<Floating>>> {}
+                        $tx<Alternate<gpio::$af, Input<Floating>>> {}
                     impl TxPin<$instance> for
-                        $tx<Alternate<$af, Input<Floating>>> {}
+                        $tx<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedRx for
-                        $rx<Alternate<$af, Input<Floating>>> {}
+                        $rx<Alternate<gpio::$af, Input<Floating>>> {}
                     impl RxPin<$instance> for
-                        $rx<Alternate<$af, Input<Floating>>> {}
+                        $rx<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedRtsDe for
-                        $rts_de<Alternate<$af, Input<Floating>>> {}
+                        $rts_de<Alternate<gpio::$af, Input<Floating>>> {}
                     impl RtsDePin<$instance> for
-                        $rts_de<Alternate<$af, Input<Floating>>> {}
+                        $rts_de<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
                     impl private::SealedCts for
-                        $cts<Alternate<$af, Input<Floating>>> {}
+                        $cts<Alternate<gpio::$af, Input<Floating>>> {}
                     impl CtsPin<$instance> for
-                        $cts<Alternate<$af, Input<Floating>>> {}
+                        $cts<Alternate<gpio::$af, Input<Floating>>> {}
                 )*
             )*
         )*
