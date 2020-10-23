@@ -79,16 +79,15 @@ codegen-units = 1
 debug = true
 lto = true
 
-[[example]]
-name = "usb_serial"
-required-features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [[example]]
 name = "qspi"
 required-features = ["rt", "stm32l4x5"]
 
-
 [[example]]
 name = "rtic_frame_serial_dma"
 required-features = ["rt", "stm32l4x2"]
 
+[[example]]
+name = "usb_serial"
+required-features = ["rt", "stm32l4x2", "stm32-usbd"]
