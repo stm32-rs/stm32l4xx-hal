@@ -6,10 +6,12 @@
 //! don't have it shouldn't attempt to use it. Relevant info is on user-manual level.
 
 use core::ptr;
+use core::sync::atomic;
+use core::sync::atomic::Ordering;
 
-use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
-
+use crate::dma::{Receive, RxDma, Transfer, TransferPayload, W};
 use crate::gpio::{Alternate, Floating, Input, AF5};
+use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
@@ -366,3 +368,133 @@ pins!(SPI2, AF5,
     SCK: [PB13, PB10, PD1],
     MISO: [PB14, PC2, PD3],
     MOSI: [PB15, PC3, PD4]);
+
+pub struct SpiPayload<SPI, PINS> {
+    spi: Spi<SPI, PINS>,
+}
+
+pub type SpiRxDma<SPI, PINS, CHANNEL> = RxDma<SpiPayload<SPI, PINS>, CHANNEL>;
+
+macro_rules! spi_rx_dma {
+    ($SPIi:ident, $TCi:ident, $chanX:ident, $mapX:ident) => {
+        impl<PINS> Receive for SpiRxDma<$SPIi, PINS, $TCi> {
+            type RxChannel = $TCi;
+            type TransmittedWord = ();
+        }
+
+        impl<PINS> Spi<$SPIi, PINS> {
+            pub fn with_rx_dma(self, channel: $TCi) -> SpiRxDma<$SPIi, PINS, $TCi> {
+                let payload = SpiPayload { spi: self };
+                SpiRxDma { payload, channel }
+            }
+        }
+
+        impl<PINS> SpiRxDma<$SPIi, PINS, $TCi> {
+            pub fn split(mut self) -> (Spi<$SPIi, PINS>, $TCi) {
+                self.stop();
+                (self.payload.spi, self.channel)
+            }
+        }
+
+        impl<PINS> TransferPayload for SpiRxDma<$SPIi, PINS, $TCi> {
+            fn start(&mut self) {
+                self.payload
+                    .spi
+                    .spi
+                    .cr2
+                    .modify(|_, w| w.rxdmaen().set_bit());
+                self.channel.start();
+            }
+            fn stop(&mut self) {
+                self.channel.stop();
+                self.payload
+                    .spi
+                    .spi
+                    .cr2
+                    .modify(|_, w| w.rxdmaen().clear_bit());
+            }
+        }
+
+        impl<B, PINS> crate::dma::ReadDma<B, u8> for SpiRxDma<$SPIi, PINS, $TCi>
+        where
+            B: StaticWriteBuffer<Word = u8>,
+        {
+            fn read(mut self, mut buffer: B) -> Transfer<W, B, Self> {
+                // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
+                // until the end of the transfer.
+                let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                self.channel.set_peripheral_address(
+                    unsafe { &(*$SPIi::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                self.channel.set_memory_address(ptr as u32, true);
+                self.channel.set_transfer_length(len as u16);
+
+                self.channel.cselr().modify(|_, w| w.$chanX().$mapX());
+
+                atomic::compiler_fence(Ordering::Release);
+                self.channel.ccr().modify(|_, w| {
+                    w
+                        // memory to memory mode disabled
+                        .mem2mem()
+                        .clear_bit()
+                        // medium channel priority level
+                        .pl()
+                        .medium()
+                        // 8-bit memory size
+                        .msize()
+                        .bits8()
+                        // 8-bit peripheral size
+                        .psize()
+                        .bits8()
+                        // circular mode disabled
+                        .circ()
+                        .clear_bit()
+                        // write to memory
+                        .dir()
+                        .clear_bit()
+                });
+                atomic::compiler_fence(Ordering::Release);
+                self.start();
+
+                Transfer::w(buffer, self)
+            }
+        }
+    };
+}
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+use embedded_dma::StaticWriteBuffer;
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+use crate::dma::dma1::C2;
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+spi_rx_dma!(SPI1, C2, c2s, map1);
+
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::dma::dma1::C4;
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+spi_rx_dma!(SPI2, C4, c4s, map1);
+
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::dma::dma2::C1;
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+spi_rx_dma!(SPI3, C1, c1s, map3);

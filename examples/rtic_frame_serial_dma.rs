@@ -12,6 +12,7 @@
 
 use hal::{
     dma::{self, DMAFrame, FrameReader, FrameSender},
+    pac::USART2,
     prelude::*,
     rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
     serial::{self, Config, Serial},
@@ -23,6 +24,8 @@ use heapless::{
 use panic_halt as _;
 use rtic::app;
 use stm32l4xx_hal as hal;
+use stm32l4xx_hal::dma::{RxDma, TxDma};
+use stm32l4xx_hal::serial::{Rx, Tx};
 
 // The pool gives out `Box<DMAFrame>`s that can hold 8 bytes
 pool!(
@@ -34,8 +37,8 @@ pool!(
 const APP: () = {
     struct Resources {
         rx: serial::Rx<hal::stm32::USART2>,
-        frame_reader: FrameReader<Box<SerialDMAPool>, dma::dma1::C6, 8>,
-        frame_sender: FrameSender<Box<SerialDMAPool>, dma::dma1::C7, 8>,
+        frame_reader: FrameReader<Box<SerialDMAPool>, RxDma<Rx<USART2>, dma::dma1::C6>, 8>,
+        frame_sender: FrameSender<Box<SerialDMAPool>, TxDma<Tx<USART2>, dma::dma1::C7>, 8>,
     }
 
     #[init]
@@ -88,13 +91,13 @@ const APP: () = {
         let fr = if let Some(dma_buf) = SerialDMAPool::alloc() {
             // Set up the first reader frame
             let dma_buf = dma_buf.init(DMAFrame::new());
-            serial_rx.frame_read(dma_ch6, dma_buf)
+            serial_rx.with_dma(dma_ch6).frame_read(dma_buf)
         } else {
             unreachable!()
         };
 
         // Serial frame sender (DMA based)
-        let fs: FrameSender<Box<SerialDMAPool>, _, 8> = serial_tx.frame_sender(dma_ch7);
+        let fs: FrameSender<Box<SerialDMAPool>, _, 8> = serial_tx.with_dma(dma_ch7).frame_sender();
 
         init::LateResources {
             rx: serial_rx,
