@@ -517,6 +517,8 @@ pub struct Config {
     oversampling: Oversampling,
     character_match: Option<u8>,
     receiver_timeout: Option<u32>,
+    disable_overrun: bool,
+    onebit_sampling: bool,
 }
 
 impl Config {
@@ -570,6 +572,18 @@ impl Config {
         self.receiver_timeout = Some(receiver_timeout);
         self
     }
+
+    /// Disable overrun detection
+    pub fn with_overrun_disabled(mut self) -> Self {
+        self.disable_overrun = true;
+        self
+    }
+
+    /// Change to onebit sampling
+    pub fn with_onebit_sampling(mut self) -> Self {
+        self.onebit_sampling = true;
+        self
+    }
 }
 
 impl Default for Config {
@@ -582,6 +596,8 @@ impl Default for Config {
             oversampling: Oversampling::Over16,
             character_match: None,
             receiver_timeout: None,
+            disable_overrun: false,
+            onebit_sampling: false,
         }
     }
 }
@@ -692,7 +708,17 @@ macro_rules! hal {
                     }
 
                     // Enable One bit sampling method
-                    usart.cr3.modify(|_, w| w.onebit().set_bit());
+                    usart.cr3.modify(|_, w| {
+                        if config.onebit_sampling {
+                            w.onebit().set_bit();
+                        }
+
+                        if config.disable_overrun {
+                            w.ovrdis().set_bit();
+                        }
+
+                        w
+                    });
 
                     // Configure parity and word length
                     // Unlike most uart devices, the "word length" of this usart device refers to
@@ -1044,6 +1070,39 @@ macro_rules! hal {
                     } else {
                         false
                     }
+                }
+
+                /// This will go through each error that has been detected. Call until it returns
+                /// `Ok(())`.
+                pub fn check_for_error(&mut self) -> Result<(), Error> {
+                    // NOTE(unsafe) atomic read with no side effects
+                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+
+                    // NOTE(unsafe): Only used for atomic writes, to clear error flags.
+                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+
+                    if isr.pe().bit_is_set() {
+                        icr.write(|w| w.pecf().clear());
+                        return Err(Error::Parity);
+                    }
+
+                    if isr.fe().bit_is_set() {
+                        icr.write(|w| w.fecf().clear());
+                        return Err(Error::Framing);
+                    }
+
+                    if isr.nf().bit_is_set() {
+                        icr.write(|w| w.ncf().clear());
+                        return Err(Error::Noise);
+                    }
+
+                    if isr.ore().bit_is_set() {
+                        icr.write(|w| w.orecf().clear());
+                        return Err(Error::Overrun);
+                    }
+
+                    Ok(())
+
                 }
             }
 
