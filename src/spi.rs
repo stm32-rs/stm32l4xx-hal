@@ -88,17 +88,7 @@ macro_rules! hal {
                             w.frxth().set_bit().ds().bits(0b111).ssoe().clear_bit()
                         });
 
-                    let br = match clocks.$pclkX().0 / freq.into().0 {
-                        0 => unreachable!(),
-                        1..=2 => 0b000,
-                        3..=5 => 0b001,
-                        6..=11 => 0b010,
-                        12..=23 => 0b011,
-                        24..=39 => 0b100,
-                        40..=95 => 0b101,
-                        96..=191 => 0b110,
-                        _ => 0b111,
-                    };
+                    let br = Self::compute_baud_rate(clocks.$pclkX(), freq.into());
 
                     // CPHA: phase
                     // CPOL: polarity
@@ -134,6 +124,31 @@ macro_rules! hal {
                     });
 
                     Spi { spi, pins }
+                }
+
+                /// Change the baud rate of the SPI
+                pub fn reclock<F>(&mut self, freq: F, clocks: Clocks)
+                    where F: Into<Hertz>
+                {
+                    self.spi.cr1.modify(|_, w| w.spe().clear_bit());
+                    self.spi.cr1.modify(|_, w| {
+                        unsafe {w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq.into()));}
+                        w.spe().set_bit()
+                    });
+                }
+
+                fn compute_baud_rate(clocks: Hertz, freq: Hertz) -> u8 {
+                    match clocks.0 / freq.0 {
+                        0 => unreachable!(),
+                        1..=2 => 0b000,
+                        3..=5 => 0b001,
+                        6..=11 => 0b010,
+                        12..=23 => 0b011,
+                        24..=39 => 0b100,
+                        40..=95 => 0b101,
+                        96..=191 => 0b110,
+                        _ => 0b111,
+                    }
                 }
 
                 /// Releases the SPI peripheral and associated pins
@@ -191,7 +206,12 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 use crate::gpio::gpiod::*;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 use crate::gpio::gpiog::*;
@@ -256,15 +276,30 @@ pins!(SPI3, AF6,
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 use crate::stm32::SPI2;
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 hal! {
     SPI2: (spi2, APB1R1, spi2en, spi2rst, pclk1),
 }
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 pins!(SPI2, AF5,
     SCK: [PB13, PB10, PD1],
     MISO: [PB14, PC2, PD3],
