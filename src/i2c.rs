@@ -325,6 +325,8 @@ hal! {
 
 use crate::gpio::gpioa::{PA10, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
+
+#[cfg(feature = "stm32l4x5")]
 use crate::gpio::gpioc::{PC0, PC1};
 
 pins!(I2C1, AF4,
