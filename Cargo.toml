@@ -79,16 +79,31 @@ codegen-units = 1
 debug = true
 lto = true
 
+
 [[example]]
-name = "usb_serial"
-required-features = ["rt", "stm32l4x2", "stm32-usbd"]
+name = "irq_button"
+required-features = ["rt"]
 
 [[example]]
 name = "qspi"
 required-features = ["rt", "stm32l4x5"]
 
+[[example]]
+name = "rng"
+required-features = ["unproven"]
+
+[[example]]
+name = "rtc_alarm"
+required-features = ["rt"]
 
 [[example]]
 name = "rtic_frame_serial_dma"
 required-features = ["rt", "stm32l4x2"]
 
+[[example]]
+name = "timer"
+required-features = ["rt"]
+
+[[example]]
+name = "usb_serial"
+required-features = ["rt", "stm32l4x2", "stm32-usbd"]
