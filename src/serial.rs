@@ -14,75 +14,9 @@ use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 
-use crate::stm32::{USART1, USART2};
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::stm32::USART3;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::stm32::UART4;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::stm32::UART5;
-
-use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA12, PA2, PA3, PA9};
-use crate::gpio::gpiob::{PB3, PB4, PB6, PB7};
-use crate::gpio::gpiod::{PD3, PD4, PD5, PD6};
-use crate::gpio::{Alternate, Floating, Input, AF7};
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpioa::PA6;
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpiob::{PB1, PB10, PB11, PB13, PB14};
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpiod::{PD11, PD12, PD2};
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-use crate::gpio::gpioc::{PC10, PC11, PC4, PC5};
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpioa::PA15;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpiob::PB5;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpioc::PC12;
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::gpiod::{PD8, PD9};
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-use crate::gpio::AF8;
-
 use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
+use crate::gpio::{self, Alternate, Floating, Input};
+use crate::pac;
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
 
@@ -115,376 +49,6 @@ pub enum Error {
     Overrun,
     /// Parity check error
     Parity,
-}
-
-/// Pins trait for detecting hardware flow control or RS485 mode.
-pub trait Pins<USART> {
-    const FLOWCTL: bool;
-    const DEM: bool;
-}
-
-macro_rules! pins {
-    // Hardware flow control, Rx+Tx+Rts+Cts
-    ($(
-        $(#[$meta:meta])*
-        $USARTX:ident: (
-            $tx:ident,
-            $rx:ident,
-            $rts:ident,
-            $cts:ident,
-            $af:ident
-        ),
-    )+) => {
-        $(
-            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>, $rts<Alternate<$af, Input<Floating>>>, $cts<Alternate<$af, Input<Floating>>>) {
-                const FLOWCTL: bool = true;
-                const DEM: bool = false;
-            }
-        )+
-    };
-
-    // DEM for RS485 mode
-    ($(
-        $(#[$meta:meta])*
-        $USARTX:ident: (
-            $tx:ident,
-            $rx:ident,
-            $de:ident,
-            $af:ident
-        ),
-    )+) => {
-        $(
-            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>, $de<Alternate<$af, Input<Floating>>>) {
-                const FLOWCTL: bool = false;
-                const DEM: bool = true;
-            }
-        )+
-    };
-
-    // No flow control, just Rx+Tx
-    ($(
-        $(#[$meta:meta])*
-        $USARTX:ident: (
-            $tx:ident,
-            $rx:ident,
-            $af:ident
-        ),
-    )+) => {
-        $(
-            impl Pins<$USARTX> for ($tx<Alternate<$af, Input<Floating>>>, $rx<Alternate<$af, Input<Floating>>>) {
-                const FLOWCTL: bool = false;
-                const DEM: bool = false;
-            }
-        )+
-    };
-}
-
-// USART 1
-pins! {
-    // USART1: (tx: (PA9, PB6), rx: (PA10, PB7), rts: (PA12, PB3), cts: (PA11, PB4), AF7),
-    USART1: (PA9, PA10, AF7),
-    USART1: (PB6, PA10, AF7),
-    USART1: (PA9, PB7, AF7),
-    USART1: (PB6, PB7, AF7),
-}
-
-pins! {
-    USART1: (PA9, PA10, PA12, PA11, AF7),
-    USART1: (PA9, PA10, PA12, PB4, AF7),
-    USART1: (PA9, PA10, PB3, PA11, AF7),
-    USART1: (PA9, PA10, PB3, PB4, AF7),
-    USART1: (PB6, PA10, PA12, PA11, AF7),
-    USART1: (PB6, PA10, PA12, PB4, AF7),
-    USART1: (PB6, PA10, PB3, PA11, AF7),
-    USART1: (PB6, PA10, PB3, PB4, AF7),
-    USART1: (PA9, PB7, PA12, PA11, AF7),
-    USART1: (PA9, PB7, PA12, PB4, AF7),
-    USART1: (PA9, PB7, PB3, PA11, AF7),
-    USART1: (PA9, PB7, PB3, PB4, AF7),
-    USART1: (PB6, PB7, PA12, PA11, AF7),
-    USART1: (PB6, PB7, PA12, PB4, AF7),
-    USART1: (PB6, PB7, PB3, PA11, AF7),
-    USART1: (PB6, PB7, PB3, PB4, AF7),
-}
-
-pins! {
-    USART1: (PA9, PA10, PA12, AF7),
-    USART1: (PA9, PA10, PB3,  AF7),
-    USART1: (PB6, PA10, PA12, AF7),
-    USART1: (PB6, PA10, PB3,  AF7),
-    USART1: (PA9, PB7,  PA12, AF7),
-    USART1: (PA9, PB7,  PB3,  AF7),
-    USART1: (PB6, PB7,  PA12, AF7),
-    USART1: (PB6, PB7,  PB3,  AF7),
-}
-
-// USART 2
-pins! {
-    // USART2: (tx: (PA2, PD5), rx: (PA3, PD6), rts: (PA1, PD4), cts: (PA0, PD3), AF7),
-    USART2: (PA2, PA3, AF7),
-    USART2: (PD5, PA3, AF7),
-    USART2: (PA2, PD6, AF7),
-    USART2: (PD5, PD6, AF7),
-}
-
-pins! {
-    USART2: (PA2, PA3, PA1, PA0, AF7),
-    USART2: (PA2, PA3, PA1, PD3, AF7),
-    USART2: (PA2, PA3, PD4, PA0, AF7),
-    USART2: (PA2, PA3, PD4, PD3, AF7),
-    USART2: (PD5, PA3, PA1, PA0, AF7),
-    USART2: (PD5, PA3, PA1, PD3, AF7),
-    USART2: (PD5, PA3, PD4, PA0, AF7),
-    USART2: (PD5, PA3, PD4, PD3, AF7),
-    USART2: (PA2, PD6, PA1, PA0, AF7),
-    USART2: (PA2, PD6, PA1, PD3, AF7),
-    USART2: (PA2, PD6, PD4, PA0, AF7),
-    USART2: (PA2, PD6, PD4, PD3, AF7),
-    USART2: (PD5, PD6, PA1, PA0, AF7),
-    USART2: (PD5, PD6, PA1, PD3, AF7),
-    USART2: (PD5, PD6, PD4, PA0, AF7),
-    USART2: (PD5, PD6, PD4, PD3, AF7),
-}
-
-pins! {
-    USART2: (PA2, PA3, PA1, AF7),
-    USART2: (PA2, PA3, PD4, AF7),
-    USART2: (PD5, PA3, PA1, AF7),
-    USART2: (PD5, PA3, PD4, AF7),
-    USART2: (PA2, PD6, PA1, AF7),
-    USART2: (PA2, PD6, PD4, AF7),
-    USART2: (PD5, PD6, PA1, AF7),
-    USART2: (PD5, PD6, PD4, AF7),
-}
-
-// USART 3
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins! {
-    //  USART3: (tx: (PB10, PC4, PC10), rx: (PB11, PC5, PC11), rts: (PB1, PB14, PD2, PD12), cts: (PA6, PB13, PD11), AF7),
-    USART3: (PB10, PB11, AF7),
-    USART3: (PC4, PB11, AF7),
-    USART3: (PC10, PB11, AF7),
-    USART3: (PB10, PC5, AF7),
-    USART3: (PC4, PC5, AF7),
-    USART3: (PC10, PC5, AF7),
-    USART3: (PB10, PC11, AF7),
-    USART3: (PC4, PC11, AF7),
-    USART3: (PC10, PC11, AF7),
-}
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins! {
-    USART3: (PB10, PB11, PB1, PA6, AF7),
-    USART3: (PB10, PB11, PB1, PB13, AF7),
-    USART3: (PB10, PB11, PB1, PD11, AF7),
-    USART3: (PB10, PB11, PB14, PA6, AF7),
-    USART3: (PB10, PB11, PB14, PB13, AF7),
-    USART3: (PB10, PB11, PB14, PD11, AF7),
-    USART3: (PB10, PB11, PD2, PA6, AF7),
-    USART3: (PB10, PB11, PD2, PB13, AF7),
-    USART3: (PB10, PB11, PD2, PD11, AF7),
-    USART3: (PB10, PB11, PD12, PA6, AF7),
-    USART3: (PB10, PB11, PD12, PB13, AF7),
-    USART3: (PB10, PB11, PD12, PD11, AF7),
-    USART3: (PC4, PB11, PB1, PA6, AF7),
-    USART3: (PC4, PB11, PB1, PB13, AF7),
-    USART3: (PC4, PB11, PB1, PD11, AF7),
-    USART3: (PC4, PB11, PB14, PA6, AF7),
-    USART3: (PC4, PB11, PB14, PB13, AF7),
-    USART3: (PC4, PB11, PB14, PD11, AF7),
-    USART3: (PC4, PB11, PD2, PA6, AF7),
-    USART3: (PC4, PB11, PD2, PB13, AF7),
-    USART3: (PC4, PB11, PD2, PD11, AF7),
-    USART3: (PC4, PB11, PD12, PA6, AF7),
-    USART3: (PC4, PB11, PD12, PB13, AF7),
-    USART3: (PC4, PB11, PD12, PD11, AF7),
-    USART3: (PC10, PB11, PB1, PA6, AF7),
-    USART3: (PC10, PB11, PB1, PB13, AF7),
-    USART3: (PC10, PB11, PB1, PD11, AF7),
-    USART3: (PC10, PB11, PB14, PA6, AF7),
-    USART3: (PC10, PB11, PB14, PB13, AF7),
-    USART3: (PC10, PB11, PB14, PD11, AF7),
-    USART3: (PC10, PB11, PD2, PA6, AF7),
-    USART3: (PC10, PB11, PD2, PB13, AF7),
-    USART3: (PC10, PB11, PD2, PD11, AF7),
-    USART3: (PC10, PB11, PD12, PA6, AF7),
-    USART3: (PC10, PB11, PD12, PB13, AF7),
-    USART3: (PC10, PB11, PD12, PD11, AF7),
-    USART3: (PB10, PC5, PB1, PA6, AF7),
-    USART3: (PB10, PC5, PB1, PB13, AF7),
-    USART3: (PB10, PC5, PB1, PD11, AF7),
-    USART3: (PB10, PC5, PB14, PA6, AF7),
-    USART3: (PB10, PC5, PB14, PB13, AF7),
-    USART3: (PB10, PC5, PB14, PD11, AF7),
-    USART3: (PB10, PC5, PD2, PA6, AF7),
-    USART3: (PB10, PC5, PD2, PB13, AF7),
-    USART3: (PB10, PC5, PD2, PD11, AF7),
-    USART3: (PB10, PC5, PD12, PA6, AF7),
-    USART3: (PB10, PC5, PD12, PB13, AF7),
-    USART3: (PB10, PC5, PD12, PD11, AF7),
-    USART3: (PC4, PC5, PB1, PA6, AF7),
-    USART3: (PC4, PC5, PB1, PB13, AF7),
-    USART3: (PC4, PC5, PB1, PD11, AF7),
-    USART3: (PC4, PC5, PB14, PA6, AF7),
-    USART3: (PC4, PC5, PB14, PB13, AF7),
-    USART3: (PC4, PC5, PB14, PD11, AF7),
-    USART3: (PC4, PC5, PD2, PA6, AF7),
-    USART3: (PC4, PC5, PD2, PB13, AF7),
-    USART3: (PC4, PC5, PD2, PD11, AF7),
-    USART3: (PC4, PC5, PD12, PA6, AF7),
-    USART3: (PC4, PC5, PD12, PB13, AF7),
-    USART3: (PC4, PC5, PD12, PD11, AF7),
-    USART3: (PC10, PC5, PB1, PA6, AF7),
-    USART3: (PC10, PC5, PB1, PB13, AF7),
-    USART3: (PC10, PC5, PB1, PD11, AF7),
-    USART3: (PC10, PC5, PB14, PA6, AF7),
-    USART3: (PC10, PC5, PB14, PB13, AF7),
-    USART3: (PC10, PC5, PB14, PD11, AF7),
-    USART3: (PC10, PC5, PD2, PA6, AF7),
-    USART3: (PC10, PC5, PD2, PB13, AF7),
-    USART3: (PC10, PC5, PD2, PD11, AF7),
-    USART3: (PC10, PC5, PD12, PA6, AF7),
-    USART3: (PC10, PC5, PD12, PB13, AF7),
-    USART3: (PC10, PC5, PD12, PD11, AF7),
-    USART3: (PB10, PC11, PB1, PA6, AF7),
-    USART3: (PB10, PC11, PB1, PB13, AF7),
-    USART3: (PB10, PC11, PB1, PD11, AF7),
-    USART3: (PB10, PC11, PB14, PA6, AF7),
-    USART3: (PB10, PC11, PB14, PB13, AF7),
-    USART3: (PB10, PC11, PB14, PD11, AF7),
-    USART3: (PB10, PC11, PD2, PA6, AF7),
-    USART3: (PB10, PC11, PD2, PB13, AF7),
-    USART3: (PB10, PC11, PD2, PD11, AF7),
-    USART3: (PB10, PC11, PD12, PA6, AF7),
-    USART3: (PB10, PC11, PD12, PB13, AF7),
-    USART3: (PB10, PC11, PD12, PD11, AF7),
-    USART3: (PC4, PC11, PB1, PA6, AF7),
-    USART3: (PC4, PC11, PB1, PB13, AF7),
-    USART3: (PC4, PC11, PB1, PD11, AF7),
-    USART3: (PC4, PC11, PB14, PA6, AF7),
-    USART3: (PC4, PC11, PB14, PB13, AF7),
-    USART3: (PC4, PC11, PB14, PD11, AF7),
-    USART3: (PC4, PC11, PD2, PA6, AF7),
-    USART3: (PC4, PC11, PD2, PB13, AF7),
-    USART3: (PC4, PC11, PD2, PD11, AF7),
-    USART3: (PC4, PC11, PD12, PA6, AF7),
-    USART3: (PC4, PC11, PD12, PB13, AF7),
-    USART3: (PC4, PC11, PD12, PD11, AF7),
-    USART3: (PC10, PC11, PB1, PA6, AF7),
-    USART3: (PC10, PC11, PB1, PB13, AF7),
-    USART3: (PC10, PC11, PB1, PD11, AF7),
-    USART3: (PC10, PC11, PB14, PA6, AF7),
-    USART3: (PC10, PC11, PB14, PB13, AF7),
-    USART3: (PC10, PC11, PB14, PD11, AF7),
-    USART3: (PC10, PC11, PD2, PA6, AF7),
-    USART3: (PC10, PC11, PD2, PB13, AF7),
-    USART3: (PC10, PC11, PD2, PD11, AF7),
-    USART3: (PC10, PC11, PD12, PA6, AF7),
-    USART3: (PC10, PC11, PD12, PB13, AF7),
-    USART3: (PC10, PC11, PD12, PD11, AF7),
-}
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins! {
-    USART3: (PB10, PB11, PB1, AF7),
-    USART3: (PB10, PB11, PB14, AF7),
-    USART3: (PB10, PB11, PD2, AF7),
-    USART3: (PB10, PB11, PD12, AF7),
-    USART3: (PC4,  PB11, PB1, AF7),
-    USART3: (PC4,  PB11, PB14, AF7),
-    USART3: (PC4,  PB11, PD2, AF7),
-    USART3: (PC4,  PB11, PD12, AF7),
-    USART3: (PC10, PB11, PB1, AF7),
-    USART3: (PC10, PB11, PB14, AF7),
-    USART3: (PC10, PB11, PD2, AF7),
-    USART3: (PC10, PB11, PD12, AF7),
-    USART3: (PB10, PC5,  PB1, AF7),
-    USART3: (PB10, PC5,  PB14, AF7),
-    USART3: (PB10, PC5,  PD2, AF7),
-    USART3: (PB10, PC5,  PD12, AF7),
-    USART3: (PC4,  PC5,  PB1, AF7),
-    USART3: (PC4,  PC5,  PB14, AF7),
-    USART3: (PC4,  PC5,  PD2, AF7),
-    USART3: (PC4,  PC5,  PD12, AF7),
-    USART3: (PC10, PC5,  PB1, AF7),
-    USART3: (PC10, PC5,  PB14, AF7),
-    USART3: (PC10, PC5,  PD2, AF7),
-    USART3: (PC10, PC5,  PD12, AF7),
-    USART3: (PB10, PC11, PB1, AF7),
-    USART3: (PB10, PC11, PB14, AF7),
-    USART3: (PB10, PC11, PD2, AF7),
-    USART3: (PB10, PC11, PD12, AF7),
-    USART3: (PC4,  PC11, PB1, AF7),
-    USART3: (PC4,  PC11, PB14, AF7),
-    USART3: (PC4,  PC11, PD2, AF7),
-    USART3: (PC4,  PC11, PD12, AF7),
-    USART3: (PC10, PC11, PB1, AF7),
-    USART3: (PC10, PC11, PB14, AF7),
-    USART3: (PC10, PC11, PD2, AF7),
-    USART3: (PC10, PC11, PD12, AF7),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    USART3: (PD8, PD9, PB1, PA6, AF7),
-}
-
-// UART 4
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    // UART4: (tx: (PA0, PC10), rx: (PA1, PC11), rts: (PA15), cts: (PB7), AF8),
-    UART4: (PA0, PA1, AF8),
-    UART4: (PC10, PA1, AF8),
-    UART4: (PA0, PC11, AF8),
-    UART4: (PC10, PC11, AF8),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    UART4: (PA0, PA1, PA15, PB7, AF8),
-    UART4: (PC10, PA1, PA15, PB7, AF8),
-    UART4: (PA0, PC11, PA15, PB7, AF8),
-    UART4: (PC10, PC11, PA15, PB7, AF8),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    UART4: (PA0, PA1, PA15, AF8),
-    UART4: (PC10, PA1, PA15, AF8),
-    UART4: (PA0, PC11, PA15, AF8),
-    UART4: (PC10, PC11, PA15, AF8),
-}
-
-// UART 5
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    // UART5: (tx: (PC12), rx: (PD2), rts: (PB4), cts: (PB5), AF8),
-    UART5: (PC12, PD2, AF8),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    UART5: (PC12, PD2, PB4, PB5, AF8),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins! {
-    UART5: (PC12, PD2, PB4, AF8),
 }
 
 /// USART parity settings
@@ -624,7 +188,7 @@ macro_rules! hal {
         ),
     )+) => {
         $(
-            impl<PINS> Serial<$USARTX, PINS> {
+            impl<PINS> Serial<pac::$USARTX, PINS> {
                 /// Configures the serial interface and creates the interface
                 /// struct.
                 ///
@@ -641,14 +205,14 @@ macro_rules! hal {
                 /// configuration. (`MAPR` is used to map the USART to the
                 /// corresponding pins. `APBX` is used to reset the USART.)
                 pub fn $usartX(
-                    usart: $USARTX,
+                    usart: pac::$USARTX,
                     pins: PINS,
                     config: Config,
                     clocks: Clocks,
                     apb: &mut $APB,
                 ) -> Self
                 where
-                    PINS: Pins<$USARTX>,
+                    PINS: Pins<pac::$USARTX>,
                 {
                     // enable or reset $USARTX
                     apb.enr().modify(|_, w| w.$usartXen().set_bit());
@@ -795,7 +359,7 @@ macro_rules! hal {
                 }
 
                 /// Splits the `Serial` abstraction into a transmitter and a receiver half
-                pub fn split(self) -> (Tx<$USARTX>, Rx<$USARTX>) {
+                pub fn split(self) -> (Tx<pac::$USARTX>, Rx<pac::$USARTX>) {
                     (
                         Tx {
                             _usart: PhantomData,
@@ -807,31 +371,31 @@ macro_rules! hal {
                 }
 
                 /// Frees the USART peripheral
-                pub fn release(self) -> ($USARTX, PINS) {
+                pub fn release(self) -> (pac::$USARTX, PINS) {
                     (self.usart, self.pins)
                 }
             }
 
-            impl<PINS> serial::Read<u8> for Serial<$USARTX, PINS> {
+            impl<PINS> serial::Read<u8> for Serial<pac::$USARTX, PINS> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
-                    let mut rx: Rx<$USARTX> = Rx {
+                    let mut rx: Rx<pac::$USARTX> = Rx {
                         _usart: PhantomData,
                     };
                     rx.read()
                 }
             }
 
-            impl serial::Read<u8> for Rx<$USARTX> {
+            impl serial::Read<u8> for Rx<pac::$USARTX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
 
                     // NOTE(unsafe): Only used for atomic writes, to clear error flags.
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
                     Err(if isr.pe().bit_is_set() {
                         icr.write(|w| w.pecf().clear());
@@ -848,7 +412,7 @@ macro_rules! hal {
                     } else if isr.rxne().bit_is_set() {
                         // NOTE(read_volatile) see `write_volatile` below
                         return Ok(unsafe {
-                            ptr::read_volatile(&(*$USARTX::ptr()).rdr as *const _ as *const _)
+                            ptr::read_volatile(&(*pac::$USARTX::ptr()).rdr as *const _ as *const _)
                         });
                     } else {
                         nb::Error::WouldBlock
@@ -856,25 +420,25 @@ macro_rules! hal {
                 }
             }
 
-            impl<PINS> serial::Write<u8> for Serial<$USARTX, PINS> {
+            impl<PINS> serial::Write<u8> for Serial<pac::$USARTX, PINS> {
                 type Error = Error;
 
                 fn flush(&mut self) -> nb::Result<(), Error> {
-                    let mut tx: Tx<$USARTX> = Tx {
+                    let mut tx: Tx<pac::$USARTX> = Tx {
                         _usart: PhantomData,
                     };
                     tx.flush()
                 }
 
                 fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
-                    let mut tx: Tx<$USARTX> = Tx {
+                    let mut tx: Tx<pac::$USARTX> = Tx {
                         _usart: PhantomData,
                     };
                     tx.write(byte)
                 }
             }
 
-            impl serial::Write<u8> for Tx<$USARTX> {
+            impl serial::Write<u8> for Tx<pac::$USARTX> {
                 // NOTE(Void) See section "29.7 USART interrupts"; the only possible errors during
                 // transmission are: clear to send (which is disabled in this case) errors and
                 // framing errors (which only occur in SmartCard mode); neither of these apply to
@@ -883,7 +447,7 @@ macro_rules! hal {
 
                 fn flush(&mut self) -> nb::Result<(), Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
 
                     if isr.tc().bit_is_set() {
                         Ok(())
@@ -894,13 +458,13 @@ macro_rules! hal {
 
                 fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
                     // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
 
                     if isr.txe().bit_is_set() {
                         // NOTE(unsafe) atomic write to stateless register
                         // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
                         unsafe {
-                            ptr::write_volatile(&(*$USARTX::ptr()).tdr as *const _ as *mut _, byte)
+                            ptr::write_volatile(&(*pac::$USARTX::ptr()).tdr as *const _ as *mut _, byte)
                         }
                         Ok(())
                     } else {
@@ -909,7 +473,7 @@ macro_rules! hal {
                 }
             }
 
-            impl Rx<$USARTX> {
+            impl Rx<pac::$USARTX> {
                 pub fn circ_read<B, H>(
                     &self,
                     mut chan: $rx_chan,
@@ -920,7 +484,7 @@ macro_rules! hal {
                     H: AsMutSlice<Element = u8>
                 {
                     let buf = buffer[0].as_mut_slice();
-                    chan.set_peripheral_address(unsafe{ &(*$USARTX::ptr()).rdr as *const _ as u32 }, false);
+                    chan.set_peripheral_address(unsafe{ &(*pac::$USARTX::ptr()).rdr as *const _ as u32 }, false);
                     chan.set_memory_address(buf.as_ptr() as u32, true);
                     chan.set_transfer_length((buf.len() * 2) as u16);
 
@@ -967,7 +531,7 @@ macro_rules! hal {
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
-                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
 
                     // Setup DMA transfer
                     let buf = &*buffer;
@@ -1009,8 +573,8 @@ macro_rules! hal {
                 /// Checks to see if the USART peripheral has detected an idle line and clears
                 /// the flag
                 pub fn is_idle(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
                     if isr.idle().bit_is_set() {
                         if clear {
@@ -1025,8 +589,8 @@ macro_rules! hal {
                 /// Checks to see if the USART peripheral has detected an character match and
                 /// clears the flag
                 pub fn is_character_match(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
                     if isr.cmf().bit_is_set() {
                         if clear {
@@ -1041,8 +605,8 @@ macro_rules! hal {
                 /// Checks to see if the USART peripheral has detected an receiver timeout and
                 /// clears the flag
                 pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
                     if isr.rtof().bit_is_set() {
                         if clear {
@@ -1055,7 +619,7 @@ macro_rules! hal {
                 }
             }
 
-            impl Tx<$USARTX> {
+            impl Tx<pac::$USARTX> {
                 /// Creates a new DMA frame sender
                 pub fn frame_sender<BUFFER, N>(
                     &self,
@@ -1065,7 +629,7 @@ macro_rules! hal {
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                         N: ArrayLength<MaybeUninit<u8>>,
                 {
-                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
 
                     // Setup DMA
                     channel.set_peripheral_address(&usart.tdr as *const _ as u32, false);
@@ -1150,4 +714,168 @@ where
             .last();
         Ok(())
     }
+}
+
+/// Marks pins as being as being TX pins for the given USART instance
+pub trait TxPin<Instance>: private::SealedTx {}
+
+/// Marks pins as being as being RX pins for the given USART instance
+pub trait RxPin<Instance>: private::SealedRx {}
+
+/// Marks pins as being as being RTS pins for the given USART instance
+pub trait RtsDePin<Instance>: private::SealedRtsDe {}
+
+/// Marks pins as being as being CTS pins for the given USART instance
+pub trait CtsPin<Instance>: private::SealedCts {}
+
+macro_rules! impl_pin_traits {
+    (
+        $(
+            $instance:ident: {
+                $(
+                    $af:ident: {
+                        TX: $($tx:ident),*;
+                        RX: $($rx:ident),*;
+                        RTS_DE: $($rts_de:ident),*;
+                        CTS: $($cts:ident),*;
+                    }
+                )*
+            }
+        )*
+    ) => {
+        $(
+            $(
+                $(
+                    impl private::SealedTx for
+                        gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+                    impl TxPin<pac::$instance> for
+                        gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+                )*
+
+                $(
+                    impl private::SealedRx for
+                        gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
+                    impl RxPin<pac::$instance> for
+                        gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
+                )*
+
+                $(
+                    impl private::SealedRtsDe for
+                        gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+                    impl RtsDePin<pac::$instance> for
+                        gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+                )*
+
+                $(
+                    impl private::SealedCts for
+                        gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
+                    impl CtsPin<pac::$instance> for
+                        gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
+                )*
+            )*
+        )*
+    };
+}
+
+impl_pin_traits! {
+    USART1: {
+        AF7: {
+            TX: PA9, PB6;
+            RX: PA10, PB7;
+            RTS_DE: PA12, PB3;
+            CTS: PA11, PB4;
+        }
+    }
+    USART2: {
+        AF7: {
+            TX: PA2, PD5;
+            RX: PA3, PD6;
+            RTS_DE: PA1, PD4;
+            CTS: PA0, PD3;
+        }
+    }
+}
+
+#[cfg(any(
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+impl_pin_traits! {
+    USART3: {
+        AF7: {
+            TX: PB10, PC4, PC10, PD8;
+            RX: PB11, PC5, PC11, PD9;
+            RTS_DE: PB1, PB14, PD2, PD12;
+            CTS: PA6, PB13, PD11;
+        }
+    }
+}
+
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+impl_pin_traits! {
+    UART4: {
+        AF8: {
+            TX: PA0, PC10;
+            RX: PA1, PC11;
+            RTS_DE: PA15;
+            CTS: PB7;
+        }
+    }
+    UART5: {
+        AF8: {
+            TX: PC12;
+            RX: PD2;
+            RTS_DE: PB4;
+            CTS: PB5;
+        }
+    }
+}
+
+/// Pins trait for detecting hardware flow control or RS485 mode.
+pub trait Pins<USART> {
+    const FLOWCTL: bool;
+    const DEM: bool;
+}
+
+// No flow control, just Rx+Tx
+impl<Instance, Tx, Rx> Pins<Instance> for (Tx, Rx)
+where
+    Tx: TxPin<Instance>,
+    Rx: RxPin<Instance>,
+{
+    const FLOWCTL: bool = false;
+    const DEM: bool = false;
+}
+
+// Hardware flow control, Rx+Tx+Rts+Cts
+impl<Instance, Tx, Rx, Rts, Cts> Pins<Instance> for (Tx, Rx, Rts, Cts)
+where
+    Tx: TxPin<Instance>,
+    Rx: RxPin<Instance>,
+    Rts: RtsDePin<Instance>,
+    Cts: CtsPin<Instance>,
+{
+    const FLOWCTL: bool = true;
+    const DEM: bool = false;
+}
+
+// DEM for RS485 mode
+impl<Instance, Tx, Rx, De> Pins<Instance> for (Tx, Rx, De)
+where
+    Tx: TxPin<Instance>,
+    Rx: RxPin<Instance>,
+    De: RtsDePin<Instance>,
+{
+    const FLOWCTL: bool = false;
+    const DEM: bool = true;
+}
+
+/// Contains supertraits used to restrict which traits users can implement
+mod private {
+    pub trait SealedTx {}
+    pub trait SealedRx {}
+    pub trait SealedRtsDe {}
+    pub trait SealedCts {}
 }
