@@ -363,6 +363,16 @@ macro_rules! hal {
                     }
                 }
 
+                /// Check for, and return, any errors
+                ///
+                /// See [`Rx::check_for_error`].
+                pub fn check_for_error() -> Result<(), Error> {
+                    let mut rx: Rx<pac::$USARTX> = Rx {
+                        _usart: PhantomData,
+                    };
+                    rx.check_for_error()
+                }
+
                 /// Stops listening for an interrupt event
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
@@ -417,32 +427,19 @@ macro_rules! hal {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
+                    self.check_for_error()?;
+
                     // NOTE(unsafe) atomic read with no side effects
                     let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
 
-                    // NOTE(unsafe): Only used for atomic writes, to clear error flags.
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    Err(if isr.pe().bit_is_set() {
-                        icr.write(|w| w.pecf().clear());
-                        nb::Error::Other(Error::Parity)
-                    } else if isr.fe().bit_is_set() {
-                        icr.write(|w| w.fecf().clear());
-                        nb::Error::Other(Error::Framing)
-                    } else if isr.nf().bit_is_set() {
-                        icr.write(|w| w.ncf().clear());
-                        nb::Error::Other(Error::Noise)
-                    } else if isr.ore().bit_is_set() {
-                        icr.write(|w| w.orecf().clear());
-                        nb::Error::Other(Error::Overrun)
-                    } else if isr.rxne().bit_is_set() {
+                    if isr.rxne().bit_is_set() {
                         // NOTE(read_volatile) see `write_volatile` below
                         return Ok(unsafe {
                             ptr::read_volatile(&(*pac::$USARTX::ptr()).rdr as *const _ as *const _)
                         });
-                    } else {
-                        nb::Error::WouldBlock
-                    })
+                    }
+
+                    Err(nb::Error::WouldBlock)
                 }
             }
 
@@ -642,6 +639,38 @@ macro_rules! hal {
                     } else {
                         false
                     }
+                }
+
+                /// Check for, and return, any errors
+                ///
+                /// The `read` methods can only return one error at a time, but
+                /// there might actually be multiple errors. This method will
+                /// return and clear a currently active error. Once it returns
+                /// `Ok(())`, it should be possible to proceed with the next
+                /// `read` call unimpeded.
+                pub fn check_for_error(&mut self) -> Result<(), Error> {
+                    // NOTE(unsafe): Only used for atomic access.
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.pe().bit_is_set() {
+                        icr.write(|w| w.pecf().clear());
+                        return Err(Error::Parity);
+                    }
+                    if isr.fe().bit_is_set() {
+                        icr.write(|w| w.fecf().clear());
+                        return Err(Error::Framing);
+                    }
+                    if isr.nf().bit_is_set() {
+                        icr.write(|w| w.ncf().clear());
+                        return Err(Error::Noise);
+                    }
+                    if isr.ore().bit_is_set() {
+                        icr.write(|w| w.orecf().clear());
+                        return Err(Error::Overrun);
+                    }
+
+                    Ok(())
                 }
             }
 
