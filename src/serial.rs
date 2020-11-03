@@ -1071,39 +1071,6 @@ macro_rules! hal {
                         false
                     }
                 }
-
-                /// This will go through each error that has been detected. Call until it returns
-                /// `Ok(())`.
-                pub fn check_for_error(&mut self) -> Result<(), Error> {
-                    // NOTE(unsafe) atomic read with no side effects
-                    let isr = unsafe { (*$USARTX::ptr()).isr.read() };
-
-                    // NOTE(unsafe): Only used for atomic writes, to clear error flags.
-                    let icr = unsafe { &(*$USARTX::ptr()).icr };
-
-                    if isr.pe().bit_is_set() {
-                        icr.write(|w| w.pecf().clear());
-                        return Err(Error::Parity);
-                    }
-
-                    if isr.fe().bit_is_set() {
-                        icr.write(|w| w.fecf().clear());
-                        return Err(Error::Framing);
-                    }
-
-                    if isr.nf().bit_is_set() {
-                        icr.write(|w| w.ncf().clear());
-                        return Err(Error::Noise);
-                    }
-
-                    if isr.ore().bit_is_set() {
-                        icr.write(|w| w.orecf().clear());
-                        return Err(Error::Overrun);
-                    }
-
-                    Ok(())
-
-                }
             }
 
             impl Tx<$USARTX> {
