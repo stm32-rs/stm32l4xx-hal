@@ -89,6 +89,8 @@ pub struct Config {
     oversampling: Oversampling,
     character_match: Option<u8>,
     receiver_timeout: Option<u32>,
+    disable_overrun: bool,
+    onebit_sampling: bool,
 }
 
 impl Config {
@@ -142,6 +144,18 @@ impl Config {
         self.receiver_timeout = Some(receiver_timeout);
         self
     }
+
+    /// Disable overrun detection
+    pub fn with_overrun_disabled(mut self) -> Self {
+        self.disable_overrun = true;
+        self
+    }
+
+    /// Change to onebit sampling
+    pub fn with_onebit_sampling(mut self) -> Self {
+        self.onebit_sampling = true;
+        self
+    }
 }
 
 impl Default for Config {
@@ -154,6 +168,8 @@ impl Default for Config {
             oversampling: Oversampling::Over16,
             character_match: None,
             receiver_timeout: None,
+            disable_overrun: false,
+            onebit_sampling: false,
         }
     }
 }
@@ -264,7 +280,17 @@ macro_rules! hal {
                     }
 
                     // Enable One bit sampling method
-                    usart.cr3.modify(|_, w| w.onebit().set_bit());
+                    usart.cr3.modify(|_, w| {
+                        if config.onebit_sampling {
+                            w.onebit().set_bit();
+                        }
+
+                        if config.disable_overrun {
+                            w.ovrdis().set_bit();
+                        }
+
+                        w
+                    });
 
                     // Configure parity and word length
                     // Unlike most uart devices, the "word length" of this usart device refers to
