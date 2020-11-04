@@ -115,8 +115,10 @@ macro_rules! hal {
                     apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
                     let frequency = frequency.into();
-                    let psc = clocks.pclk1().0 / frequency.0;
+                    let psc = clocks.pclk1().0 / frequency.0 - 1;
 
+                    debug_assert!(clocks.pclk1().0 >= frequency.0);
+                    debug_assert!(frequency.0 > 0);
                     debug_assert!(psc <= core::u16::MAX.into());
 
                     tim.psc.write(|w| w.psc().bits((psc as u16).into()) );
