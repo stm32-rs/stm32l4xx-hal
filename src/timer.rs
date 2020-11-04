@@ -24,7 +24,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $timXen:ident, $timXrst:ident, $apb:ident),)+) => {
+    ($($TIM:ident: ($tim:ident, $frname:ident, $timXen:ident, $timXrst:ident, $apb:ident, $width:ident),)+) => {
         $(
             impl Periodic for Timer<$TIM> {}
 
@@ -97,6 +97,61 @@ macro_rules! hal {
                     timer
                 }
 
+                /// Start a free running, monotonic, timer running at some specific frequency.
+                ///
+                /// May generate events on overflow of the timer.
+                pub fn $frname<T>(
+                    tim: $TIM,
+                    clocks: Clocks,
+                    frequency: T,
+                    event_on_overflow: bool,
+                    apb: &mut $apb,
+                ) -> Self
+                where
+                    T: Into<Hertz>,
+                {
+                    apb.enr().modify(|_, w| w.$timXen().set_bit());
+                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
+                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+
+                    let frequency = frequency.into();
+                    let psc = clocks.pclk1().0 / frequency.0;
+
+                    debug_assert!(psc <= core::u16::MAX.into());
+
+                    tim.psc.write(|w| w.psc().bits((psc as u16).into()) );
+                    let max = core::$width::MAX;
+                    tim.arr.write(|w| unsafe { w.bits(max.into()) });
+
+                    // Trigger an update event to load the prescaler value to the clock
+                    tim.egr.write(|w| w.ug().set_bit());
+
+
+                    // The above line raises an update event which will indicate
+                    // that the timer is already finished. Since this is not the case,
+                    // it should be cleared
+                    tim.sr.modify(|_, w| w.uif().clear_bit());
+
+                    // start counter
+                    tim.cr1.modify(|_, w| {
+                        w.cen().set_bit();
+
+                        if event_on_overflow {
+                            w.udis().clear_bit();
+                        } else {
+                            w.udis().set_bit();
+                        }
+
+                        w
+                    });
+
+                    Timer {
+                        clocks,
+                        tim,
+                        timeout: frequency,
+                    }
+                }
+
                 /// Starts listening for an `event`
                 pub fn listen(&mut self, event: Event) {
                     match event {
@@ -137,6 +192,12 @@ macro_rules! hal {
                     self.tim.sr.modify(|_, w| w.uif().clear_bit());
                 }
 
+                /// Get the count of the timer.
+                pub fn count() -> $width {
+                    let cnt = unsafe { (*$TIM::ptr()).cnt.read() };
+                    cnt.cnt().bits()
+                }
+
                 /// Releases the TIM peripheral
                 pub fn free(self) -> $TIM {
                     // pause counter
@@ -149,16 +210,16 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM2: (tim2, tim2en, tim2rst, APB1R1),
-    TIM6: (tim6, tim6en, tim6rst, APB1R1),
-    TIM7: (tim7, tim7en, tim7rst, APB1R1),
-    TIM15: (tim15, tim15en, tim15rst, APB2),
-    TIM16: (tim16, tim16en, tim16rst, APB2),
+    TIM2:  (tim2, free_running_tim2, tim2en, tim2rst, APB1R1, u32),
+    TIM6:  (tim6, free_running_tim6, tim6en, tim6rst, APB1R1, u16),
+    TIM7:  (tim7, free_running_tim7, tim7en, tim7rst, APB1R1, u16),
+    TIM15: (tim15, free_running_tim15, tim15en, tim15rst, APB2, u16),
+    TIM16: (tim16, free_running_tim16, tim16en, tim16rst, APB2, u16),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    TIM4: (tim4, tim4en, tim4rst, APB1R1),
-    TIM5: (tim5, tim5en, tim5rst, APB1R1),
-    TIM17: (tim17, tim17en, tim17rst, APB2),
+    TIM4:  (tim4, free_running_tim4, tim4en, tim4rst, APB1R1, u16),
+    TIM5:  (tim5, free_running_tim5, tim5en, tim5rst, APB1R1, u16),
+    TIM17: (tim17, free_running_tim17, tim17en, tim17rst, APB2, u16),
 }
