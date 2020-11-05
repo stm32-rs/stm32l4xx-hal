@@ -39,6 +39,9 @@ pub struct PushPull;
 /// Open drain output (type state)
 pub struct OpenDrain;
 
+/// Analog mode (type state)
+pub struct Analog;
+
 /// GPIO Pin speed selection
 pub enum Speed {
     Low = 0,
@@ -184,7 +187,7 @@ macro_rules! gpio {
 
                 Alternate, AlternateOD,
                 AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
-                Floating, GpioExt, Input, OpenDrain, Output, Edge, ExtiPin,
+                Floating, GpioExt, Input, OpenDrain, Output, Analog, Edge, ExtiPin,
                 PullDown, PullUp, PushPull, State, Speed,
             };
 
@@ -523,6 +526,29 @@ macro_rules! gpio {
                         res
                     }
 
+                        /// Configures the pin to operate as analog.
+                        /// This mode is suitable when the pin is connected to the DAC or ADC,
+                        /// COMP, OPAMP.
+                        pub fn into_analog(
+                        self,
+                        moder: &mut MODER,
+                        pupdr: &mut PUPDR,
+                    ) -> $PXi<Analog> {
+                        let offset = 2 * $i;
+
+                        // analog mode
+                        let mode = 0b11;
+                        moder.moder().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b11 << offset)) | (mode << offset))
+                        });
+
+                        // no pull-up or pull-down
+                        pupdr
+                            .pupdr()
+                            .modify(|r, w| unsafe { w.bits(r.bits() & !(0b11 << offset)) });
+                        $PXi { _mode: PhantomData }
+                    }
+
                     /// Configures the pin to operate as an touch sample
                     pub fn into_touch_sample(
                         self,
@@ -731,6 +757,10 @@ macro_rules! gpio {
                 }
             )+
         }
+
+        pub use $gpiox::{
+            $($PXi,)*
+        };
     }
 }
 
