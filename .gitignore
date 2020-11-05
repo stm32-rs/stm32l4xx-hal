@@ -2,5 +2,9 @@
 **/*.rs.bk
 Cargo.lock
 
+# cargo-embed
+/Embed.local.toml
+/logs
+
 # Visual Studio Code
 /.vscode
