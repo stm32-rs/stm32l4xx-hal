@@ -3,6 +3,8 @@
 use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{Clocks, APB1R1};
+#[cfg(feature = "stm32l4x5")]
+use crate::stm32::I2C3;
 use crate::stm32::{i2c1, I2C1, I2C2};
 use crate::time::Hertz;
 use cast::u8;
@@ -75,8 +77,8 @@ impl StartCondition {
         use StartCondition::*;
         match self {
             FirstAndLast => w.start().start().autoend().automatic(),
-            First => w.start().start().reload().not_competed(),
-            Middle => w.start().no_start().reload().not_competed(),
+            First => w.start().start().reload().not_completed(),
+            Middle => w.start().no_start().reload().not_completed(),
             Last => w.start().no_start().autoend().automatic(),
         }
     }
@@ -538,10 +540,3 @@ pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);
 
 #[cfg(feature = "stm32l4x5")]
 pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
-
-#[cfg(feature = "stm32l4x5")]
-use crate::stm32::I2C3;
-#[cfg(feature = "stm32l4x5")]
-hal! {
-    I2C3: (i2c3, i2c3en, i2c3rst),
-}
