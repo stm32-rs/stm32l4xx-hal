@@ -85,6 +85,7 @@ impl RccExt for RCC {
                 pll_source: None,
                 pll_config: None,
             },
+            rb: self,
         }
     }
 }
@@ -111,6 +112,8 @@ pub struct Rcc {
     pub csr: CSR,
     /// Clock recovery RC register
     pub crrcr: CRRCR,
+    /// RegisterBlock
+    pub rb: RCC,
 }
 
 /// CSR Control/Status Register

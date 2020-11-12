@@ -135,3 +135,7 @@ impl Instant {
 /// Time unit
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub struct MilliSeconds(pub u32);
+
+/// Time unit
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
+pub struct MicroSeconds(pub u32);
