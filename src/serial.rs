@@ -496,6 +496,9 @@ macro_rules! hal {
                 }
             }
 
+            impl embedded_hal::blocking::serial::write::Default<u8>
+                for Tx<pac::$USARTX> {}
+
             impl Rx<pac::$USARTX> {
                 pub fn circ_read<B, H>(
                     &self,
