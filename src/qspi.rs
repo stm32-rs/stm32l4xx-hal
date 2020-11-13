@@ -406,7 +406,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .sshift()
                 .bit(config.sample_shift == SampleShift::HalfACycle)
         });
-        while self.qspi.sr.read().busy().bit_is_set() {}
+        while self.is_busy() {}
 
         // Modify DCR with flash size, CSHT and clock mode
         self.qspi.dcr.modify(|_, w| unsafe {
@@ -417,11 +417,11 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .ckmode()
                 .bit(config.clock_mode == ClockMode::Mode3)
         });
-        while self.qspi.sr.read().busy().bit_is_set() {}
+        while self.is_busy() {}
 
         // Enable QSPI
         self.qspi.cr.modify(|_, w| w.en().set_bit());
-        while self.qspi.sr.read().busy().bit_is_set() {}
+        while self.is_busy() {}
 
         self.config = config;
     }
@@ -430,6 +430,13 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         if self.is_busy() {
             return Err(QspiError::Busy);
         }
+
+        // If double data rate change shift
+        if command.double_data_rate {
+            self.qspi.cr.modify(|_, w| w.sshift().bit(false));
+        }
+        while self.is_busy() {}
+
         // Clear the transfer complete flag.
         self.qspi.fcr.modify(|_, w| w.ctcf().set_bit());
 
@@ -484,18 +491,12 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             absize = a_bytes.len() as u8 - 1;
 
             self.qspi.abr.write(|w| {
-                let mut i = 0;
                 let mut reg_byte: u32 = 0;
-                for element in a_bytes.iter().rev() {
-                    reg_byte = reg_byte | ((*element as u32) << i * 8);
-                    i += 1;
+                for (i, element) in a_bytes.iter().rev().enumerate() {
+                    reg_byte |= (*element as u32) << (i * 8);
                 }
                 unsafe { w.alternate().bits(reg_byte) }
             });
-        }
-
-        if command.double_data_rate {
-            self.qspi.cr.modify(|_, w| w.sshift().bit(false));
         }
 
         // Write CCR register with instruction etc.
@@ -560,14 +561,18 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 // OVERFLOW
             }
         }
-        self.qspi.fcr.write(|w| w.ctcf().set_bit());
-
+        // If double data rate set shift back to original and if busy abort.
         if command.double_data_rate {
+            if self.is_busy() {
+                self.abort_transmission();
+            }
             self.qspi.cr.modify(|_, w| {
                 w.sshift()
                     .bit(self.config.sample_shift == SampleShift::HalfACycle)
             });
         }
+        while self.is_busy() {}
+        self.qspi.fcr.write(|w| w.ctcf().set_bit());
         Ok(())
     }
 
@@ -629,11 +634,9 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             absize = a_bytes.len() as u8 - 1;
 
             self.qspi.abr.write(|w| {
-                let mut i = 0;
                 let mut reg_byte: u32 = 0;
-                for element in a_bytes.iter().rev() {
-                    reg_byte = reg_byte | ((*element as u32) << i * 8);
-                    i += 1;
+                for (i, element) in a_bytes.iter().rev().enumerate() {
+                    reg_byte |= (*element as u32) << (i * 8);
                 }
                 unsafe { w.alternate().bits(reg_byte) }
             });
@@ -690,6 +693,8 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         while self.qspi.sr.read().tcf().bit_is_clear() {}
 
         self.qspi.fcr.write(|w| w.ctcf().set_bit());
+
+        if self.is_busy() {}
 
         if command.double_data_rate {
             self.qspi.cr.modify(|_, w| {

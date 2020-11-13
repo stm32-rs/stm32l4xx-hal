@@ -9,7 +9,7 @@ use crate::stm32::{TIM1, TIM15, TIM2};
 
 use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA2, PA3, PA8, PA9};
 use crate::gpio::gpiob::PB14;
-use crate::gpio::{Alternate, AlternateOD, Floating, Input, Output, PushPull, AF1};
+use crate::gpio::{Alternate, AlternateOD, Floating, Input, Output, PushPull, AF1, AF14};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
@@ -24,17 +24,17 @@ pub trait Pins<TIM> {
 }
 
 macro_rules! pins_to_channels_mapping {
-    ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),* ); )+ ) => {
+    ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($AF:ident),+ ); )+ ) => {
         $(
             #[allow(unused_parens)]
-            impl Pins<$TIMX> for ($($PINX<Alternate<AF1, Output<PushPull>>>),+)
+            impl Pins<$TIMX> for ($($PINX<Alternate<$AF, Output<PushPull>>>),+)
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(Pwm<$TIMX, $ENCHX>),+);
             }
 
             #[allow(unused_parens)]
-            impl Pins<$TIMX> for ($($PINX<AlternateOD<AF1, Input<Floating>>>),+)
+            impl Pins<$TIMX> for ($($PINX<AlternateOD<$AF, Input<Floating>>>),+)
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(Pwm<$TIMX, $ENCHX>),+);
@@ -45,41 +45,48 @@ macro_rules! pins_to_channels_mapping {
 
 pins_to_channels_mapping! {
     // TIM1
-    TIM1: (PA8, PA9, PA10, PA11), (C1, C2, C3, C4);
-    TIM1: (PA9, PA10, PA11), (C2, C3, C4);
-    TIM1: (PA8, PA10, PA11), (C1, C3, C4);
-    TIM1: (PA8, PA9, PA11), (C1, C2, C4);
-    TIM1: (PA8, PA9, PA10), (C1, C2, C3);
-    TIM1: (PA10, PA11), (C3, C4);
-    TIM1: (PA9, PA11), (C2, C4);
-    TIM1: (PA9, PA10), (C2, C3);
-    TIM1: (PA8, PA11), (C1, C4);
-    TIM1: (PA8, PA10), (C1, C3);
-    TIM1: (PA8, PA9), (C1, C2);
-    TIM1: (PA8), (C1);
-    TIM1: (PA9), (C2);
-    TIM1: (PA10), (C3);
-    TIM1: (PA11), (C4);
+    TIM1: (PA8, PA9, PA10, PA11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
+    TIM1: (PA9, PA10, PA11), (C2, C3, C4), (AF1, AF1, AF1);
+    TIM1: (PA8, PA10, PA11), (C1, C3, C4), (AF1, AF1, AF1);
+    TIM1: (PA8, PA9, PA11), (C1, C2, C4), (AF1, AF1, AF1);
+    TIM1: (PA8, PA9, PA10), (C1, C2, C3), (AF1, AF1, AF1);
+    TIM1: (PA10, PA11), (C3, C4), (AF1, AF1);
+    TIM1: (PA9, PA11), (C2, C4), (AF1, AF1);
+    TIM1: (PA9, PA10), (C2, C3), (AF1, AF1);
+    TIM1: (PA8, PA11), (C1, C4), (AF1, AF1);
+    TIM1: (PA8, PA10), (C1, C3), (AF1, AF1);
+    TIM1: (PA8, PA9), (C1, C2), (AF1, AF1);
+    TIM1: (PA8), (C1), (AF1);
+    TIM1: (PA9), (C2), (AF1);
+    TIM1: (PA10), (C3), (AF1);
+    TIM1: (PA11), (C4), (AF1);
 
     // TIM2
-    TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4);
-    TIM2: (PA1, PA2, PA3), (C2, C3, C4);
-    TIM2: (PA0, PA2, PA3), (C1, C3, C4);
-    TIM2: (PA0, PA1, PA3), (C1, C2, C4);
-    TIM2: (PA0, PA1, PA2), (C1, C2, C3);
-    TIM2: (PA2, PA3), (C3, C4);
-    TIM2: (PA1, PA3), (C2, C4);
-    TIM2: (PA1, PA2), (C2, C3);
-    TIM2: (PA0, PA3), (C1, C4);
-    TIM2: (PA0, PA2), (C1, C3);
-    TIM2: (PA0, PA1), (C1, C2);
-    TIM2: (PA0), (C1);
-    TIM2: (PA1), (C2);
-    TIM2: (PA2), (C3);
-    TIM2: (PA3), (C4);
+    TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
+    TIM2: (PA1, PA2, PA3), (C2, C3, C4), (AF1, AF1, AF1);
+    TIM2: (PA0, PA2, PA3), (C1, C3, C4), (AF1, AF1, AF1);
+    TIM2: (PA0, PA1, PA3), (C1, C2, C4), (AF1, AF1, AF1);
+    TIM2: (PA0, PA1, PA2), (C1, C2, C3), (AF1, AF1, AF1);
+    TIM2: (PA2, PA3), (C3, C4), (AF1, AF1);
+    TIM2: (PA1, PA3), (C2, C4), (AF1, AF1);
+    TIM2: (PA1, PA2), (C2, C3), (AF1, AF1);
+    TIM2: (PA0, PA3), (C1, C4), (AF1, AF1);
+    TIM2: (PA0, PA2), (C1, C3), (AF1, AF1);
+    TIM2: (PA0, PA1), (C1, C2), (AF1, AF1);
+    TIM2: (PA0), (C1), (AF1);
+    TIM2: (PA1), (C2), (AF1);
+    TIM2: (PA2), (C3), (AF1);
+    TIM2: (PA3), (C4), (AF1);
 
-    // TIM15
-    TIM15: (PB14), (C1);
+    // TIM15 - TODO: The uncommented lines are awaiting PAC updates to be valid.
+    TIM15: (PB14), (C1), (AF14);
+    // TIM15: (PB15), (C2), (AF14);
+    TIM15: (PA2), (C1), (AF14);
+    // TIM15: (PA3), (C2), (AF14);
+    // TIM15: (PB14, PB15), (C1, C2), (AF14, AF14);
+    // TIM15: (PB14, PA3), (C1, C2), (AF14, AF14);
+    // TIM15: (PA2, PB15), (C1, C2), (AF14, AF14);
+    // TIM15: (PA2, PA3), (C1, C2), (AF14, AF14);
 }
 
 pub trait PwmExt1: Sized {
@@ -305,6 +312,11 @@ macro_rules! small_timer {
                     tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
                 }
 
+                // TODO: The uncommented lines are awaiting PAC updates to be valid.
+                // if PINS::C2 {
+                //     tim.ccmr1_output().modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
+                // }
+
                 let clk = clocks.pclk1().0;
                 let freq = freq.0;
                 let ticks = clk / freq;
@@ -314,6 +326,9 @@ macro_rules! small_timer {
                 tim.psc.write(|w| { w.psc().bits(psc as $psc_width) });
                 let arr = ticks / (psc + 1);
                 unsafe { tim.arr.write(|w| { w.arr().bits(arr as $arr_width) }); }
+
+                tim.bdtr.write(|w| w.moe().set_bit());
+                tim.egr.write(|w| w.ug().set_bit());
 
                 tim.cr1.write(|w| {
                     w.opm().clear_bit()
@@ -326,6 +341,8 @@ macro_rules! small_timer {
 
             pwm_channels! {
                 $TIMX:  (C1, $arr_width, cc1e, ccr1, ccr1),
+                // TODO: The uncommented line is awaiting PAC updates to be valid.
+                //        (C2, $arr_width, cc2e, ccr2, ccr2),
             }
 
         )+
