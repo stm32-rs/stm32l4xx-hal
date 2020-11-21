@@ -15,7 +15,7 @@ use stable_deref_trait::StableDeref;
 use crate::hal::serial::{self, Write};
 
 use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
-use crate::gpio::{self, Alternate, Floating, Input};
+use crate::gpio::{self, Alternate, AlternateOD, Floating, Input};
 use crate::pac;
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
@@ -287,6 +287,11 @@ macro_rules! hal {
 
                         if config.disable_overrun {
                             w.ovrdis().set_bit();
+                        }
+
+                        // configure Half Duplex
+                        if PINS::HALF_DUPLEX {
+                            w.hdsel().set_bit();
                         }
 
                         w
@@ -777,6 +782,9 @@ where
 /// Marks pins as being as being TX pins for the given USART instance
 pub trait TxPin<Instance>: private::SealedTx {}
 
+/// Marks pins as being TX Half Duplex pins for the given USART instance
+pub trait TxHalfDuplexPin<Instance>: private::SealedTxHalfDuplex {}
+
 /// Marks pins as being as being RX pins for the given USART instance
 pub trait RxPin<Instance>: private::SealedRx {}
 
@@ -808,6 +816,13 @@ macro_rules! impl_pin_traits {
                         gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
                     impl TxPin<pac::$instance> for
                         gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+                )*
+
+                $(
+                    impl private::SealedTxHalfDuplex for
+                        gpio::$tx<AlternateOD<gpio::$af, Input<Floating>>> {}
+                    impl TxHalfDuplexPin<pac::$instance> for
+                        gpio::$tx<AlternateOD<gpio::$af, Input<Floating>>> {}
                 )*
 
                 $(
@@ -901,6 +916,7 @@ impl_pin_traits! {
 pub trait Pins<USART> {
     const FLOWCTL: bool;
     const DEM: bool;
+    const HALF_DUPLEX: bool;
 }
 
 // No flow control, just Rx+Tx
@@ -911,6 +927,17 @@ where
 {
     const FLOWCTL: bool = false;
     const DEM: bool = false;
+    const HALF_DUPLEX: bool = false;
+}
+
+// No flow control Half_duplex, just Tx
+impl<Instance, Tx> Pins<Instance> for (Tx,)
+where
+    Tx: TxHalfDuplexPin<Instance>,
+{
+    const FLOWCTL: bool = false;
+    const DEM: bool = false;
+    const HALF_DUPLEX: bool = true;
 }
 
 // Hardware flow control, Rx+Tx+Rts+Cts
@@ -923,6 +950,7 @@ where
 {
     const FLOWCTL: bool = true;
     const DEM: bool = false;
+    const HALF_DUPLEX: bool = false;
 }
 
 // DEM for RS485 mode
@@ -934,11 +962,13 @@ where
 {
     const FLOWCTL: bool = false;
     const DEM: bool = true;
+    const HALF_DUPLEX: bool = false;
 }
 
 /// Contains supertraits used to restrict which traits users can implement
 mod private {
     pub trait SealedTx {}
+    pub trait SealedTxHalfDuplex {}
     pub trait SealedRx {}
     pub trait SealedRtsDe {}
     pub trait SealedCts {}
