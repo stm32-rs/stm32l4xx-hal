@@ -36,7 +36,9 @@ default-features = false
 version = "1.2"
 
 [dependencies.embedded-hal]
-version = "1.0.0-alpha.4"
+git = "https://github.com/MathiasKoch/embedded-hal"
+branch = "feature/alternative-storage"
+# version = "1.0.0-alpha.4"
 
 [dependencies.stm32-usbd]
 version = "0.5.1"
