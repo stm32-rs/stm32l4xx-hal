@@ -4,20 +4,14 @@
 #![no_std]
 #![no_main]
 
-extern crate cortex_m;
-#[macro_use]
-extern crate cortex_m_rt as rt;
-extern crate cortex_m_semihosting as sh;
-extern crate panic_semihosting;
-extern crate stm32l4xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
-
 use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
 use crate::hal::time::MilliSeconds;
 use crate::hal::watchdog::IndependentWatchdog;
-use crate::rt::ExceptionFrame;
+use cortex_m_rt::{entry, exception, ExceptionFrame};
+use cortex_m_semihosting as sh;
+use panic_semihosting as _;
+use stm32l4xx_hal as hal;
 
 use crate::hal::flash::FlashVariant;
 
@@ -42,17 +36,26 @@ fn main() -> ! {
 
     let mut timer = Delay::new(cp.SYST, clocks);
 
-    let mut watchdog = IndependentWatchdog::new(dp.IWDG);
-    watchdog.stop_on_debug(&dp.DBGMCU, true);
+    // Initiate the independent watchdog timer
+    let iwd = IndependentWatchdog::new(dp.IWDG);
+    iwd.stop_on_debug(&dp.DBGMCU, true);
 
-    watchdog = watchdog.try_start(MilliSeconds(980)).unwrap();
-    timer.try_delay_ms(1000_u32).ok();
-    watchdog.try_feed().ok();
-    timer.try_delay_ms(1000_u32).ok();
-    watchdog.try_feed().ok();
-    timer.try_delay_ms(1000_u32).ok();
-    watchdog.try_feed().ok();
-    writeln!(hstdout, "Good bye!").unwrap();
+    // Start the independent watchdog timer
+    if let Ok(mut watchdog) = iwd.try_start(MilliSeconds(1020)) {
+        timer.try_delay_ms(1000_u32).ok();
+
+        // Feed the independent watchdog timer
+        watchdog.try_feed().ok();
+        timer.try_delay_ms(1000_u32).ok();
+
+        // Feed the independent watchdog timer
+        watchdog.try_feed().ok();
+        timer.try_delay_ms(1000_u32).ok();
+
+        watchdog.try_feed().ok();
+        writeln!(hstdout, "Good bye!").unwrap();
+    }
+
     loop {}
 }
 

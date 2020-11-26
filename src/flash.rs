@@ -347,7 +347,7 @@ impl<'a> FlashProgramming<'a> {
 
         let rem = chunks.remainder();
 
-        if rem.len() > 0 {
+        if !rem.is_empty() {
             let mut data = 0xffff_ffff_ffff_ffffu64;
             // Write remainder
             for b in rem.iter().rev() {

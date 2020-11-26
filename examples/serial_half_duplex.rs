@@ -1,6 +1,8 @@
-//! Test the serial interface
+//! Test the serial interface in Half-Duplex mode.
 //!
-//! This example requires you to short (connect) the TX and RX pins.
+//! This example requires you to hook-up a pullup resistor on the TX pin. RX pin is not used.
+//! Resistor value depends on the baurate and line caracteristics, 1KOhms works well in most cases.
+//! Half-Duplex mode internally connect TX to RX, meaning that bytes sent will also be received.
 #![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
@@ -21,15 +23,15 @@ use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
 use cortex_m::asm;
-use hal::flash::FlashVariant;
 
 #[entry]
 fn main() -> ! {
     let p = hal::stm32::Peripherals::take().unwrap();
 
-    let mut flash = p.FLASH.constrain(FlashVariant::Size256KB);
+    let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
     let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
+
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
 
@@ -45,19 +47,20 @@ fn main() -> ! {
 
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
-    let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
-
-    let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    // let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh).set_open_drain();
+    let tx = gpioa
+        .pa2
+        .into_af7(&mut gpioa.moder, &mut gpioa.afrl)
+        .set_open_drain();
+    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl).set_open_drain();
 
     // TRY using a different USART peripheral here
-    let serial = Serial::usart1(
-        p.USART1,
-        (tx, rx),
+    let serial = Serial::usart2(
+        p.USART2,
+        (tx,),
         Config::default().baudrate(9_600.bps()),
         clocks,
-        &mut rcc.apb2,
+        &mut rcc.apb1r1,
     );
     let (mut tx, mut rx) = serial.split();
 
@@ -66,9 +69,9 @@ fn main() -> ! {
     // The `block!` macro makes an operation block until it finishes
     // NOTE the error type is `!`
 
-    block!(tx.try_write(sent)).ok();
+    block!(tx.write(sent)).ok();
 
-    let received = block!(rx.try_read()).unwrap();
+    let received = block!(rx.read()).unwrap();
 
     assert_eq!(received, sent);
 
