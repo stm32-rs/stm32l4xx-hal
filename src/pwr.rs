@@ -1,13 +1,23 @@
 //! Power management
 
+use crate::rcc::Rcc;
 use crate::rcc::APB1R1;
-use crate::stm32::{pwr, PWR};
+use crate::stm32::{pwr, PWR, SCB};
 
 pub struct Pwr {
     pub cr1: CR1,
     pub cr2: CR2,
     pub cr3: CR3,
     pub cr4: CR4,
+}
+
+impl Pwr {
+    pub fn enter_stop2_mode(&mut self, apb1r1: &mut APB1R1, scb: &mut SCB) {
+        apb1r1.enr().modify(|_, w| unsafe { w.pwren().set_bit() });
+        self.cr1.reg().write(|w| unsafe { w.lpms().bits(0b010) });
+        scb.set_sleepdeep();
+        cortex_m::asm::wfi();
+    }
 }
 
 /// Extension trait that constrains the `PWR` peripheral

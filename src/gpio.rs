@@ -485,8 +485,9 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         otyper: &mut OTYPER,
+                        pupdr: &mut PUPDR,
                     ) -> $PXi<Output<PushPull>> {
-                        self.into_push_pull_output_with_state(moder, otyper, State::Low)
+                        self.into_push_pull_output_with_state(moder, otyper, pupdr, State::Low)
                     }
 
                     /// Configures the pin to operate as an push pull output pin
@@ -495,6 +496,7 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         otyper: &mut OTYPER,
+                        pupdr: &mut PUPDR,
                         initial_state: State,
                     ) -> $PXi<Output<PushPull>> {
                         let mut res = $PXi { _mode: PhantomData };
@@ -520,6 +522,12 @@ macro_rules! gpio {
                             .otyper()
                             .modify(|r, w| unsafe { w.bits(r.bits() & !(0b1 << $i)) });
 
+                        // disable pullup/-down
+                        let pup = 0b00;
+                        pupdr
+                            .pupdr()
+                            .modify(|r, w| unsafe { w.bits((r.bits() & !(0b11 << offset)) | (pup << offset)) });
+
                         res
                     }
 
@@ -539,9 +547,10 @@ macro_rules! gpio {
                         self,
                         moder: &mut MODER,
                         otyper: &mut OTYPER,
+                        pupdr: &mut PUPDR,
                         afr: &mut $AFR,
                     ) -> $PXi<Alternate<AF9, Output<PushPull>>> {
-                        let od = self.into_push_pull_output(moder, otyper);
+                        let od = self.into_push_pull_output(moder, otyper, pupdr);
                         od.into_af9(moder, afr)
                     }
                 }

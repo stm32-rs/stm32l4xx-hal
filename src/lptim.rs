@@ -2,6 +2,7 @@
 
 use crate::hal;
 use crate::pac::LPTIM1;
+use crate::pwr::Pwr;
 use crate::rcc::{Clocks, Rcc};
 use crate::stm32::PWR;
 use crate::time::{Hertz, MicroSeconds};
@@ -88,14 +89,8 @@ impl LpTimer<Periodic> {
     /// Initializes the Low-Power Timer in periodic mode.
     ///
     /// The timer needs to be started by calling `.start(freq)`.
-    pub fn init_periodic(
-        lptim: LPTIM1,
-        pwr: &mut PWR,
-        rcc: &mut Rcc,
-        clocks: Clocks,
-        clk: ClockSrc,
-    ) -> Self {
-        Self::init(lptim, pwr, rcc, clocks, clk)
+    pub fn init_periodic(lptim: LPTIM1, pwr: &mut Pwr, rcc: &mut Rcc, clk: ClockSrc) -> Self {
+        Self::init(lptim, pwr, rcc, clk)
     }
 }
 
@@ -103,19 +98,13 @@ impl LpTimer<OneShot> {
     /// Initializes the Low-Power Timer in one-shot mode.
     ///
     /// The timer needs to be started by calling `.start(freq)`.
-    pub fn init_oneshot(
-        lptim: LPTIM1,
-        pwr: &mut PWR,
-        rcc: &mut Rcc,
-        clocks: Clocks,
-        clk: ClockSrc,
-    ) -> Self {
-        Self::init(lptim, pwr, rcc, clocks, clk)
+    pub fn init_oneshot(lptim: LPTIM1, pwr: &mut Pwr, rcc: &mut Rcc, clk: ClockSrc) -> Self {
+        Self::init(lptim, pwr, rcc, clk)
     }
 }
 
 impl<M: CountMode> LpTimer<M> {
-    fn init(lptim: LPTIM1, pwr: &mut PWR, rcc: &mut Rcc, _clocks: Clocks, clk: ClockSrc) -> Self {
+    fn init(lptim: LPTIM1, pwr: &mut Pwr, rcc: &mut Rcc, clk: ClockSrc) -> Self {
         // `pwr` is not used. It is used as a marker that guarantees that `PWR.CR` is set so this
         // function can set the `RCC.LSEON` bit, which is otherwise write protected.
         let _ = pwr;
@@ -129,7 +118,7 @@ impl<M: CountMode> LpTimer<M> {
                 // Wait for LSI to be ready
                 while rcc.rb.csr.read().lsirdy().bit_is_clear() {}
 
-                Hertz(37_000)
+                Hertz(32_000)
             }
             ClockSrc::Hsi16 => {
                 // Turn on HSI16
@@ -255,6 +244,33 @@ impl<M: CountMode> LpTimer<M> {
             w
         })
     }
+
+    pub fn clear_interrupts(&mut self, interrupts: Interrupts) {
+        self.lptim.icr.write(|w| {
+            if interrupts.enc_dir_down {
+                w.downcf().set_bit();
+            }
+            if interrupts.enc_dir_up {
+                w.upcf().set_bit();
+            }
+            if interrupts.autoreload_update_ok {
+                w.arrokcf().set_bit();
+            }
+            if interrupts.compare_update_ok {
+                w.cmpokcf().set_bit();
+            }
+            if interrupts.ext_trig {
+                w.exttrigcf().set_bit();
+            }
+            if interrupts.autoreload_match {
+                w.arrmcf().set_bit();
+            }
+            if interrupts.compare_match {
+                w.cmpmcf().set_bit();
+            }
+            w
+        })
+    }
 }
 
 impl hal::timer::CountDown for LpTimer<Periodic> {
@@ -264,6 +280,7 @@ impl hal::timer::CountDown for LpTimer<Periodic> {
     where
         T: Into<Hertz>,
     {
+        // rtt_target::rprintln!("{} {}", self.input_freq, freq.into());
         self.configure(TimeConf::calculate_freq(self.input_freq, freq.into()));
 
         // Start LPTIM in continuous mode.
