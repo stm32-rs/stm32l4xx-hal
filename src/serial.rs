@@ -14,7 +14,7 @@ use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 
-use crate::stm32::{USART1, USART2};
+use crate::stm32::{USART1, USART2, LPUART1};
 
 #[cfg(any(
     feature = "stm32l4x2",
@@ -33,7 +33,7 @@ use crate::stm32::UART5;
 use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA12, PA2, PA3, PA9};
 use crate::gpio::gpiob::{PB3, PB4, PB6, PB7};
 use crate::gpio::gpiod::{PD3, PD4, PD5, PD6};
-use crate::gpio::{Alternate, Floating, Input, AF7};
+use crate::gpio::{Alternate, Floating, Input, AF7, AF8};
 
 #[cfg(any(
     feature = "stm32l4x2",
@@ -80,10 +80,10 @@ use crate::gpio::gpioc::PC12;
 use crate::gpio::AF8;
 
 use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, APB1R1, APB2, APB1R2};
 use crate::time::{Bps, U32Ext};
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6", feature = "stm32l4x2"))]
 use crate::dma::dma2;
 
 /// Interrupt event
@@ -174,6 +174,15 @@ macro_rules! pins {
             }
         )+
     };
+}
+
+// LPUART1
+pins! {
+    LPUART1: (PA2, PA3, AF8),
+}
+// LPUART1
+pins! {
+    LPUART1: (PA2, PA3, PB1, PA6, AF8),
 }
 
 // USART 1
@@ -653,28 +662,37 @@ macro_rules! hal {
                     usart.cr3.reset();
 
                     // Configure baud rate
+                    
                     match config.oversampling {
-                        Oversampling::Over8 => {
-                            let uartdiv = 2 * clocks.$pclkX().0 / config.baudrate.0;
+                        Oversampling::Over8 | Oversampling::Over16 => {
+                            // TODO: Fix for non-lpuart
+                            let clk = 16_000_000;
+                            let br = config.baudrate.0;
+                            let brr = ((256*(clk as u64)) / (br as u64)) as u32;
+                            assert!(brr >= 16, "impossible baud rate");
+
+                            usart.brr.write(|w| unsafe { w.bits(brr) });
+                        }
+                        _ => {
+                            let uartdiv = 2 * 16_000_000 / config.baudrate.0;
                             assert!(uartdiv >= 16, "impossible baud rate");
 
                             let lower = (uartdiv & 0xf) >> 1;
                             let brr = (uartdiv & !0xf) | lower;
 
-                            usart.cr1.modify(|_, w| w.over8().set_bit());
+                            // TODO: Re-enable and fix for conditional LPUART1
+                            // usart.cr1.modify(|_, w| w.over8().set_bit());
                             usart.brr.write(|w| unsafe { w.bits(brr) });
-                        }
-                        Oversampling::Over16 => {
-                            let brr = clocks.$pclkX().0 / config.baudrate.0;
-                            assert!(brr >= 16, "impossible baud rate");
-
-                            usart.brr.write(|w| unsafe { w.bits(brr) });
+                            unreachable!();
                         }
                     }
+                    
 
+                    // TODO: Re-enable and fix for conditional LPUART1
+                    /*
                     if let Some(val) = config.receiver_timeout {
                         usart.rtor.modify(|_, w| w.rto().bits(val));
-                    }
+                    }*/
 
                     // enable DMA transfers
                     usart.cr3.modify(|_, w| w.dmat().set_bit().dmar().set_bit());
@@ -692,7 +710,9 @@ macro_rules! hal {
                     }
 
                     // Enable One bit sampling method
-                    usart.cr3.modify(|_, w| w.onebit().set_bit());
+
+                    // TODO: Re-enable and fix for conditional LPUART1
+                    //usart.cr3.modify(|_, w| w.onebit().set_bit());
 
                     // Configure parity and word length
                     // Unlike most uart devices, the "word length" of this usart device refers to
@@ -711,6 +731,11 @@ macro_rules! hal {
                             .pce().bit(parity_control_enable)
                     });
 
+                    unsafe{
+                        let asdf = $crate::pac::Peripherals::steal();
+                        asdf.RCC.ccipr.modify(|r,w| w.lpuart1sel().bits(0b10));
+                    }
+
                     // Configure stop bits
                     let stop_bits = match config.stopbits {
                         StopBits::STOP1 => 0b00,
@@ -727,11 +752,16 @@ macro_rules! hal {
                         }
 
                         if config.receiver_timeout.is_some() {
-                            w.rtoen().set_bit();
+                            // TODO: Re-enable and fix for conditional LPUART1
+                            // w.rtoen().set_bit();
                         }
 
                         w
                     });
+                    usart.cr1.modify(|_r, w| {w.uesm().bit(true)});
+                    unsafe{
+                        usart.cr3.modify(|_r, w| {w.wus().bits(0b11)});
+                    }
 
 
                     // UE: enable USART
@@ -760,7 +790,8 @@ macro_rules! hal {
                             self.usart.cr1.modify(|_, w| w.cmie().set_bit())
                         },
                         Event::ReceiverTimeout => {
-                            self.usart.cr1.modify(|_, w| w.rtoie().set_bit())
+                            // TODO: Re-enable and fix for conditional LPUART1
+                            // self.usart.cr1.modify(|_, w| w.rtoie().set_bit())
                         },
                     }
                 }
@@ -781,7 +812,8 @@ macro_rules! hal {
                             self.usart.cr1.modify(|_, w| w.cmie().clear_bit())
                         },
                         Event::ReceiverTimeout => {
-                            self.usart.cr1.modify(|_, w| w.rtoie().clear_bit())
+                            // TODO: Re-enable and fix for conditional LPUART1
+                            // self.usart.cr1.modify(|_, w| w.rtoie().clear_bit())
                         },
                     }
                 }
@@ -1030,6 +1062,8 @@ macro_rules! hal {
                     }
                 }
 
+                // TODO: Re-enable and fix for conditional LPUART1
+                /*
                 /// Checks to see if the USART peripheral has detected an receiver timeout and
                 /// clears the flag
                 pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
@@ -1045,6 +1079,7 @@ macro_rules! hal {
                         false
                     }
                 }
+                */
             }
 
             impl Tx<$USARTX> {
@@ -1094,8 +1129,8 @@ macro_rules! hal {
 hal! {
     USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
     USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
+    LPUART1: (lpuart1, APB1R2, lpuart1en, lpuart1rst, pclk1, tx: (c6s, dma2::C6), rx: (c7s, dma2::C7)),
 }
-
 #[cfg(any(
     feature = "stm32l4x2",
     feature = "stm32l4x3",
