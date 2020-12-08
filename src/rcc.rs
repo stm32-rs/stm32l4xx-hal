@@ -72,6 +72,7 @@ impl RccExt for RCC {
             bdcr: BDCR { _0: () },
             csr: CSR { _0: () },
             crrcr: CRRCR { _0: () },
+            ccipr: CCIPR { _0: () },
             cfgr: CFGR {
                 hse: None,
                 lse: None,
@@ -111,6 +112,8 @@ pub struct Rcc {
     pub csr: CSR,
     /// Clock recovery RC register
     pub crrcr: CRRCR,
+    /// Peripherals independent clock configuration register
+    pub ccipr: CCIPR,
 }
 
 /// CSR Control/Status Register
@@ -148,6 +151,18 @@ impl CRRCR {
     /// Checks if the 48 MHz HSI is ready
     pub fn is_hsi48_ready(&mut self) -> bool {
         self.crrcr().read().hsi48rdy().bit()
+    }
+}
+
+/// Peripherals independent clock configuration register
+pub struct CCIPR {
+    _0: (),
+}
+
+impl CCIPR {
+    pub(crate) fn ccipr(&mut self) -> &rcc::CCIPR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).ccipr }
     }
 }
 
