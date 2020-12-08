@@ -89,6 +89,10 @@ lto = true
 
 
 [[example]]
+name = "adc"
+required-features = ["rt", "stm32l4x3"]
+
+[[example]]
 name = "irq_button"
 required-features = ["rt"]
 
