@@ -5,7 +5,7 @@ use core::convert::Infallible;
 use crate::{
     gpio::Analog,
     hal::{
-        adc::{Channel, OneShot},
+        adc::{Channel as EmbeddedHalChannel, OneShot},
         blocking::delay::DelayUs,
     },
     pac,
@@ -88,7 +88,7 @@ impl ADC {
 
 impl<C> OneShot<ADC, u16, C> for ADC
 where
-    C: Channel<ADC, ID = u8>,
+    C: Channel,
 {
     type Error = Infallible;
 
@@ -154,6 +154,9 @@ impl Default for Resolution {
     }
 }
 
+/// Implemented for all types that represent ADC channels
+pub trait Channel: EmbeddedHalChannel<ADC, ID = u8> {}
+
 macro_rules! external_channels {
     (
         $(
@@ -162,13 +165,15 @@ macro_rules! external_channels {
         )*
     ) => {
         $(
-            impl Channel<ADC> for crate::gpio::$pin<Analog> {
+            impl EmbeddedHalChannel<ADC> for crate::gpio::$pin<Analog> {
                 type ID = u8;
 
                 fn channel() -> Self::ID {
                     $id
                 }
             }
+
+            impl Channel for crate::gpio::$pin<Analog> {}
         )*
     };
 }
