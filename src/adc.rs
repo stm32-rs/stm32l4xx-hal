@@ -16,6 +16,7 @@ use crate::{
 pub struct ADC {
     inner: pac::ADC,
     resolution: Resolution,
+    sample_time: SampleTime,
 }
 
 impl ADC {
@@ -69,12 +70,18 @@ impl ADC {
         Self {
             inner,
             resolution: Resolution::default(),
+            sample_time: SampleTime::default(),
         }
     }
 
     /// Set the ADC resolution
     pub fn set_resolution(&mut self, resolution: Resolution) {
         self.resolution = resolution;
+    }
+
+    /// Set the sample time
+    pub fn set_sample_time(&mut self, sample_time: SampleTime) {
+        self.sample_time = sample_time;
     }
 
     /// Release the ADC peripheral
@@ -92,7 +99,7 @@ where
 {
     type Error = Infallible;
 
-    fn read(&mut self, _: &mut C) -> nb::Result<u16, Self::Error> {
+    fn read(&mut self, channel: &mut C) -> nb::Result<u16, Self::Error> {
         // Enable ADC
         self.inner.isr.write(|w| w.adrdy().set_bit());
         self.inner.cr.modify(|_, w| w.aden().set_bit());
@@ -104,6 +111,9 @@ where
             // field.
             unsafe { w.res().bits(self.resolution as u8) }
         });
+
+        // Configure channel
+        channel.set_sample_time(&self.inner, self.sample_time);
 
         // Select channel
         self.inner.sqr1.write(|w| {
@@ -154,14 +164,54 @@ impl Default for Resolution {
     }
 }
 
+/// ADC sample time
+///
+/// The default setting is 2.5 ADC clock cycles.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum SampleTime {
+    /// 2.5 ADC clock cycles
+    Cycles2_5 = 0b000,
+
+    /// 6.5 ADC clock cycles
+    Cycles6_5 = 0b001,
+
+    /// 12.5 ADC clock cycles
+    Cycles12_5 = 0b010,
+
+    /// 24.5 ADC clock cycles
+    Cycles24_5 = 0b011,
+
+    /// 47.5 ADC clock cycles
+    Cycles47_5 = 0b100,
+
+    /// 92.5 ADC clock cycles
+    Cycles92_5 = 0b101,
+
+    /// 247.5 ADC clock cycles
+    Cycles247_5 = 0b110,
+
+    /// 640.5 ADC clock cycles
+    Cycles640_5 = 0b111,
+}
+
+impl Default for SampleTime {
+    fn default() -> Self {
+        Self::Cycles2_5
+    }
+}
+
 /// Implemented for all types that represent ADC channels
-pub trait Channel: EmbeddedHalChannel<ADC, ID = u8> {}
+pub trait Channel: EmbeddedHalChannel<ADC, ID = u8> {
+    fn set_sample_time(&mut self, adc: &pac::ADC, sample_time: SampleTime);
+}
 
 macro_rules! external_channels {
     (
         $(
             $id:expr,
-            $pin:ident;
+            $pin:ident,
+            $smpr:ident,
+            $smp:ident;
         )*
     ) => {
         $(
@@ -173,26 +223,39 @@ macro_rules! external_channels {
                 }
             }
 
-            impl Channel for crate::gpio::$pin<Analog> {}
+            impl Channel for crate::gpio::$pin<Analog> {
+                fn set_sample_time(&mut self,
+                    adc: &pac::ADC,
+                    sample_time: SampleTime,
+                ) {
+                    adc.$smpr.modify(|_, w| {
+                        // This is sound, as all `SampleTime` values are valid
+                        // for this field.
+                        unsafe {
+                            w.$smp().bits(sample_time as u8)
+                        }
+                    })
+                }
+            }
         )*
     };
 }
 
 external_channels!(
-    1,  PC0;
-    2,  PC1;
-    3,  PC2;
-    4,  PC3;
-    5,  PA0;
-    6,  PA1;
-    7,  PA2;
-    8,  PA3;
-    9,  PA4;
-    10, PA5;
-    11, PA6;
-    12, PA7;
-    13, PC4;
-    14, PC5;
-    15, PB0;
-    16, PB1;
+    1,  PC0, smpr1, smp1;
+    2,  PC1, smpr1, smp2;
+    3,  PC2, smpr1, smp3;
+    4,  PC3, smpr1, smp4;
+    5,  PA0, smpr1, smp5;
+    6,  PA1, smpr1, smp6;
+    7,  PA2, smpr1, smp7;
+    8,  PA3, smpr1, smp8;
+    9,  PA4, smpr1, smp9;
+    10, PA5, smpr2, smp10;
+    11, PA6, smpr2, smp11;
+    12, PA7, smpr2, smp12;
+    13, PC4, smpr2, smp13;
+    14, PC5, smpr2, smp14;
+    15, PB0, smpr2, smp15;
+    16, PB1, smpr2, smp16;
 );
