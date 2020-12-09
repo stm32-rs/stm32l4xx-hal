@@ -15,6 +15,7 @@ use crate::{
 /// Analog to Digital converter interface
 pub struct ADC {
     inner: pac::ADC,
+    resolution: Resolution,
 }
 
 impl ADC {
@@ -65,7 +66,15 @@ impl ADC {
         });
         while inner.cr.read().adcal().bit_is_set() {}
 
-        Self { inner }
+        Self {
+            inner,
+            resolution: Resolution::default(),
+        }
+    }
+
+    /// Set the ADC resolution
+    pub fn set_resolution(&mut self, resolution: Resolution) {
+        self.resolution = resolution;
     }
 
     /// Release the ADC peripheral
@@ -89,6 +98,13 @@ where
         self.inner.cr.modify(|_, w| w.aden().set_bit());
         while self.inner.isr.read().adrdy().bit_is_clear() {}
 
+        // Configure ADC
+        self.inner.cfgr.write(|w| {
+            // This is sound, as all `Resolution` values are valid for this
+            // field.
+            unsafe { w.res().bits(self.resolution as u8) }
+        });
+
         // Select channel
         self.inner.sqr1.write(|w| {
             // This is sound, as all `Channel` implementations set valid values.
@@ -111,6 +127,30 @@ where
         self.inner.cr.modify(|_, w| w.addis().set_bit());
 
         Ok(val)
+    }
+}
+
+/// ADC resolution setting
+///
+/// The default setting is 12 bits.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Resolution {
+    /// 12-bit resolution
+    Bits12 = 0b00,
+
+    /// 10-bit resolution
+    Bits10 = 0b01,
+
+    /// 8-bit resolution
+    Bits8 = 0b10,
+
+    /// 6-bit resolution
+    Bits6 = 0b11,
+}
+
+impl Default for Resolution {
+    fn default() -> Self {
+        Self::Bits12
     }
 }
 
