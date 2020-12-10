@@ -160,6 +160,7 @@ pub struct CCIPR {
 }
 
 impl CCIPR {
+    #[allow(dead_code)]
     pub(crate) fn ccipr(&mut self) -> &rcc::CCIPR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).ccipr }
