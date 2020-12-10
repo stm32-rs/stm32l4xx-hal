@@ -180,6 +180,14 @@ pub mod serial;
     feature = "stm32l4x5",
     feature = "stm32l4x6"
 ))]
+pub mod signature;
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
 pub mod spi;
 #[cfg(any(
     feature = "stm32l4x1",
