@@ -33,7 +33,7 @@
 use crate::stm32::{flash, FLASH};
 use core::convert::TryInto;
 use core::{mem, ops::Drop, ptr};
-use embedded_storage::{Address, BitSubset, IterableByOverlaps, ReadWrite, Region};
+use embedded_storage::{Address, ReadWrite, Region};
 
 #[derive(Clone, Copy, Debug)]
 /// Size of the MCU flash
