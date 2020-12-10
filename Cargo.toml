@@ -39,7 +39,7 @@ version = "1.2"
 version = "1.0.0-alpha.4"
 
 [dependencies.embedded-storage]
-git = "https://github.com/BlackbirdHQ/embedded-storage"
+git = "https://github.com/rust-embedded-community/embedded-storage"
 
 [dependencies.stm32-usbd]
 version = "0.5.1"
