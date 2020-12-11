@@ -14,7 +14,7 @@ use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 
-use crate::stm32::{USART1, USART2, LPUART1};
+use crate::stm32::{LPUART1, USART1, USART2};
 
 #[cfg(any(
     feature = "stm32l4x2",
@@ -80,7 +80,7 @@ use crate::gpio::gpioc::PC12;
 use crate::gpio::AF8;
 
 use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
-use crate::rcc::{Clocks, APB1R1, APB2, APB1R2};
+use crate::rcc::{Clocks, APB1R1, APB1R2, APB2};
 use crate::time::{Bps, U32Ext};
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6", feature = "stm32l4x2"))]
@@ -662,7 +662,7 @@ macro_rules! hal {
                     usart.cr3.reset();
 
                     // Configure baud rate
-                    
+
                     match config.oversampling {
                         Oversampling::Over8 | Oversampling::Over16 => {
                             // TODO: Fix for non-lpuart
@@ -686,7 +686,7 @@ macro_rules! hal {
                             unreachable!();
                         }
                     }
-                    
+
 
                     // TODO: Re-enable and fix for conditional LPUART1
                     /*
