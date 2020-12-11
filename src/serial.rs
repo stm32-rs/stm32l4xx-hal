@@ -782,6 +782,32 @@ macro_rules! hal {
                     self.usart.isr.read().busy().bit()
                 }
 
+                fn rx_set_enabled(&mut self, en: bool) {
+                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    usart.cr1.modify(|r,w| w.re().bit(en));
+                }
+
+                pub fn rx_enable(&mut self) {
+                    self.rx_set_enabled(true)
+                }
+
+                pub fn rx_disable(&mut self) {
+                    self.rx_set_enabled(false)
+                }
+
+                fn tx_set_enabled(&mut self, en: bool) {
+                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    usart.cr1.modify(|r,w| w.te().bit(en));
+                }
+
+                pub fn tx_enable(&mut self) {
+                    self.tx_set_enabled(true)
+                }
+
+                pub fn tx_disable(&mut self) {
+                    self.tx_set_enabled(false)
+                }
+
                 /// Starts listening for an interrupt event
                 pub fn listen(&mut self, event: Event) {
                     match event {
@@ -1094,6 +1120,19 @@ macro_rules! hal {
                     usart.isr.read().busy().bit()
                 }
 
+                fn set_enabled(&mut self, en: bool) {
+                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    usart.cr1.modify(|r,w| w.re().bit(en));
+                }
+
+                pub fn enable(&mut self) {
+                    self.set_enabled(true)
+                }
+
+                pub fn disable(&mut self) {
+                    self.set_enabled(false)
+                }
+
             }
 
             impl Tx<$USARTX> {
@@ -1139,6 +1178,19 @@ macro_rules! hal {
                 pub fn transmitting(&self) -> bool {
                     let usart = unsafe{ &(*$USARTX::ptr()) };
                     !usart.isr.read().tc().bit()
+                }
+
+                fn set_enabled(&mut self, en: bool) {
+                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    usart.cr1.modify(|r,w| w.te().bit(en));
+                }
+
+                pub fn enable(&mut self) {
+                    self.set_enabled(true)
+                }
+
+                pub fn disable(&mut self) {
+                    self.set_enabled(false)
                 }
             }
         )+
