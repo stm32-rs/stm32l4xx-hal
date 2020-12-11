@@ -774,6 +774,14 @@ macro_rules! hal {
                     Serial { usart, pins }
                 }
 
+                pub fn transmitting(&self) -> bool {
+                    !self.usart.isr.read().tc().bit()
+                }
+
+                pub fn receiving(&self) -> bool {
+                    self.usart.isr.read().busy().bit()
+                }
+
                 /// Starts listening for an interrupt event
                 pub fn listen(&mut self, event: Event) {
                     match event {
@@ -1080,6 +1088,12 @@ macro_rules! hal {
                     }
                 }
                 */
+
+                pub fn receiving(&self) -> bool {
+                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    usart.isr.read().busy().bit()
+                }
+
             }
 
             impl Tx<$USARTX> {
@@ -1120,6 +1134,11 @@ macro_rules! hal {
                     });
 
                     FrameSender::new(channel)
+                }
+
+                pub fn transmitting(&self) -> bool {
+                    let usart = unsafe{ &(*$USARTX::ptr()) };
+                    !usart.isr.read().tc().bit()
                 }
             }
         )+
