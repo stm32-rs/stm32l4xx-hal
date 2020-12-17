@@ -186,7 +186,7 @@ macro_rules! gpio {
             use super::{
 
                 Alternate, AlternateOD,
-                AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
+                AF0, AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
                 Floating, GpioExt, Input, OpenDrain, Output, Analog, Edge, ExtiPin,
                 PullDown, PullUp, PushPull, State, Speed,
             };
@@ -738,6 +738,7 @@ macro_rules! gpio {
                 impl<MODE> $PXi<MODE> {
                     impl_into_af! {
                         $PXi $AFR $i,
+                        (AF0, 0, into_af0);
                         (AF1, 1, into_af1);
                         (AF2, 2, into_af2);
                         (AF3, 3, into_af3);
