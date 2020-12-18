@@ -12,9 +12,15 @@ use crate::{
     rcc::{AHB2, CCIPR},
 };
 
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3",))]
+use pac::ADC as ADC1;
+
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+use pac::ADC1;
+
 /// Analog to Digital converter interface
 pub struct ADC {
-    inner: pac::ADC,
+    inner: ADC1,
     resolution: Resolution,
     sample_time: SampleTime,
 }
@@ -22,7 +28,7 @@ pub struct ADC {
 impl ADC {
     /// Initialize the ADC
     pub fn new(
-        inner: pac::ADC,
+        inner: ADC1,
         ahb: &mut AHB2,
         ccipr: &mut CCIPR,
         delay: &mut impl DelayUs<u32>,
@@ -88,7 +94,7 @@ impl ADC {
     ///
     /// Drops `ADC` and returns the `pac::ADC` that is was wrapping, giving the
     /// user full access to the peripheral.
-    pub fn release(self) -> pac::ADC {
+    pub fn release(self) -> ADC1 {
         self.inner
     }
 }
@@ -202,7 +208,7 @@ impl Default for SampleTime {
 
 /// Implemented for all types that represent ADC channels
 pub trait Channel: EmbeddedHalChannel<ADC, ID = u8> {
-    fn set_sample_time(&mut self, adc: &pac::ADC, sample_time: SampleTime);
+    fn set_sample_time(&mut self, adc: &ADC1, sample_time: SampleTime);
 }
 
 macro_rules! external_channels {
@@ -225,7 +231,7 @@ macro_rules! external_channels {
 
             impl Channel for crate::gpio::$pin<Analog> {
                 fn set_sample_time(&mut self,
-                    adc: &pac::ADC,
+                    adc: &ADC1,
                     sample_time: SampleTime,
                 ) {
                     adc.$smpr.modify(|_, w| {
