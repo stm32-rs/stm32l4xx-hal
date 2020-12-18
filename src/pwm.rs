@@ -187,7 +187,7 @@ macro_rules! advanced_timer {
                     tim.ccmr2_output().modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
                 }
 
-                let clk = clocks.pclk1().0;
+                let clk = clocks.pclk2().0;
                 let freq = freq.0;
                 let ticks = clk / freq;
 
