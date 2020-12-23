@@ -1,6 +1,7 @@
 //! # Analog to Digital converter
 
 use core::convert::Infallible;
+use core::ptr;
 
 use crate::{
     gpio::Analog,
@@ -33,6 +34,9 @@ impl ADC {
         ccipr: &mut CCIPR,
         delay: &mut impl DelayUs<u32>,
     ) -> Self {
+        // Enable peripheral
+        ahb.enr().modify(|_, w| w.adcen().set_bit());
+
         // Reset peripheral
         ahb.rstr().modify(|_, w| w.adcrst().set_bit());
         ahb.rstr().modify(|_, w| w.adcrst().clear_bit());
@@ -47,22 +51,16 @@ impl ADC {
             w
         });
 
-        // Enable peripheral
-        ahb.enr().modify(|_, w| w.adcen().set_bit());
-
         // Initialize the ADC, according to the STM32L4xx Reference Manual,
         // section 16.4.6.
-        inner.cr.write(|w| {
-            w.deeppwd().clear_bit(); // exit deep-power-down mode
-            w.advregen().set_bit(); // enable internal voltage regulator
-
-            w
-        });
+        inner.cr.write(|w| w.deeppwd().clear_bit()); // exit deep-power-down mode
+        inner.cr.modify(|_, w| w.advregen().set_bit()); // enable internal voltage regulator
 
         // According to the STM32L4xx Reference Manual, section 16.4.6, we need
         // to wait for T_ADCVREG_STUP after enabling the internal voltage
-        // regulator. For the STM32L433, this is 20 us.
-        delay.delay_us(20);
+        // regulator. For the STM32L433, this is 20 us. We choose 25 us to
+        // account for bad clocks.
+        delay.delay_us(25);
 
         // Calibration procedure according to section 16.4.8.
         inner.cr.modify(|_, w| {
@@ -71,7 +69,11 @@ impl ADC {
 
             w
         });
+
         while inner.cr.read().adcal().bit_is_set() {}
+
+        // We need to wait 4 ADC clock after ADCAL goes low, 1 us is more than enough
+        delay.delay_us(1);
 
         Self {
             inner,
@@ -106,6 +108,9 @@ where
     type Error = Infallible;
 
     fn read(&mut self, channel: &mut C) -> nb::Result<u16, Self::Error> {
+        // Make sure bits are off
+        while self.inner.cr.read().addis().bit_is_set() {}
+
         // Enable ADC
         self.inner.isr.write(|w| w.adrdy().set_bit());
         self.inner.cr.modify(|_, w| w.aden().set_bit());
@@ -132,7 +137,20 @@ where
         });
 
         // Start conversion
-        self.inner.isr.modify(|_, w| w.eos().set_bit());
+        self.inner
+            .isr
+            .modify(|_, w| w.eos().set_bit().eoc().set_bit());
+        self.inner.cr.modify(|_, w| w.adstart().set_bit());
+        while self.inner.isr.read().eos().bit_is_clear() {}
+
+        // Read ADC value first time and discard it, as per errata sheet.
+        // The errata states that if we do conversions slower than 1 kHz, the
+        // first read ADC value can be corrupted, so we discard it and measure again.
+        let _ = unsafe { ptr::read_volatile(&self.inner.dr.read().bits()) };
+
+        self.inner
+            .isr
+            .modify(|_, w| w.eos().set_bit().eoc().set_bit());
         self.inner.cr.modify(|_, w| w.adstart().set_bit());
         while self.inner.isr.read().eos().bit_is_clear() {}
 
