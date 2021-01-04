@@ -3,7 +3,7 @@
 use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{Clocks, APB1R1};
-#[cfg(feature = "stm32l4x5")]
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5"))]
 use crate::stm32::I2C3;
 use crate::stm32::{i2c1, I2C1, I2C2};
 use crate::time::Hertz;
@@ -517,20 +517,54 @@ where
     }
 }
 
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x4",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 use crate::gpio::gpioa::{PA10, PA9};
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 
-#[cfg(feature = "stm32l4x5")]
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x4",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::gpiob::{PB10, PB11, PB6};
+
+use crate::gpio::gpiob::PB7;
+
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5"))]
 use crate::gpio::gpioc::{PC0, PC1};
 
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x4",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 pins!(I2C1, AF4,
     SCL: [PA9, PB6],
     SDA: [PA10, PB7]);
 
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x4",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
 pins!(I2C2, AF4, SCL: [PB10], SDA: [PB11]);
 
+#[cfg(feature = "stm32l4x3")]
+use crate::gpio::gpiob::PB8;
+
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
-use crate::gpio::gpiob::{PB13, PB14, PB8, PB9};
+use crate::gpio::gpiob::{PB13, PB14, PB9};
 
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
 pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
@@ -539,4 +573,10 @@ pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
 pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);
 
 #[cfg(feature = "stm32l4x5")]
+pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+
+#[cfg(feature = "stm32l4x3")]
+pins!(I2C1, AF4, SCL: [PB8], SDA: [PB7]);
+
+#[cfg(feature = "stm32l4x3")]
 pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
