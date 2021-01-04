@@ -3,7 +3,7 @@
 use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::rcc::{Clocks, APB1R1};
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5"))]
+#[cfg(feature = "stm32l4x5")]
 use crate::stm32::I2C3;
 use crate::stm32::{i2c1, I2C1, I2C2};
 use crate::time::Hertz;
@@ -575,4 +575,4 @@ pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
 pins!(I2C1, AF4, SCL: [PB8], SDA: [PB7]);
 
 #[cfg(feature = "stm32l4x3")]
-pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+pins!(I2C2, AF4, SCL: [PC0], SDA: [PC1]);
