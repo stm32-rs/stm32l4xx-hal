@@ -520,7 +520,6 @@ where
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
-    feature = "stm32l4x4",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
@@ -529,7 +528,6 @@ use crate::gpio::gpioa::{PA10, PA9};
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
-    feature = "stm32l4x4",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
@@ -543,7 +541,6 @@ use crate::gpio::gpioc::{PC0, PC1};
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
-    feature = "stm32l4x4",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
@@ -554,7 +551,6 @@ pins!(I2C1, AF4,
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
-    feature = "stm32l4x4",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
