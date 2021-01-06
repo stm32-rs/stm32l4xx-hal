@@ -111,7 +111,6 @@ macro_rules! hal {
                     }
                 }
 
-
                 /// Clears interrupt associated with `event`.
                 ///
                 /// If the interrupt is not cleared, it will immediately retrigger after
@@ -124,7 +123,6 @@ macro_rules! hal {
                         }
                     }
                 }
-
 
                 /// Stops listening for an `event`
                 pub fn unlisten(&mut self, event: Event) {
@@ -188,7 +186,6 @@ macro_rules! hal {
                     if arr > max_val || psc > max_val {
                         return Err(ValueError {})
                     }
-
 
                     self.tim.arr.write(|w| unsafe { w.bits(u32::from(arr)) });
                     self.tim.psc.write(|w| unsafe { w.bits(u32::from(psc)) });

@@ -45,7 +45,7 @@ fn main() -> ! {
 
     let mut timer = Delay::new(cp.SYST, clocks);
 
-    let mut rtc = Rtc::rtc(
+    let mut rtc = Rtc::new(
         dp.RTC,
         &mut rcc.apb1r1,
         &mut rcc.bdcr,

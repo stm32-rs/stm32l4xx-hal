@@ -5,9 +5,9 @@ use void::Void;
 use crate::{
     datetime::*,
     hal::timer::{self, Cancel as _},
+    pac::{EXTI, RTC},
     pwr,
     rcc::{APB1R1, BDCR},
-    stm32::{EXTI, RTC},
 };
 
 #[cfg(any(feature = "rt"))]
@@ -693,9 +693,6 @@ impl timer::CountDown for WakeupTimer<'_> {
     where
         T: Into<Self::Time>,
     {
-        // self.set_wakeup(unsafe { &mut (*pac::EXTI::ptr(), delay as u16)});
-        // return;
-
         let delay = delay.into();
         assert!(1 <= delay && delay <= 1 << 17);
 

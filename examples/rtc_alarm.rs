@@ -43,7 +43,7 @@ fn main() -> ! {
         .lse(CrystalBypass::Disable, ClockSecuritySystem::Disable)
         .freeze(&mut flash.acr, &mut pwr);
 
-    let mut rtc = Rtc::rtc(
+    let mut rtc = Rtc::new(
         dp.RTC,
         &mut rcc.apb1r1,
         &mut rcc.bdcr,

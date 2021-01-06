@@ -26,7 +26,7 @@ impl InputSrc {
     /// (ie, can't set on `Pll(Pllsrc)`.
     pub fn bits(&self) -> u8 {
         match self {
-            Self::Msi => 0b00,  // todo check bit values
+            Self::Msi => 0b00, // todo check bit values
             Self::Hsi16 => 0b00,
             Self::Hse => 0b01,
             Self::Pll(_) => 0b10,
@@ -54,7 +54,7 @@ fn re_select_input(input_src: InputSrc) {
     match input_src {
         InputSrc::Hse => unsafe {
             (*RCC::ptr()).cr.modify(|_, w| w.hseon().set_bit());
-            while (*RCC::ptr()).cr.read().hserdy().bit().is_clear() {}
+            while (*RCC::ptr()).cr.read().hserdy().bit_is_clear() {}
 
             (*RCC::ptr())
                 .cfgr
@@ -63,43 +63,40 @@ fn re_select_input(input_src: InputSrc) {
         InputSrc::Pll(_) => unsafe {
             // todo: DRY with above.
             (*RCC::ptr()).cr.modify(|_, w| w.hseon().set_bit());
-            while (*RCC::ptr()).cr.read().hserdy().is_not_ready() {}
+            while (*RCC::ptr()).cr.read().hserdy().bit_is_clear() {}
 
-            (*RCC::ptr()).cr.modify(|_, w| w.pllon().off());
-            while (*RCC::ptr()).cr.read().pllrdy().bit().is_set() {}
+            (*RCC::ptr()).cr.modify(|_, w| w.pllon().clear_bit());
+            while (*RCC::ptr()).cr.read().pllrdy().bit_is_set() {}
 
             (*RCC::ptr())
                 .cfgr
                 .modify(|_, w| w.sw().bits(input_src.bits()));
 
-            (*RCC::ptr()).cr.modify(|_, w| w.pllon().on());
-            while (*RCC::ptr()).cr.read().pllrdy().bit().is_clear() {}
+            (*RCC::ptr()).cr.modify(|_, w| w.pllon().set_bit());
+            while (*RCC::ptr()).cr.read().pllrdy().bit_is_clear() {}
         },
-        InputSrc::Hsi => (), // Already reset to this.
+        InputSrc::Hsi16 => (), // Already reset to this? todo
+        InputSrc::Msi => (),   // Already reset to this? todo
     }
 }
 
 /// Ref man, table 24
 /// Note that this assumes you've already reduced clock frequency below 2 Mhz.
-pub fn low_power_run(scb: &mut SCB) {
+pub fn low_power_run(pwr: &mut PWR) {
     // Decrease the system clock frequency below 2 MHz
     // LPR = 1
-    unsafe { (*PWR::ptr()) }
-        .cr1
-        .modify(|_, w| w.lpr().bit.set());
+    pwr.cr1.modify(|_, w| w.lpr().set_bit())
 }
 
 /// Ref man, table 24
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
-pub fn return_from_low_power_run(scb: &mut SCB) {
+pub fn return_from_low_power_run(pwr: &mut PWR) {
     // LPR = 0
-    unsafe { (*PWR::ptr()) }
-        .cr1
-        .modify(|_, w| w.lpr().bit.clear());
+    pwr.cr1.modify(|_, w| w.lpr().clear_bit());
 
     // Wait until REGLPF = 0
-    while unsafe { (*PWR::ptr()) }.sr2.read().regplf().bit_is_set() {}
+    while pwr.sr2.read().reglpf().bit_is_set() {}
 
     // Increase the system clock frequency
 }
@@ -112,7 +109,7 @@ pub fn sleep_now(scb: &mut SCB) {
     // – No interrupt (for WFI) or event (for WFE) is pending
     scb.clear_sleepdeep();
 
-    // todo: Table 25 has a line through it, with the following below. Do we need it?
+    // Or, unimplemented:
     // On return from ISR while:
     // // SLEEPDEEP = 0 and SLEEPONEXIT = 1
     // scb.clear_sleepdeep();
@@ -125,11 +122,12 @@ pub fn sleep_now(scb: &mut SCB) {
 pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode, input_src: InputSrc) {
     // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
     // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
-    scb.set_sleepdeep(); // 0
-                         // – No interrupt (for WFI) or event (for WFE) is pending
-                         // – LPMS = “000” in PWR_CR1
-    unsafe { (*PWR::ptr()).cr1.modify(|_, w| w.lpms().bits(mode as u8)) }; // 0
+    scb.set_sleepdeep();
+    // – No interrupt (for WFI) or event (for WFE) is pending
+    // – LPMS = (according to mode) in PWR_CR1
+    pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(mode as u8) });
 
+    // Or, unimplemented:
     // On Return from ISR while:
     // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
     // – SLEEPONEXIT = 1
@@ -138,31 +136,73 @@ pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode, input_src: InputSrc) {
 
     wfi();
 
-    re_select_input(input_src); // todo?
+    re_select_input(input_src);
 }
 
-/// Enter `Standby` mode: the lowest-power of the 3 low-power states avail on the
-/// STM32f3.
-/// To exit: WKUP pin rising edge, RTC alarm event’s rising edge, external Reset in
-/// NRST pin, IWDG Reset.
-/// Ref man, table 21.
+/// Enter `Standby` mode. See
+/// Table 30.
 pub fn standby(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc) {
-    // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
-
-    // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
+    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
     scb.set_sleepdeep();
+    // – No interrupt (for WFI) or event (for WFE) is pending
+    // – LPMS = “011” in PWR_CR1
+    pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b011) });
+    // – WUFx bits are cleared in power status register 1 (PWR_SR1)
+    // (Clear by setting cwfuf bits in `pwr_scr`.)
+    pwr.scr.write(|w| unsafe { w.bits(0) });
+    // todo: Unsure why setting the individual bits isn't working; PWR.scr doesn't have modify method?
+    // pwr.scr.modify(|_, w| {
+    //     w.cwuf1().set_bit();
+    //     w.cwuf2().set_bit();
+    //     w.cwuf3().set_bit();
+    //     w.cwuf4().set_bit();
+    //     w.cwuf5().set_bit();
+    // })
 
-    // Set PDDS bit in Power Control register (PWR_CR)
-    // This bit is set and cleared by software. It works together with the LPDS bit.
-    // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
-    // depends on the LPDS bit.
-    // 1: Enter Standby mode when the CPU enters Deepsleep.
-    pwr.cr.modify(|_, w| w.pdds().set_bit());
+    // Or, unimplemented:
+    // On return from ISR while:
+    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+    // – SLEEPONEXIT = 1
+    // – No interrupt is pending
+    // – LPMS = “011” in PWR_CR1 and
+    // – WUFx bits are cleared in power status register 1 (PWR_SR1)
+    // – The RTC flag corresponding to the chosen wakeup source (RTC Alarm
+    // A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared
+    wfi();
 
-    // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
-    // PWR_CR.)
-    pwr.cr.modify(|_, w| w.cwuf().set_bit());
+    re_select_input(input_src);
+}
 
+/// Enter `Shutdown mode` mode: the lowest-power of the 3 low-power states avail. See
+/// Table 31.
+pub fn shutdown(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc) {
+    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+    scb.set_sleepdeep();
+    // – No interrupt (for WFI) or event (for WFE) is pending
+    // – LPMS = “011” in PWR_CR1
+    pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b100) });
+    // – WUFx bits are cleared in power status register 1 (PWR_SR1)
+    // (Clear by setting cwfuf bits in `pwr_scr`.)
+    pwr.scr.write(|w| unsafe { w.bits(0) });
+    // todo: Unsure why setting the individual bits isn't working; PWR.scr doesn't have modify method?
+    // pwr.scr.modify(|_, w| {
+    //     w.cwuf1().set_bit();
+    //     w.cwuf2().set_bit();
+    //     w.cwuf3().set_bit();
+    //     w.cwuf4().set_bit();
+    //     w.cwuf5().set_bit();
+    // })
+
+    // Or, unimplemented:
+    // On return from ISR while:
+    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+    // – SLEEPONEXT = 1
+    // – No interrupt is pending
+    // – LPMS = “1XX” in PWR_CR1 and
+    // – WUFx bits are cleared in power status register 1 (PWR_SR1)
+    // – The RTC flag corresponding to the chosen wakeup source (RTC
+    // Alarm A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is
+    // cleared
     wfi();
 
     re_select_input(input_src);
