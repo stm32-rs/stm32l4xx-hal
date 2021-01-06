@@ -10,6 +10,34 @@ use crate::{
     stm32::{EXTI, RTC},
 };
 
+#[cfg(any(feature = "rt"))]
+/// To enable RTC wakeup interrupts, run this in the main body of your program, eg:
+/// `make_rtc_interrupt_handler!(RTC_WKUP);`
+#[macro_export]
+macro_rules! make_wakeup_interrupt_handler {
+    ($line:ident) => {
+        #[interrupt]
+        fn $line() {
+            free(|cs| {
+                unsafe {
+                    // Reset pending bit for interrupt line
+                    (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().bit(true));
+
+                    // Clear the wakeup timer flag, after disabling write protections.
+                    (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xCA));
+                    (*pac::RTC::ptr()).wpr.write(|w| w.bits(0x53));
+                    (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().clear_bit());
+
+                    (*pac::RTC::ptr()).isr.modify(|_, w| w.wutf().clear_bit());
+
+                    (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().set_bit());
+                    (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xFF));
+                }
+            });
+        }
+    };
+}
+
 /// Interrupt event
 pub enum Event {
     WakeupTimer,
