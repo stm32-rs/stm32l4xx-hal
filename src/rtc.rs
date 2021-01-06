@@ -11,7 +11,8 @@ use crate::{
 };
 
 #[cfg(any(feature = "rt"))]
-/// To enable RTC wakeup interrupts, run this in the main body of your program, eg:
+/// This provides a default handler for RTC inputs that clears the EXTI line and
+/// wakeup flag. If you don't need additional functionality, run this in the main body of your program, eg:
 /// `make_rtc_interrupt_handler!(RTC_WKUP);`
 #[macro_export]
 macro_rules! make_wakeup_interrupt_handler {
@@ -36,6 +37,31 @@ macro_rules! make_wakeup_interrupt_handler {
             });
         }
     };
+}
+
+/// RTC error type
+#[derive(Debug)]
+pub enum Error {
+    /// Invalid input error
+    InvalidInputData,
+}
+
+/// See ref man, section 27.6.3, or AN4769, section 2.4.2.
+/// To be used with WakeupPrescaler
+#[derive(Clone, Copy, Debug)]
+enum WakeupDivision {
+    Sixteen,
+    Eight,
+    Four,
+    Two,
+}
+
+/// See AN4759, table 13.
+#[derive(Clone, Copy, Debug)]
+enum ClockConfig {
+    One(WakeupDivision),
+    Two,
+    Three,
 }
 
 /// Interrupt event
@@ -63,7 +89,7 @@ impl From<Alarm> for Event {
 /// RTC Abstraction
 pub struct Rtc {
     rtc: RTC,
-    rtc_config: RtcConfig,
+    config: RtcConfig,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -78,6 +104,7 @@ pub enum RtcClockSource {
     /// 11: HSE oscillator clock divided by 32 used as RTC clock
     HSE = 0b11,
 }
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RtcConfig {
     /// RTC clock source
@@ -127,22 +154,183 @@ impl RtcConfig {
 }
 
 impl Rtc {
-    pub fn rtc(
+    pub fn new(
         rtc: RTC,
         apb1r1: &mut APB1R1,
         bdcr: &mut BDCR,
         pwrcr1: &mut pwr::CR1,
-        rtc_config: RtcConfig,
+        config: RtcConfig,
     ) -> Self {
         // assert_eq!(clocks.lsi(), true); // make sure LSI is enabled
         // enable peripheral clock for communication
         apb1r1.enr().modify(|_, w| w.rtcapben().set_bit());
         pwrcr1.reg().read(); // read to allow the pwr clock to enable
 
-        let mut rtc_struct = Self { rtc, rtc_config };
-        rtc_struct.set_config(bdcr, pwrcr1, rtc_config);
+        let mut rtc_struct = Self { rtc, config };
+        rtc_struct.set_config(bdcr, pwrcr1, config);
 
         rtc_struct
+    }
+
+    /// Helper fn, to do the important bits of setting the interval, with
+    /// the registers already unlocked.
+    fn set_wakeup_interval_inner(&mut self, sleep_time: f32) {
+        // Program the value into the wakeup timer
+        // Set WUT[15:0] in RTC_WUTR register. For RTC3 the user must also program
+        // WUTOCLR bits.
+        // See ref man Section 2.4.2: Maximum and minimum RTC wakeup period.
+        // todo check ref man register table
+
+        // See notes reffed below about WUCKSEL. We choose one of 3 "modes" described in AN4759 based
+        // on sleep time. If in the overlap area, choose the lower (more precise) mode.
+        // These all assume a 1hz `ck_spre`.
+        let lfe_freq = match self.config.clock_config {
+            RtcClockSource::LSE => 32_768.,
+            RtcClockSource::LSI => 40_000.,
+            RtcClockSource::HSE => 250_000., // Assuming 8Mhz HSE, which may not be the case
+            RtcClockSource::NoClock => 1.,   // todo: Return an `Err` ?
+        };
+
+        // sleep_time = (1/lfe_freq) * div * (wutr + 1)
+        // res = 1/lfe_freq * div
+        // sleep_time = res * WUTR = 1/lfe_freq * div * (wutr + 1)
+        // wutr = sleep_time * lfe_freq / div - 1
+
+        let clock_cfg;
+        let wutr;
+
+        if sleep_time >= 0.00012207 && sleep_time < 32. {
+            let division;
+            let div;
+            if sleep_time < 4. {
+                division = WakeupDivision::Two; // Resolution: 61.035µs
+                div = 2.;
+            } else if sleep_time < 8. {
+                division = WakeupDivision::Four; // Resolution: 122.08µs
+                div = 4.;
+            } else if sleep_time < 16. {
+                division = WakeupDivision::Eight; // Resolution: 244.141
+                div = 8.;
+            } else {
+                division = WakeupDivision::Sixteen; // Resolution: 488.281
+                div = 16.;
+            }
+            clock_cfg = ClockConfig::One(division);
+            wutr = sleep_time * lfe_freq / div - 1.
+        } else if sleep_time < 65_536. {
+            // 32s to 18 hours (This mode goes 1s to 18 hours; we use Config1 for the overlap)
+            clock_cfg = ClockConfig::Two;
+            wutr = sleep_time; // This works out conveniently!
+        } else if sleep_time < 131_072. {
+            // 18 to 36 hours
+            clock_cfg = ClockConfig::Three;
+            wutr = sleep_time - 65_537.;
+        } else {
+            panic!("Wakeup period must be between 0122.07µs and 36 hours.")
+        }
+
+        self.rtc
+            .wutr
+            .modify(|_, w| unsafe { w.wut().bits(wutr as u16) });
+
+        // Select the desired clock source. Program WUCKSEL[2:0] bits in RTC_CR register.
+        // See ref man Section 2.4.2: Maximum and minimum RTC wakeup period.
+        // todo: Check register docs and see what to set here.
+
+        // See AN4759, Table 13. RM, 27.3.6
+
+        // When ck_spre frequency is 1Hz, this allows to achieve a wakeup time from 1 s to
+        // around 36 hours with one-second resolution. This large programmable time range is
+        // divided in 2 parts:
+        // – from 1s to 18 hours when WUCKSEL [2:1] = 10
+        // – and from around 18h to 36h when WUCKSEL[2:1] = 11. In this last case 216 is
+        // added to the 16-bit counter current value.When the initialization sequence is
+        // complete (see Programming the wakeup timer on page 781), the timer starts
+        // counting down.When the wakeup function is enabled, the down-counting remains
+        // active in low-power modes. In addition, when it reaches 0, the WUTF flag is set in
+        // the RTC_ISR register, and the wakeup counter is automatically reloaded with its
+        // reload value (RTC_WUTR register value).
+        let word = match clock_cfg {
+            ClockConfig::One(division) => match division {
+                WakeupDivision::Sixteen => 0b000,
+                WakeupDivision::Eight => 0b001,
+                WakeupDivision::Four => 0b010,
+                WakeupDivision::Two => 0b011,
+            },
+            // for 2 and 3, what does `x` mean in the docs? Best guess is it doesn't matter.
+            ClockConfig::Two => 0b100,   // eg 1s to 18h.
+            ClockConfig::Three => 0b110, // eg 18h to 36h
+        };
+
+        // 000: RTC/16 clock is selected
+        // 001: RTC/8 clock is selected
+        // 010: RTC/4 clock is selected
+        // 011: RTC/2 clock is selected
+        // 10x: ck_spre (usually 1 Hz) clock is selected
+        // 11x: ck_spre (usually 1 Hz) clock is selected and 216 is added to the WUT counter value
+
+        self.rtc.cr.modify(|_, w| unsafe { w.wcksel().bits(word) });
+    }
+
+    /// Setup periodic auto-wakeup interrupts. See ST AN4759, Table 11, and more broadly,
+    /// section 2.4.1. See also reference manual, section 27.5.
+    /// In addition to running this function, set up the interrupt handling function by
+    /// adding the line `make_rtc_interrupt_handler!(RTC_WKUP);` somewhere in the body
+    /// of your program.
+    /// `sleep_time` is in ms.
+    pub fn set_wakeup(&mut self, exti: &mut EXTI, sleep_time: f32) {
+        // Configure and enable the EXTI line corresponding to the Wakeup timer even in
+        // interrupt mode and select the rising edge sensitivity.
+        // Sleep time is in seconds
+
+        exti.imr1.modify(|_, w| w.mr20().unmasked());
+        exti.rtsr1.modify(|_, w| w.tr20().bit(true));
+        exti.ftsr1.modify(|_, w| w.tr20().bit(false));
+
+        // Disable the RTC registers Write protection.
+        // Write 0xCA and then 0x53 into the RTC_WPR register. RTC registers can then be modified.
+        self.rtc.wpr.write(|w| unsafe { w.bits(0xCA) });
+        self.rtc.wpr.write(|w| unsafe { w.bits(0x53) });
+
+        // Disable the wakeup timer. Clear WUTE bit in RTC_CR register
+        self.rtc.cr.modify(|_, w| w.wute().clear_bit());
+
+        // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
+        // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
+        while self.rtc.isr.read().wutwf().bit_is_clear() {}
+
+        self.set_wakeup_interval_inner(sleep_time);
+        // Re-enable the wakeup timer. Set WUTE bit in RTC_CR register.
+        // The wakeup timer restarts counting down.
+        self.rtc.cr.modify(|_, w| w.wute().set_bit());
+
+        // Enable the wakeup timer interrupt.
+        self.rtc.cr.modify(|_, w| w.wutie().set_bit());
+        self.rtc.cr.modify(|_, w| w.wutie().set_bit());
+
+        // Clear the  wakeup flag.
+        self.rtc.isr.modify(|_, w| w.wutf().clear_bit());
+
+        // Enable the RTC registers Write protection. Write 0xFF into the
+        // RTC_WPR register. RTC registers can no more be modified.
+        self.rtc.wpr.write(|w| unsafe { w.bits(0xFF) });
+    }
+
+    /// Change the sleep time for the auto wakeup, after it's been set up.
+    /// Sleep time is in MS. Major DRY from `set_wakeup`.
+    pub fn set_wakeup_interval(&mut self, sleep_time: f32) {
+        // `sleep_time` is in seconds.
+        // See comments in `set_auto_wakeup` for what these writes do.
+        self.rtc.wpr.write(|w| unsafe { w.bits(0xCA) });
+        self.rtc.wpr.write(|w| unsafe { w.bits(0x53) });
+
+        self.rtc.cr.modify(|_, w| w.wute().clear_bit());
+        while self.rtc.isr.read().wutwf().bit_is_clear() {}
+
+        self.set_wakeup_interval_inner(sleep_time);
+
+        self.rtc.cr.modify(|_, w| w.wute().set_bit());
+        self.rtc.wpr.write(|w| unsafe { w.bits(0xFF) });
     }
 
     /// Get date and time touple
@@ -150,7 +338,7 @@ impl Rtc {
         let time;
         let date;
 
-        let sync_p = self.rtc_config.sync_prescaler as u32;
+        let sync_p = self.config.sync_prescaler as u32;
         let micros =
             1_000_000u32 / (sync_p + 1) * (sync_p - self.rtc.ssr.read().ss().bits() as u32);
         let timer = self.rtc.tr.read();
@@ -203,7 +391,7 @@ impl Rtc {
     }
 
     pub fn get_config(&self) -> RtcConfig {
-        self.rtc_config
+        self.config
     }
 
     /// Sets the time at which an alarm will be triggered
@@ -433,7 +621,7 @@ impl Rtc {
                 .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
         });
 
-        self.rtc_config = rtc_config;
+        self.config = rtc_config;
     }
 
     /// Access the wakeup timer
@@ -505,6 +693,9 @@ impl timer::CountDown for WakeupTimer<'_> {
     where
         T: Into<Self::Time>,
     {
+        // self.set_wakeup(unsafe { &mut (*pac::EXTI::ptr(), delay as u16)});
+        // return;
+
         let delay = delay.into();
         assert!(1 <= delay && delay <= 1 << 17);
 

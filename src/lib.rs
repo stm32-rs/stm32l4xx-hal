@@ -124,6 +124,7 @@ pub mod i2c;
     feature = "stm32l4x5",
     feature = "stm32l4x6"
 ))]
+pub mod low_power;
 pub mod prelude;
 #[cfg(any(
     feature = "stm32l4x1",
