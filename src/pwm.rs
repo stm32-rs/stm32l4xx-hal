@@ -7,7 +7,7 @@ use crate::hal;
 use crate::stm32::{TIM1, TIM15, TIM2};
 
 use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA2, PA3, PA8, PA9};
-use crate::gpio::gpiob::PB14;
+use crate::gpio::gpiob::{PB11, PB14};
 use crate::gpio::{Alternate, AlternateOD, Floating, Input, Output, PushPull, AF1, AF14};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
@@ -62,6 +62,7 @@ pins_to_channels_mapping! {
 
     // TIM2
     TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
+    TIM2: (PA0, PA1, PA2, PB11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
     TIM2: (PA1, PA2, PA3), (C2, C3, C4), (AF1, AF1, AF1);
     TIM2: (PA0, PA2, PA3), (C1, C3, C4), (AF1, AF1, AF1);
     TIM2: (PA0, PA1, PA3), (C1, C2, C4), (AF1, AF1, AF1);
