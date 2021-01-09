@@ -1,10 +1,9 @@
 //! Reset and Clock Control
 
-use crate::stm32::{rcc, RCC};
+use crate::pac::{rcc, PWR, RCC};
 use cast::u32;
 
 use crate::flash::ACR;
-use crate::pwr::Pwr;
 use crate::time::Hertz;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -448,7 +447,7 @@ impl CFGR {
     }
 
     /// Freezes the clock configuration, making it effective
-    pub fn freeze(&self, acr: &mut ACR, pwr: &mut Pwr) -> Clocks {
+    pub fn freeze(&self, acr: &mut ACR, pwr: &mut PWR) -> Clocks {
         let rcc = unsafe { &*RCC::ptr() };
 
         //
@@ -477,7 +476,7 @@ impl CFGR {
 
         if let Some(lse_cfg) = &self.lse {
             // 1. Unlock the backup domain
-            pwr.cr1.reg().modify(|_, w| w.dbp().set_bit());
+            pwr.cr1.modify(|_, w| w.dbp().set_bit());
 
             // 2. Setup the LSE
             rcc.bdcr.modify(|_, w| {

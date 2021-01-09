@@ -512,20 +512,29 @@ hal! {
 }
 
 // todo: Do we need to feature gate `pwm_features` ?
-pwm_features! {
-    {
-        TIM2: (tim2, tim2en, tim2rst),
-        APB1: (apb1, pclk1),
-        u32,
-    },
-    {
-        TIM3: (tim3, tim3en, tim3rst),
-        APB1: (apb1, pclk1),
-        u16,
-    },
-    {
-        TIM4: (tim4, tim4en, tim4rst),
-        APB1: (apb1, pclk1),
-        u16,
-    },
-}
+// pwm_features! {
+//     {
+//         TIM2: (tim2, tim2en, tim2rst),
+//         APB1: (apb1, pclk1),
+//         u32,
+//     },
+// }
+//
+// #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+// pwm_features! {
+//     {
+//         TIM3: (tim3, tim3en, tim3rst),
+//         APB1: (apb1, pclk1),
+//         u16,
+//     },
+//     {
+//         TIM4: (tim4, tim4en, tim4rst),
+//         APB1: (apb1, pclk1),
+//         u16,
+//     },
+//     {
+//         TIM5: (tim5, tim5en, tim5rst),
+//         APB1: (apb1, pclk1),
+//         u16,
+//     },
+// }

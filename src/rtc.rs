@@ -5,8 +5,7 @@ use void::Void;
 use crate::{
     datetime::*,
     hal::timer::{self, Cancel as _},
-    pac::{EXTI, RCC, RTC},
-    pwr,
+    pac::{EXTI, PWR, RCC, RTC},
     rcc::{APB1R1, BDCR},
 };
 
@@ -179,7 +178,7 @@ impl Rtc {
         regs: RTC,
         apb1r1: &mut APB1R1,
         bdcr: &mut BDCR,
-        pwrcr1: &mut pwr::CR1,
+        pwr: &mut PWR,
         config: RtcConfig,
     ) -> Self {
         let mut result = Self { regs, config };
@@ -187,12 +186,13 @@ impl Rtc {
         // Enable the peripheral clock for communication
         // You must enable the `pwren()` bit before making RTC register writes, or they won't stay
         // set. Enable the backup interface by setting PWREN
+        apb1r1.enr().modify(|_, w| w.pwren().set_bit());
         apb1r1.enr().modify(|_, w| w.rtcapben().set_bit());
-        pwrcr1.reg().read(); // read to allow the pwr clock to enable
+        pwr.cr1.read(); // read to allow the pwr clock to enable
 
         // Unlock the backup domain
-        pwrcr1.reg().modify(|_, w| w.dbp().set_bit());
-        while pwrcr1.reg().read().dbp().bit_is_clear() {}
+        pwr.cr1.modify(|_, w| w.dbp().set_bit());
+        while pwr.cr1.read().dbp().bit_is_clear() {}
 
         // Reset the backup domain.
         bdcr.enr().modify(|_, w| w.bdrst().set_bit());
