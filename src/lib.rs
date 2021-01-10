@@ -75,6 +75,7 @@ pub mod adc;
     feature = "stm32l4x5",
     feature = "stm32l4x6"
 ))]
+pub mod clocks;
 pub mod crc;
 pub mod datetime;
 #[cfg(any(

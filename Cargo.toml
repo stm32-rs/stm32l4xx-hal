@@ -42,7 +42,7 @@ default-features = false
 version = "1.1"
 
 [dependencies.embedded-hal]
-version = "0.2.3"
+version = "0.2.4"
 features = ["unproven"]
 
 [dependencies.stm32-usbd]
@@ -54,6 +54,7 @@ optional = true
 features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [features]
+default = ["unproven", "rt"]
 rt = ["stm32l4/rt"]
 stm32l4x1 = ["stm32l4/stm32l4x1"]
 stm32l4x2 = ["stm32l4/stm32l4x2"]

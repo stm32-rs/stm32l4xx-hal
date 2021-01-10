@@ -879,17 +879,17 @@ impl PllSource {
 /// The existence of this value indicates that the clock configuration can no longer be changed
 #[derive(Clone, Copy, Debug)]
 pub struct Clocks {
-    hclk: Hertz,
-    hsi48: bool,
-    msi: Option<MsiFreq>,
-    lsi: bool,
-    lse: bool,
-    pclk1: Hertz,
-    pclk2: Hertz,
-    ppre1: u8,
-    ppre2: u8,
-    sysclk: Hertz,
-    pll_source: Option<PllSource>,
+    pub(crate) hclk: Hertz,
+    pub(crate) hsi48: bool,
+    pub(crate) msi: Option<MsiFreq>,
+    pub(crate) lsi: bool,
+    pub(crate) lse: bool,
+    pub(crate) pclk1: Hertz,
+    pub(crate) pclk2: Hertz,
+    pub(crate) ppre1: u8,
+    pub(crate) ppre2: u8,
+    pub(crate) sysclk: Hertz,
+    pub(crate) pll_source: Option<PllSource>,
 }
 
 impl Clocks {
