@@ -76,9 +76,9 @@ impl InputSrc {
     pub fn bits(&self) -> u8 {
         match self {
             Self::Msi(_) => 0b00,
-            Self::Hsi => 0b00,
-            Self::Hse(_) => 0b01,
-            Self::Pll(_) => 0b10,
+            Self::Hsi => 0b01,
+            Self::Hse(_) => 0b10,
+            Self::Pll(_) => 0b11,
         }
     }
 }
@@ -274,9 +274,9 @@ impl ApbPrescaler {
 pub struct Clocks {
     pub input_src: InputSrc, //
     pub pllm: Pllm,          // PLL divider
-    pub pll_vco_mul: u8,     // PLL multiplier
-    pub pll_sai1_mul: u8,    // PLL SAI1 multiplier
-    pub pll_sai2_mul: u8,    // PLL SAI2 multiplier
+    pub pll_vco_mul: u8,     // PLL multiplier. Valid range of 7 to 86.
+    pub pll_sai1_mul: u8,    // PLL SAI1 multiplier. Valid range of 7 to 86.
+    pub pll_sai2_mul: u8,    // PLL SAI2 multiplier. Valid range of 7 to 86.
     pub pllr: Pllr,
     pub hclk_prescaler: HclkPrescaler, // The AHB clock divider.
     pub apb1_prescaler: ApbPrescaler,  // APB1 divider, for the low speed peripheral bus.
@@ -360,6 +360,8 @@ impl Clocks {
         // 4. Enable the PLL again by setting PLLON to 1.
         // 5. Enable the desired PLL outputs by configuring PLLPEN, PLLQEN, PLLREN in PLL
         // configuration register (RCC_PLLCFGR).
+
+        // Enable oscillators, and wait until ready.
         match self.input_src {
             InputSrc::Msi(range) => {
                 rcc.cr.modify(|_, w| unsafe {
@@ -411,9 +413,7 @@ impl Clocks {
 
         rcc.cr.modify(|_, w| {
             // Enable bypass mode on HSE, since we're using a ceramic oscillator.
-            w.hsebyp().bit(self.hse_bypass);
-            // Turn off the PLL: Required for modifying some of the settings below.
-            w.pllon().clear_bit()
+            w.hsebyp().bit(self.hse_bypass)
         });
 
         if let InputSrc::Pll(pll_src) = self.input_src {
@@ -424,8 +424,17 @@ impl Clocks {
 
             rcc.pllcfgr.modify(|_, w| {
                 unsafe { w.pllsrc().bits(pll_src.bits()) };
+                unsafe { w.plln().bits(self.pll_vco_mul) };
                 unsafe { w.pllm().bits(self.pllm as u8) };
                 unsafe { w.pllr().bits(self.pllr as u8) }
+            });
+
+            rcc.pllsai1cfgr.modify(|_, w| {
+                unsafe { w.pllsai1n().bits(self.pll_sai1_mul) }
+            });
+
+            rcc.pllsai2cfgr.modify(|_, w| {
+                unsafe { w.pllsai2n().bits(self.pll_sai2_mul) }
             });
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
@@ -438,11 +447,25 @@ impl Clocks {
             });
 
             while rcc.cr.read().pllrdy().bit_is_clear() {}
+            while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
+            while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
 
+            // Set Pen, Qen, and Ren after we enable the PLL.
             rcc.pllcfgr.modify(|_, w| {
                 w.pllpen().set_bit();
                 w.pllqen().set_bit();
                 w.pllren().set_bit()
+            });
+
+            rcc.pllsai1cfgr.modify(|_, w| {
+                w.pllsai1pen().set_bit();
+                w.pllsai1qen().set_bit();
+                w.pllsai1ren().set_bit()
+            });
+
+            rcc.pllsai2cfgr.modify(|_, w| {
+                w.pllsai2pen().set_bit();
+                w.pllsai2ren().set_bit()
             });
         }
 
@@ -514,6 +537,12 @@ impl Clocks {
 
     /// Check if valid.
     pub fn validate(&self) -> Validation {
+        if self.pll_vco_mul < 7 || self.pll_vco_mul > 86 ||
+            self.pll_sai1_mul < 7 || self.pll_sai1_mul > 86 ||
+            self.pll_sai2_mul < 7 || self.pll_sai2_mul > 86 {
+            return Validation::NotValid;
+        }
+
         validate(self.calc_speeds()).0
     }
 
@@ -564,19 +593,19 @@ impl Clocks {
         }
     }
 
-    /// This preset configures clocks with a HSE, a 72Mhz sysclck. All peripheral clocks are at
-    /// 72Mhz, except for APB1, which is at and 36Mhz. USB is set to 48Mhz.
+    /// This preset configures clocks with a HSI, a 80Mhz sysclck. All peripheral clocks are at
+    /// 80Mhz.
     /// HSE output is not bypassed.
-    pub fn full_speed() -> Self {
+    pub fn hsi_preset() -> Self {
         Self {
-            input_src: InputSrc::Pll(PllSrc::Hse(8)),
-            pllm: Pllm::Div1,
+            input_src: InputSrc::Pll(PllSrc::Hsi),
+            pllm: Pllm::Div2,
             pll_vco_mul: 20,
-            pll_sai1_mul: 12,
-            pll_sai2_mul: 20,
+            pll_sai1_mul: 8,
+            pll_sai2_mul: 8,
             pllr: Pllr::Div2,
             hclk_prescaler: HclkPrescaler::Div1,
-            apb1_prescaler: ApbPrescaler::Div2,
+            apb1_prescaler: ApbPrescaler::Div1,
             apb2_prescaler: ApbPrescaler::Div1,
             hse_bypass: false,
             security_system: false,
@@ -585,19 +614,19 @@ impl Clocks {
 }
 
 impl Default for Clocks {
-    /// This default configures clocks with a HSE, a 48Mhz sysclck. All peripheral clocks are at
-    /// 48 Mhz, except for APB1, which is at and 24Mhz. USB is set to 48Mhz.
+    /// This default configures clocks with a HSE, a 32Mhz sysclck. All peripheral clocks are at
+    /// 32 Mhz.
     /// HSE output is not bypassed.
     fn default() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hse(8)),
             pllm: Pllm::Div1,
-            pll_vco_mul: 8,
-            pll_sai1_mul: 12,
+            pll_vco_mul: 20,
+            pll_sai1_mul: 8,
             pll_sai2_mul: 8,
             pllr: Pllr::Div2,
             hclk_prescaler: HclkPrescaler::Div1,
-            apb1_prescaler: ApbPrescaler::Div2,
+            apb1_prescaler: ApbPrescaler::Div1,
             apb2_prescaler: ApbPrescaler::Div1,
             hse_bypass: false,
             security_system: false,
