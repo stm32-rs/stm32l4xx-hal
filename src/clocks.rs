@@ -293,6 +293,8 @@ pub struct Clocks {
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
     pub clk48_src: Clk48Src,
+    pub sai1_enabled: bool,
+    pub sai2_enabled: bool,
     pub hse_bypass: bool,
     pub security_system: bool,
 }
@@ -439,21 +441,29 @@ impl Clocks {
                 unsafe { w.pllr().bits(self.pllr as u8) }
             });
 
-            rcc.pllsai1cfgr
-                .modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
+            if self.sai1_enabled {
+                rcc.pllsai1cfgr
+                    .modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
+            }
 
             #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-            rcc.pllsai2cfgr
-                .modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
+            if self.sai2_enabled {
+                rcc.pllsai2cfgr
+                    .modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
+            }
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             // todo: Enable sai1 and 2 with separate settings, or lump in with mail PLL
             // like this?
             rcc.cr.modify(|_, w| {
                 w.pllon().set_bit();
-                w.pllsai1on().set_bit();
+                if self.sai1_enabled {
+                    w.pllsai1on().set_bit();
+                }
                 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-                w.pllsai2on().set_bit()
+                if self.sai2_enabled {
+                    w.pllsai2on().set_bit()
+                }
             });
 
             while rcc.cr.read().pllrdy().bit_is_clear() {}
@@ -468,17 +478,21 @@ impl Clocks {
                 w.pllren().set_bit()
             });
 
-            rcc.pllsai1cfgr.modify(|_, w| {
-                w.pllsai1pen().set_bit();
-                w.pllsai1qen().set_bit();
-                w.pllsai1ren().set_bit()
-            });
+            if self.sai1_enabled {
+                rcc.pllsai1cfgr.modify(|_, w| {
+                    w.pllsai1pen().set_bit();
+                    w.pllsai1qen().set_bit();
+                    w.pllsai1ren().set_bit()
+                });
+            }
 
             #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-            rcc.pllsai2cfgr.modify(|_, w| {
-                w.pllsai2pen().set_bit();
-                w.pllsai2ren().set_bit()
-            });
+            if self.sai2_enabled {
+                rcc.pllsai2cfgr.modify(|_, w| {
+                    w.pllsai2pen().set_bit();
+                    w.pllsai2ren().set_bit()
+                });
+            }
         }
 
         rcc.cfgr.modify(|_, w| {
@@ -634,6 +648,8 @@ impl Clocks {
             apb1_prescaler: ApbPrescaler::Div1,
             apb2_prescaler: ApbPrescaler::Div1,
             clk48_src: Clk48Src::PllSai1,
+            sai1_enabled: false,
+            sai2_enabled: false,
             hse_bypass: false,
             security_system: false,
         }
@@ -656,6 +672,8 @@ impl Default for Clocks {
             apb1_prescaler: ApbPrescaler::Div1,
             apb2_prescaler: ApbPrescaler::Div1,
             clk48_src: Clk48Src::PllSai1,
+            sai1_enabled: false,
+            sai2_enabled: false,
             hse_bypass: false,
             security_system: false,
         }
