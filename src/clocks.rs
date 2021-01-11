@@ -42,19 +42,31 @@ pub enum Validation {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-#[repr(u8)]
 pub enum PllSrc {
-    None = 0b00,
-    Msi = 0b01,
-    Hsi = 0b10,
-    Hse = 0b11,
+    None,
+    Msi(MsiRange),
+    Hsi,
+    Hse(u8),
+}
+
+impl PllSrc {
+    /// Required due to numerical value on non-uniform discrim being experimental.
+    /// (ie, can't set on `Pll(Pllsrc)`.
+    pub fn bits(&self) -> u8 {
+        match self {
+            Self::None => 0b00,
+            Self::Msi(_) => 0b01,
+            Self::Hsi => 0b10,
+            Self::Hse(_) => 0b11,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum InputSrc {
-    Msi,
+    Msi(MsiRange),
     Hsi,
-    Hse,
+    Hse(u8), // freq in Mhz,
     Pll(PllSrc),
 }
 
@@ -63,10 +75,65 @@ impl InputSrc {
     /// (ie, can't set on `Pll(Pllsrc)`.
     pub fn bits(&self) -> u8 {
         match self {
-            Self::Msi => 0b00,
+            Self::Msi(_) => 0b00,
             Self::Hsi => 0b00,
-            Self::Hse => 0b01,
+            Self::Hse(_) => 0b01,
             Self::Pll(_) => 0b10,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+pub enum MsiRange {
+    Range0 = 0b0000,
+    Range1 = 0b0001,
+    Range2 = 0b0010,
+    Range3 = 0b0011,
+    Range4 = 0b0100,
+    Range5 = 0b0101,
+    Range6 = 0b0110,
+    Range7 = 0b0111,
+    Range8 = 0b1000,
+    Range9 = 0b1001,
+    Range10 = 0b1010,
+    Range11 = 0b1011,
+}
+
+impl MsiRange {
+    // Calculate the approximate frequency, in Hz.
+    fn value(&self) -> u32 {
+        match self {
+            Self::Range0 => 100_000,
+            Self::Range1 => 200_000,
+            Self::Range2 => 400_000,
+            Self::Range3 => 800_000,
+            Self::Range4 => 1_000_000,
+            Self::Range5 => 2_000_000,
+            Self::Range6 => 4_000_000,
+            Self::Range7 => 8_000_000,
+            Self::Range8 => 16_000_000,
+            Self::Range9 => 24_000_000,
+            Self::Range10 => 32_000_000,
+            Self::Range11 => 48_000_000,
+        }
+    }
+
+    /// For backwards compatibility with rcc::MsiFreq.
+    fn to_rcc_msi(&self) -> rcc::MsiFreq {
+        match self {
+            Self::Range0 => rcc::MsiFreq::RANGE100K,
+            Self::Range1 => rcc::MsiFreq::RANGE200K,
+            Self::Range2 => rcc::MsiFreq::RANGE400K,
+            Self::Range3 => rcc::MsiFreq::RANGE800K,
+            Self::Range4 => rcc::MsiFreq::RANGE1M,
+            Self::Range5 => rcc::MsiFreq::RANGE2M,
+            Self::Range6 => rcc::MsiFreq::RANGE4M,
+            Self::Range7 => rcc::MsiFreq::RANGE8M,
+            Self::Range8 => rcc::MsiFreq::RANGE16M,
+            Self::Range9 => rcc::MsiFreq::RANGE24M,
+            Self::Range10 => rcc::MsiFreq::RANGE32M,
+            Self::Range11 => rcc::MsiFreq::RANGE48M,
         }
     }
 }
@@ -203,43 +270,17 @@ impl ApbPrescaler {
     }
 }
 
-#[derive(Clone, Copy)]
-#[repr(u8)]
-pub enum UsbPrescaler {
-    Div1_5 = 0,
-    Div1 = 1,
-}
-
-impl UsbPrescaler {
-    // Can't pass u8 to the single-bit field in sv2rust; need bool.
-    pub fn bit(&self) -> bool {
-        match self {
-            Self::Div1_5 => false,
-            Self::Div1 => true,
-        }
-    }
-
-    pub fn value(&self) -> f32 {
-        match self {
-            Self::Div1_5 => 1.5,
-            Self::Div1 => 1.,
-        }
-    }
-}
-
 /// Settings used to configure clocks
 pub struct Clocks {
-    pub input_freq: u8,      // Mhz, eg HSE speed
     pub input_src: InputSrc, //
     pub pllm: Pllm,          // PLL divider
     pub pll_vco_mul: u8,     // PLL multiplier
     pub pll_sai1_mul: u8,    // PLL SAI1 multiplier
     pub pll_sai2_mul: u8,    // PLL SAI2 multiplier
     pub pllr: Pllr,
-    pub usb_pre: UsbPrescaler, // USB prescaler, for target of 48Mhz.
     pub hclk_prescaler: HclkPrescaler, // The AHB clock divider.
-    pub apb1_prescaler: ApbPrescaler, // APB1 divider, for the low speed peripheral bus.
-    pub apb2_prescaler: ApbPrescaler, // APB2 divider, for the high speed peripheral bus.
+    pub apb1_prescaler: ApbPrescaler,  // APB1 divider, for the low speed peripheral bus.
+    pub apb2_prescaler: ApbPrescaler,  // APB2 divider, for the high speed peripheral bus.
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
     pub hse_bypass: bool,
@@ -259,12 +300,31 @@ impl Clocks {
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
         // todo: This hclk calculation is DRY from `calc_speeds`.
+        let mut input_freq;
         let sysclk = match self.input_src {
-            InputSrc::Pll(_) => {
-                self.input_freq as f32 / self.pllm.value() as f32 * self.pll_vco_mul as f32
+            InputSrc::Pll(pll_src) => {
+                input_freq = match pll_src {
+                    PllSrc::Msi(range) => range.value() as f32 / 1_000_000.,
+                    PllSrc::Hsi => 16.,
+                    PllSrc::Hse(freq) => freq as f32,
+                    PllSrc::None => 0., // todo?
+                };
+                input_freq as f32 / self.pllm.value() as f32 * self.pll_vco_mul as f32
                     / self.pllr.value() as f32
             }
-            _ => self.input_freq as f32,
+
+            InputSrc::Msi(range) => {
+                input_freq = range.value() as f32 / 1_000_000.;
+                input_freq
+            }
+            InputSrc::Hsi => {
+                input_freq = 16.;
+                input_freq
+            }
+            InputSrc::Hse(freq) => {
+                input_freq = freq as f32;
+                input_freq
+            }
         };
 
         let hclk = sysclk / self.hclk_prescaler.value() as f32;
@@ -301,25 +361,54 @@ impl Clocks {
         // 5. Enable the desired PLL outputs by configuring PLLPEN, PLLQEN, PLLREN in PLL
         // configuration register (RCC_PLLCFGR).
         match self.input_src {
-            InputSrc::Msi => {
-                rcc.cr.modify(|_, w| w.msion().bit(true));
-                // Wait for the HSE to be ready.
+            InputSrc::Msi(range) => {
+                rcc.cr.modify(|_, w| unsafe {
+                    w.msirange()
+                        .bits(range as u8)
+                        .msirgsel()
+                        .set_bit()
+                        .msion()
+                        .set_bit()
+                });
+                // Wait for the MSI to be ready.
                 while rcc.cr.read().msirdy().bit_is_clear() {}
+                // todo: If LSE is enabled, calibrate MSI.
             }
-            InputSrc::Hse => {
+            InputSrc::Hse(_) => {
                 rcc.cr.modify(|_, w| w.hseon().bit(true));
                 // Wait for the HSE to be ready.
                 while rcc.cr.read().hserdy().bit_is_clear() {}
             }
-            InputSrc::Hsi => while rcc.cr.read().hsirdy().bit_is_clear() {},
+            InputSrc::Hsi => {
+                rcc.cr.modify(|_, w| w.hsion().bit(true));
+                while rcc.cr.read().hsirdy().bit_is_clear() {}
+            }
             InputSrc::Pll(pll_src) => {
-                if let PllSrc::Hse = pll_src {
-                    // DRY
-                    rcc.cr.modify(|_, w| w.hseon().bit(true));
-                    while rcc.cr.read().hserdy().bit_is_clear() {}
+                // todo: PLL setup here is DRY with the HSE, HSI, and MSI setup above.
+                match pll_src {
+                    PllSrc::Msi(range) => {
+                        rcc.cr.modify(|_, w| unsafe {
+                            w.msirange()
+                                .bits(range as u8)
+                                .msirgsel()
+                                .set_bit()
+                                .msion()
+                                .set_bit()
+                        });
+                    }
+                    PllSrc::Hse(_) => {
+                        rcc.cr.modify(|_, w| w.hseon().bit(true));
+                        while rcc.cr.read().hserdy().bit_is_clear() {}
+                    }
+                    PllSrc::Hsi => {
+                        rcc.cr.modify(|_, w| w.hsion().bit(true));
+                        while rcc.cr.read().hsirdy().bit_is_clear() {}
+                    }
+                    PllSrc::None => {}
                 }
             }
         }
+
         rcc.cr.modify(|_, w| {
             // Enable bypass mode on HSE, since we're using a ceramic oscillator.
             w.hsebyp().bit(self.hse_bypass);
@@ -334,7 +423,7 @@ impl Clocks {
             while rcc.cr.read().pllrdy().bit_is_set() {}
 
             rcc.pllcfgr.modify(|_, w| {
-                unsafe { w.pllsrc().bits(pll_src as u8) };
+                unsafe { w.pllsrc().bits(pll_src.bits()) };
                 unsafe { w.pllm().bits(self.pllm as u8) };
                 unsafe { w.pllr().bits(self.pllr as u8) }
             });
@@ -372,15 +461,36 @@ impl Clocks {
     /// Calculate clock speeds from a given config. Everything is in Mhz.
     /// todo: Handle fractions of mhz. Do floats.
     pub fn calc_speeds(&self) -> Speeds {
+        let mut input_freq;
         let sysclk = match self.input_src {
-            InputSrc::Pll(_) => {
-                self.input_freq as f32 / self.pllm.value() as f32 * self.pll_vco_mul as f32
+            InputSrc::Pll(pll_src) => {
+                input_freq = match pll_src {
+                    PllSrc::Msi(range) => range.value() as f32 / 1_000_000.,
+                    PllSrc::Hsi => 16.,
+                    PllSrc::Hse(freq) => freq as f32,
+                    PllSrc::None => 0., // todo?
+                };
+                input_freq as f32 / self.pllm.value() as f32 * self.pll_vco_mul as f32
                     / self.pllr.value() as f32
             }
-            _ => self.input_freq as f32,
+
+            InputSrc::Msi(range) => {
+                input_freq = range.value() as f32 / 1_000_000.;
+                input_freq
+            }
+            InputSrc::Hsi => {
+                input_freq = 16.;
+                input_freq
+            }
+            InputSrc::Hse(freq) => {
+                input_freq = freq as f32;
+                input_freq
+            }
         };
 
-        let usb = sysclk / self.usb_pre.value() as f32;
+        // todo: Is the 2. division at the end of the USB calc always fixed at div2?
+        let usb = input_freq as f32 / self.pllm.value() as f32 * self.pll_sai1_mul as f32 / 2.;
+
         let hclk = sysclk / self.hclk_prescaler.value() as f32;
         let systick = hclk; // todo the required divider is not yet implemented.
         let fclk = hclk;
@@ -416,17 +526,24 @@ impl Clocks {
     pub fn make_rcc_clocks(&self) -> rcc::Clocks {
         let speeds = self.calc_speeds();
 
-        // let msi = if self.input_src == InputSrc::Msi {
-        //     Some(48.mhz())
-        // } else {
-        //     None
-        // };
+        let mut msi = None;
+        match self.input_src {
+            InputSrc::Msi(range) => {
+                msi = Some(range.to_rcc_msi());
+            }
+            InputSrc::Pll(pll_src) => {
+                if let PllSrc::Msi(range) = pll_src {
+                    msi = Some(range.to_rcc_msi());
+                }
+            }
+            _ => (),
+        }
 
         let pll_source = match self.input_src {
             InputSrc::Pll(pll_src) => match pll_src {
-                PllSrc::Msi => Some(rcc::PllSource::MSI),
+                PllSrc::Msi(_) => Some(rcc::PllSource::MSI),
                 PllSrc::Hsi => Some(rcc::PllSource::HSI16),
-                PllSrc::Hse => Some(rcc::PllSource::HSE),
+                PllSrc::Hse(_) => Some(rcc::PllSource::HSE),
                 PllSrc::None => None,
             },
             _ => None,
@@ -434,8 +551,8 @@ impl Clocks {
 
         rcc::Clocks {
             hclk: (speeds.hclk as u32).mhz().into(),
-            hsi48: self.input_src == InputSrc::Msi,
-            msi: None, // todo: Fix this.
+            hsi48: self.input_src == InputSrc::Hsi,
+            msi,
             lsi: false,
             lse: false,
             pclk1: (speeds.pclk1 as u32).mhz().into(),
@@ -452,14 +569,12 @@ impl Clocks {
     /// HSE output is not bypassed.
     pub fn full_speed() -> Self {
         Self {
-            input_freq: 8,
-            input_src: InputSrc::Pll(PllSrc::Hse),
+            input_src: InputSrc::Pll(PllSrc::Hse(8)),
             pllm: Pllm::Div1,
             pll_vco_mul: 20,
             pll_sai1_mul: 12,
             pll_sai2_mul: 20,
             pllr: Pllr::Div2,
-            usb_pre: UsbPrescaler::Div1_5,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div2,
             apb2_prescaler: ApbPrescaler::Div1,
@@ -475,14 +590,12 @@ impl Default for Clocks {
     /// HSE output is not bypassed.
     fn default() -> Self {
         Self {
-            input_freq: 8,
-            input_src: InputSrc::Pll(PllSrc::Hse),
+            input_src: InputSrc::Pll(PllSrc::Hse(8)),
             pllm: Pllm::Div1,
             pll_vco_mul: 8,
             pll_sai1_mul: 12,
             pll_sai2_mul: 8,
             pllr: Pllr::Div2,
-            usb_pre: UsbPrescaler::Div1,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div2,
             apb2_prescaler: ApbPrescaler::Div1,
