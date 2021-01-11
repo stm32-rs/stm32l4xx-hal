@@ -66,7 +66,7 @@ pub enum Polarity {
 
 impl Polarity {
     /// For use with `set_bit()`.
-    fn bit(&self) -> bool {
+    fn _bit(&self) -> bool {
         match self {
             Self::ActiveHigh => false,
             Self::ActiveLow => true,
@@ -331,7 +331,7 @@ macro_rules! hal {
     }
 }
 
-macro_rules! pwm_features {
+macro_rules! _pwm_features {
     ($({
         $TIMX:ident: ($tim:ident, $timXen:ident, $timXrst:ident),
         $APB:ident: ($apb:ident, $pclkX:ident),

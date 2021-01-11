@@ -33,6 +33,15 @@ pub struct Speeds {
     // todo LPUART, I2C etc
 }
 
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum Clk48Src {
+    Hsi48 = 0b00, // Only falivd for STM32L49x/L4Ax
+    PllSai1 = 0b01,
+    Pll = 0b10,
+    Msi = 0b11,
+}
+
 /// Is a set of speeds valid?
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -283,6 +292,7 @@ pub struct Clocks {
     pub apb2_prescaler: ApbPrescaler,  // APB2 divider, for the high speed peripheral bus.
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
+    pub clk48_src: Clk48Src,
     pub hse_bypass: bool,
     pub security_system: bool,
 }
@@ -300,7 +310,7 @@ impl Clocks {
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
         // todo: This hclk calculation is DRY from `calc_speeds`.
-        let mut input_freq;
+        let input_freq;
         let sysclk = match self.input_src {
             InputSrc::Pll(pll_src) => {
                 input_freq = match pll_src {
@@ -429,13 +439,12 @@ impl Clocks {
                 unsafe { w.pllr().bits(self.pllr as u8) }
             });
 
-            rcc.pllsai1cfgr.modify(|_, w| {
-                unsafe { w.pllsai1n().bits(self.pll_sai1_mul) }
-            });
+            rcc.pllsai1cfgr
+                .modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
 
-            rcc.pllsai2cfgr.modify(|_, w| {
-                unsafe { w.pllsai2n().bits(self.pll_sai2_mul) }
-            });
+            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+            rcc.pllsai2cfgr
+                .modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             // todo: Enable sai1 and 2 with separate settings, or lump in with mail PLL
@@ -443,11 +452,13 @@ impl Clocks {
             rcc.cr.modify(|_, w| {
                 w.pllon().set_bit();
                 w.pllsai1on().set_bit();
+                #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
                 w.pllsai2on().set_bit()
             });
 
             while rcc.cr.read().pllrdy().bit_is_clear() {}
             while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
+            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
             while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
 
             // Set Pen, Qen, and Ren after we enable the PLL.
@@ -463,6 +474,7 @@ impl Clocks {
                 w.pllsai1ren().set_bit()
             });
 
+            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
             rcc.pllsai2cfgr.modify(|_, w| {
                 w.pllsai2pen().set_bit();
                 w.pllsai2ren().set_bit()
@@ -478,13 +490,23 @@ impl Clocks {
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
 
+        rcc.ccipr
+            .modify(|_, w| unsafe { w.clk48sel().bits(self.clk48_src as u8) });
+
+        // Enable the HSI48 as required, which is used for USB, RNG, etc.
+        // Only valid for STM32L49x/L4Ax devices.
+        if let Clk48Src::Hsi48 = self.clk48_src {
+            rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
+            while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
+        }
+
         Ok(())
     }
 
     /// Calculate clock speeds from a given config. Everything is in Mhz.
     /// todo: Handle fractions of mhz. Do floats.
     pub fn calc_speeds(&self) -> Speeds {
-        let mut input_freq;
+        let input_freq;
         let sysclk = match self.input_src {
             InputSrc::Pll(pll_src) => {
                 input_freq = match pll_src {
@@ -537,9 +559,13 @@ impl Clocks {
 
     /// Check if valid.
     pub fn validate(&self) -> Validation {
-        if self.pll_vco_mul < 7 || self.pll_vco_mul > 86 ||
-            self.pll_sai1_mul < 7 || self.pll_sai1_mul > 86 ||
-            self.pll_sai2_mul < 7 || self.pll_sai2_mul > 86 {
+        if self.pll_vco_mul < 7
+            || self.pll_vco_mul > 86
+            || self.pll_sai1_mul < 7
+            || self.pll_sai1_mul > 86
+            || self.pll_sai2_mul < 7
+            || self.pll_sai2_mul > 86
+        {
             return Validation::NotValid;
         }
 
@@ -607,6 +633,7 @@ impl Clocks {
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div1,
             apb2_prescaler: ApbPrescaler::Div1,
+            clk48_src: Clk48Src::PllSai1,
             hse_bypass: false,
             security_system: false,
         }
@@ -628,6 +655,7 @@ impl Default for Clocks {
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div1,
             apb2_prescaler: ApbPrescaler::Div1,
+            clk48_src: Clk48Src::PllSai1,
             hse_bypass: false,
             security_system: false,
         }
