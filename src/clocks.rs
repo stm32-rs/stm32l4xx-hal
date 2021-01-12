@@ -455,16 +455,14 @@ impl Clocks {
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             // todo: Enable sai1 and 2 with separate settings, or lump in with mail PLL
             // like this?
-            rcc.cr.modify(|_, w| {
-                w.pllon().set_bit();
-                if self.sai1_enabled {
-                    w.pllsai1on().set_bit();
-                }
-                #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-                if self.sai2_enabled {
-                    w.pllsai2on().set_bit()
-                }
-            });
+            rcc.cr.modify(|_, w| w.pllon().set_bit());
+            if self.sai1_enabled {
+                rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
+            }
+            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+            if self.sai2_enabled {
+                rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
+            }
 
             while rcc.cr.read().pllrdy().bit_is_clear() {}
             while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
