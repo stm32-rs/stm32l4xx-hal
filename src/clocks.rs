@@ -311,33 +311,8 @@ impl Clocks {
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
-        // todo: This hclk calculation is DRY from `calc_speeds`.
-        let input_freq;
-        let sysclk = match self.input_src {
-            InputSrc::Pll(pll_src) => {
-                input_freq = match pll_src {
-                    PllSrc::Msi(range) => range.value() as f32 / 1_000_000.,
-                    PllSrc::Hsi => 16.,
-                    PllSrc::Hse(freq) => freq as f32,
-                    PllSrc::None => 0., // todo?
-                };
-                input_freq as f32 / self.pllm.value() as f32 * self.pll_vco_mul as f32
-                    / self.pllr.value() as f32
-            }
-
-            InputSrc::Msi(range) => {
-                input_freq = range.value() as f32 / 1_000_000.;
-                input_freq
-            }
-            InputSrc::Hsi => {
-                input_freq = 16.;
-                input_freq
-            }
-            InputSrc::Hse(freq) => {
-                input_freq = freq as f32;
-                input_freq
-            }
-        };
+        let (input_freq, sysclk) =
+            calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
 
         let hclk = sysclk / self.hclk_prescaler.value() as f32;
         // Reference manual section 3.3.3
@@ -458,16 +433,15 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pllon().set_bit());
             if self.sai1_enabled {
                 rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
+                while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
             }
             #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
             if self.sai2_enabled {
                 rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
+                while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
             }
 
             while rcc.cr.read().pllrdy().bit_is_clear() {}
-            while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
-            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-            while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
 
             // Set Pen, Qen, and Ren after we enable the PLL.
             rcc.pllcfgr.modify(|_, w| {
@@ -518,32 +492,8 @@ impl Clocks {
     /// Calculate clock speeds from a given config. Everything is in Mhz.
     /// todo: Handle fractions of mhz. Do floats.
     pub fn calc_speeds(&self) -> Speeds {
-        let input_freq;
-        let sysclk = match self.input_src {
-            InputSrc::Pll(pll_src) => {
-                input_freq = match pll_src {
-                    PllSrc::Msi(range) => range.value() as f32 / 1_000_000.,
-                    PllSrc::Hsi => 16.,
-                    PllSrc::Hse(freq) => freq as f32,
-                    PllSrc::None => 0., // todo?
-                };
-                input_freq as f32 / self.pllm.value() as f32 * self.pll_vco_mul as f32
-                    / self.pllr.value() as f32
-            }
-
-            InputSrc::Msi(range) => {
-                input_freq = range.value() as f32 / 1_000_000.;
-                input_freq
-            }
-            InputSrc::Hsi => {
-                input_freq = 16.;
-                input_freq
-            }
-            InputSrc::Hse(freq) => {
-                input_freq = freq as f32;
-                input_freq
-            }
-        };
+        let (input_freq, sysclk) =
+            calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
 
         // todo: Is the 2. division at the end of the USB calc always fixed at div2?
         let usb = input_freq as f32 / self.pllm.value() as f32 * self.pll_sai1_mul as f32 / 2.;
@@ -552,9 +502,17 @@ impl Clocks {
         let systick = hclk; // todo the required divider is not yet implemented.
         let fclk = hclk;
         let pclk1 = hclk / self.apb1_prescaler.value() as f32;
-        let timer1 = pclk1;
+        let timer1 = if let ApbPrescaler::Div1 = self.apb1_prescaler {
+            pclk1
+        } else {
+            pclk1 * 2.
+        };
         let pclk2 = hclk / self.apb2_prescaler.value() as f32;
-        let timer2 = pclk2;
+        let timer2 = if let ApbPrescaler::Div1 = self.apb2_prescaler {
+            pclk2
+        } else {
+            pclk2 * 2.
+        };
 
         Speeds {
             sysclk,
@@ -706,4 +664,35 @@ pub fn validate(speeds: Speeds) -> (Validation, Validation) {
     }
 
     (main, usb)
+}
+
+/// Calculate the systick, and input frequency.
+fn calc_sysclock(input_src: InputSrc, pllm: Pllm, pll_vco_mul: u8, pllr: Pllr) -> (f32, f32) {
+    let input_freq;
+    let sysclk = match input_src {
+        InputSrc::Pll(pll_src) => {
+            input_freq = match pll_src {
+                PllSrc::Msi(range) => range.value() as f32 / 1_000_000.,
+                PllSrc::Hsi => 16.,
+                PllSrc::Hse(freq) => freq as f32,
+                PllSrc::None => 0., // todo?
+            };
+            input_freq as f32 / pllm.value() as f32 * pll_vco_mul as f32 / pllr.value() as f32
+        }
+
+        InputSrc::Msi(range) => {
+            input_freq = range.value() as f32 / 1_000_000.;
+            input_freq
+        }
+        InputSrc::Hsi => {
+            input_freq = 16.;
+            input_freq
+        }
+        InputSrc::Hse(freq) => {
+            input_freq = freq as f32;
+            input_freq
+        }
+    };
+
+    (input_freq, sysclk)
 }
