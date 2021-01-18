@@ -2,12 +2,12 @@
 
 use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
+use crate::pac::{i2c1, I2C1, I2C2};
 use crate::rcc::{Clocks, APB1R1};
 #[cfg(feature = "stm32l4x5")]
 use crate::stm32::I2C3;
-use crate::stm32::{i2c1, I2C1, I2C2};
 use crate::time::Hertz;
-use cast::u8;
+use cast::{u16, u8};
 use core::ops::Deref;
 
 const MAX_NBYTE_SIZE: usize = 255;
@@ -505,6 +505,48 @@ where
     }
 }
 
+/// Copy+pasted from H7. Called from c+p `busy_wait`
+/// Sequence to flush the TXDR register. This resets the TXIS and TXE
+// flags
+macro_rules! flush_txdr {
+    ($i2c:expr) => {
+        // If a pending TXIS flag is set, write dummy data to TXDR
+        if $i2c.isr.read().txis().bit_is_set() {
+            $i2c.txdr.write(|w| w.txdata().bits(0));
+        }
+
+        // If TXDR is not flagged as empty, write 1 to flush it
+        if $i2c.isr.read().txe().is_not_empty() {
+            $i2c.isr.write(|w| w.txe().set_bit());
+        }
+    };
+}
+
+/// Copy+Pasted from H7. For use in `write_read`.
+macro_rules! busy_wait {
+    ($i2c:expr, $flag:ident, $variant:ident) => {
+        loop {
+            let isr = $i2c.isr.read();
+
+            if isr.$flag().$variant() {
+                break;
+            } else if isr.berr().is_error() {
+                $i2c.icr.write(|w| w.berrcf().set_bit());
+                return Err(Error::Bus);
+            } else if isr.arlo().is_lost() {
+                $i2c.icr.write(|w| w.arlocf().set_bit());
+                return Err(Error::Arbitration);
+            } else if isr.nackf().bit_is_set() {
+                $i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
+                flush_txdr!($i2c);
+                return Err(Error::Nack);
+            } else {
+                // try again
+            }
+        }
+    };
+}
+
 impl<PINS, I2C> WriteRead for I2c<I2C, PINS>
 where
     I2C: Deref<Target = i2c1::RegisterBlock>,
@@ -512,8 +554,74 @@ where
     type Error = Error;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
-        self.write(addr, bytes)?;
-        self.read(addr, buffer)
+        // Copy+paste from H7 to support repeating starts.
+        // todo: It's worth investigating if we should port more of the
+        // todo H7 I2C module, like `read` and `write`, and remove the `Tx`, et
+        // todo structs here.
+
+        // TODO support transfers of more than 255 bytes
+        assert!(bytes.len() < 256 && bytes.len() > 0);
+        assert!(buffer.len() < 256 && buffer.len() > 0);
+
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.i2c.cr2.read().start().bit_is_set() {}
+
+        // Set START and prepare to send `bytes`. The
+        // START bit can be set even if the bus is BUSY or
+        // I2C is in slave mode.
+        self.i2c.cr2.write(|w| {
+            w.start()
+                .set_bit()
+                .sadd()
+                .bits(u16(addr << 1 | 0))
+                .add10()
+                .clear_bit()
+                .rd_wrn()
+                .write()
+                .nbytes()
+                .bits(bytes.len() as u8)
+                .autoend()
+                .software()
+        });
+
+        for byte in bytes {
+            // Wait until we are allowed to send data
+            // (START has been ACKed or last byte went through)
+            busy_wait!(self.i2c, txis, is_empty);
+
+            // Put byte on the wire
+            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+        }
+
+        // Wait until the write finishes before beginning to read.
+        busy_wait!(self.i2c, tc, is_complete);
+
+        // reSTART and prepare to receive bytes into `buffer`
+        self.i2c.cr2.write(|w| {
+            w.sadd()
+                .bits(u16(addr << 1 | 1))
+                .add10()
+                .clear_bit()
+                .rd_wrn()
+                .read()
+                .nbytes()
+                .bits(buffer.len() as u8)
+                .start()
+                .set_bit()
+                .autoend()
+                .automatic()
+        });
+
+        for byte in buffer {
+            // Wait until we have received something
+            busy_wait!(self.i2c, rxne, is_not_empty);
+
+            *byte = self.i2c.rxdr.read().rxdata().bits();
+        }
+
+        Ok(())
     }
 }
 
