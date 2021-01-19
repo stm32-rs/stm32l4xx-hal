@@ -117,246 +117,6 @@ impl State {
     }
 }
 
-/// I2C transmission in blocking mode
-struct Blocking<'a> {
-    cr2: &'a i2c1::CR2,
-    isr: &'a i2c1::ISR,
-    icr: &'a i2c1::ICR,
-}
-
-impl<'a> Blocking<'a> {
-    /// Creation succeeds if the I2C interface is not busy. Instead of this
-    /// potentially infinite loop, ideally set up a timer and raise a timeout
-    /// error.
-    fn new(i2c: &'a i2c1::RegisterBlock) -> Result<Self, Error> {
-        while i2c.isr.read().busy().is_busy() {}
-
-        Ok(Self {
-            cr2: &i2c.cr2,
-            isr: &i2c.isr,
-            icr: &i2c.icr,
-        })
-    }
-
-    /// Checks NACK error flag
-    fn check_acknowledge_failed(&self) -> Result<(), Error> {
-        if self.isr.read().nackf().bit_is_set() {
-            // Wait until STOP Flag is reset. AutoEnd should be initiated after
-            // AF.
-            while self.isr.read().stopf().is_no_stop() {}
-            return Err(Error::Nack);
-        }
-        Ok(())
-    }
-
-    /// Waits for a stop detected
-    fn wait_on_stop(&mut self) -> Result<(), Error> {
-        while self.isr.read().stopf().is_no_stop() {
-            self.check_acknowledge_failed()?;
-        }
-        Ok(())
-    }
-
-    /// Waits for a reloaded transfer completed
-    fn wait_on_reload(&self) -> Result<(), Error> {
-        while self.isr.read().tcr().is_not_complete() {}
-        Ok(())
-    }
-}
-
-/// Normal graceful shutdown procedure
-impl<'a> Drop for Blocking<'a> {
-    fn drop(&mut self) {
-        // Clear STOP flag
-        self.icr.write(|w| w.stopcf().clear());
-        // Clear configuration register 2
-        self.cr2.reset();
-    }
-}
-
-/// I2C blocking sender for master mode
-struct Tx<'a> {
-    master: Blocking<'a>,
-    txdr: &'a i2c1::TXDR,
-    aborted: bool,
-}
-
-impl<'a> Tx<'a> {
-    fn new(i2c: &'a i2c1::RegisterBlock) -> Result<Self, Error> {
-        let master = Blocking::new(i2c)?;
-
-        Ok(Self {
-            master,
-            txdr: &i2c.txdr,
-            aborted: true,
-        })
-    }
-
-    // Blocks and sends a single byte.
-    fn send_byte(&mut self, byte: u8) -> Result<(), Error> {
-        while self.master.isr.read().txis().is_not_empty() {
-            self.master.check_acknowledge_failed()?;
-        }
-        // Write data to TXDR
-        self.txdr.write(|w| w.txdata().bits(byte));
-        Ok(())
-    }
-}
-
-/// Clean up register state.
-impl<'a> Drop for Tx<'a> {
-    fn drop(&mut self) {
-        if self.aborted {
-            // The session was aborted. Register state requires post processing
-            // for the error recovery. Clear NACKF flag
-            self.master.icr.write(|w| w.nackcf().clear());
-
-            // If a pending TXIS flag is set, write a dummy data in TXDR to
-            // clear it
-            if self.master.isr.read().txis().is_empty() {
-                self.txdr.write(|w| w.txdata().bits(0x00u8));
-            }
-
-            // Flush TX register if not empty
-            self.master.isr.modify(|r, w| {
-                if r.txe().is_not_empty() {
-                    w.txe().clear_bit()
-                } else {
-                    w
-                }
-            });
-        }
-    }
-}
-
-impl<'a> Write for Tx<'a> {
-    type Error = Error;
-
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        let total_len = bytes.len();
-        bytes
-            .chunks(MAX_NBYTE_SIZE)
-            .scan(State::new(total_len), |st, chunk| {
-                let sc = st.start_condition(chunk.len());
-                (sc, chunk).into()
-            })
-            .try_for_each(|(sc, chunk)| {
-                use StartCondition::*;
-                if let Middle | Last = sc {
-                    self.master.wait_on_reload()?;
-                }
-
-                self.master.cr2.write_with_zero(|w| {
-                    sc.config(w)
-                        .sadd()
-                        .bits((addr as u16) << 1)
-                        .rd_wrn()
-                        .write()
-                        .nbytes()
-                        .bits(chunk.len() as u8)
-                });
-
-                chunk.iter().try_for_each(|byte| self.send_byte(*byte))
-            })?;
-
-        self.master.wait_on_stop()?;
-
-        // No error was detected.
-        self.aborted = false;
-        Ok(())
-    }
-}
-
-/// I2C blocking receiver for master mode
-struct Rx<'a> {
-    master: Blocking<'a>,
-    rxdr: &'a i2c1::RXDR,
-    aborted: bool,
-}
-
-impl<'a> Rx<'a> {
-    fn new(i2c: &'a i2c1::RegisterBlock) -> Result<Self, Error> {
-        let master = Blocking::new(i2c)?;
-
-        Ok(Self {
-            master,
-            rxdr: &i2c.rxdr,
-            aborted: true,
-        })
-    }
-
-    // Waits for a single byte on this receiver.
-    fn recv_byte(&mut self) -> Result<u8, Error> {
-        while self.master.isr.read().rxne().is_empty() {
-            self.master.check_acknowledge_failed()?;
-
-            // Check if a STOPF is detected
-            if self.master.isr.read().stopf().is_stop() {
-                if self.master.isr.read().rxne().is_not_empty() {
-                    // Reading data from RXDR will be done later.
-                    break;
-                } else {
-                    // TODO: Define and raise a tailored error variant.
-                    return Err(Error::Nack);
-                }
-            }
-        }
-
-        // Read data from RXDR
-        Ok(self.rxdr.read().rxdata().bits())
-    }
-}
-
-/// Clean up register state.
-impl<'a> Drop for Rx<'a> {
-    fn drop(&mut self) {
-        if self.aborted {
-            // Clear NACKF Flag
-            self.master.icr.write(|w| w.nackcf().clear());
-        }
-    }
-}
-
-impl<'a> Read for Rx<'a> {
-    type Error = Error;
-
-    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
-        let total_len = buffer.len();
-        buffer
-            .chunks_mut(MAX_NBYTE_SIZE)
-            .scan(State::new(total_len), |st, chunk| {
-                let sc = st.start_condition(chunk.len());
-                (sc, chunk).into()
-            })
-            .try_for_each(|(sc, chunk)| {
-                use StartCondition::*;
-                if let Middle | Last = sc {
-                    self.master.wait_on_reload()?;
-                }
-
-                self.master.cr2.write_with_zero(|w| {
-                    sc.config(w)
-                        .sadd()
-                        .bits((addr as u16) << 1)
-                        .rd_wrn()
-                        .read()
-                        .nbytes()
-                        .bits(chunk.len() as u8)
-                });
-
-                chunk
-                    .iter_mut()
-                    .try_for_each(|byte| self.recv_byte().map(|v| *byte = v))
-            })?;
-
-        self.master.wait_on_stop()?;
-
-        // No error was detected.
-        self.aborted = false;
-        Ok(())
-    }
-}
-
 impl<SCL, SDA> I2c<I2C1, (SCL, SDA)> {
     pub fn i2c1<F>(i2c: I2C1, pins: (SCL, SDA), freq: F, clocks: Clocks, apb1: &mut APB1R1) -> Self
     where
@@ -483,28 +243,6 @@ where
     }
 }
 
-impl<PINS, I2C> Write for I2c<I2C, PINS>
-where
-    I2C: Deref<Target = i2c1::RegisterBlock>,
-{
-    type Error = Error;
-
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        Tx::new(&self.i2c)?.write(addr, bytes)
-    }
-}
-
-impl<PINS, I2C> Read for I2c<I2C, PINS>
-where
-    I2C: Deref<Target = i2c1::RegisterBlock>,
-{
-    type Error = Error;
-
-    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
-        Rx::new(&self.i2c)?.read(addr, buffer)
-    }
-}
-
 /// Copy+pasted from H7. Called from c+p `busy_wait`
 /// Sequence to flush the TXDR register. This resets the TXIS and TXE
 // flags
@@ -545,6 +283,106 @@ macro_rules! busy_wait {
             }
         }
     };
+}
+
+impl<PINS, I2C> Write for I2c<I2C, PINS>
+where
+    I2C: Deref<Target = i2c1::RegisterBlock>,
+{
+    type Error = Error;
+
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+        // C+P from H7 HAL.
+        // TODO support transfers of more than 255 bytes
+        assert!(bytes.len() < 256 && bytes.len() > 0);
+
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.i2c.cr2.read().start().bit_is_set() {}
+
+        // Set START and prepare to send `bytes`. The
+        // START bit can be set even if the bus is BUSY or
+        // I2C is in slave mode.
+        self.i2c.cr2.write(|w| {
+            w.start()
+                .set_bit()
+                .sadd()
+                .bits(u16(addr << 1 | 0))
+                .add10()
+                .clear_bit()
+                .rd_wrn()
+                .write()
+                .nbytes()
+                .bits(bytes.len() as u8)
+                .autoend()
+                .software()
+        });
+
+        for byte in bytes {
+            // Wait until we are allowed to send data
+            // (START has been ACKed or last byte when
+            // through)
+            busy_wait!(self.i2c, txis, is_empty);
+
+            // Put byte on the wire
+            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+        }
+
+        // Wait until the write finishes
+        busy_wait!(self.i2c, tc, is_complete);
+
+        // Stop
+        self.i2c.cr2.write(|w| w.stop().set_bit());
+
+        Ok(())
+        // Tx::new(&self.i2c)?.write(addr, bytes)
+    }
+}
+
+impl<PINS, I2C> Read for I2c<I2C, PINS>
+where
+    I2C: Deref<Target = i2c1::RegisterBlock>,
+{
+    type Error = Error;
+
+    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
+        // TODO support transfers of more than 255 bytes
+        assert!(buffer.len() < 256 && buffer.len() > 0);
+
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.i2c.cr2.read().start().bit_is_set() {}
+
+        // Set START and prepare to receive bytes into
+        // `buffer`. The START bit can be set even if the bus
+        // is BUSY or I2C is in slave mode.
+        self.i2c.cr2.write(|w| {
+            w.sadd()
+                .bits((addr << 1 | 0) as u16)
+                .rd_wrn()
+                .read()
+                .nbytes()
+                .bits(buffer.len() as u8)
+                .start()
+                .set_bit()
+                .autoend()
+                .automatic()
+        });
+
+        for byte in buffer {
+            // Wait until we have received something
+            busy_wait!(self.i2c, rxne, is_not_empty);
+
+            *byte = self.i2c.rxdr.read().rxdata().bits();
+        }
+
+        // automatic STOP
+
+        Ok(())
+        // Rx::new(&self.i2c)?.read(addr, buffer)
+    }
 }
 
 impl<PINS, I2C> WriteRead for I2c<I2C, PINS>
