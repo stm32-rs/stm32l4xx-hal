@@ -26,10 +26,10 @@ impl InputSrc {
     /// (ie, can't set on `Pll(Pllsrc)`.
     pub fn bits(&self) -> u8 {
         match self {
-            Self::Msi => 0b00, // todo check bit values
-            Self::Hsi16 => 0b00,
-            Self::Hse => 0b01,
-            Self::Pll(_) => 0b10,
+            Self::Msi => 0b00,
+            Self::Hsi16 => 0b01,
+            Self::Hse => 0b10,
+            Self::Pll(_) => 0b11,
         }
     }
 }
@@ -60,10 +60,19 @@ fn re_select_input(input_src: InputSrc) {
                 .cfgr
                 .modify(|_, w| w.sw().bits(input_src.bits()));
         },
-        InputSrc::Pll(_) => unsafe {
+        InputSrc::Pll(pll_src) => unsafe {
             // todo: DRY with above.
-            (*RCC::ptr()).cr.modify(|_, w| w.hseon().set_bit());
-            while (*RCC::ptr()).cr.read().hserdy().bit_is_clear() {}
+            match pll_src {
+                PllSrc::Hse => {
+                    (*RCC::ptr()).cr.modify(|_, w| w.hseon().set_bit());
+                    while (*RCC::ptr()).cr.read().hserdy().bit_is_clear() {}
+                }
+                PllSrc::Hsi16 => {  // Generally reverts to MSI (see note below)
+                    (*RCC::ptr()).cr.modify(|_, w| w.hsion().bit(true));
+                    while (*RCC::ptr()).cr.read().hsirdy().bit_is_clear() {}
+                }
+                PllSrc::Msi => ()  // Already reverted to this.
+            }
 
             (*RCC::ptr()).cr.modify(|_, w| w.pllon().clear_bit());
             while (*RCC::ptr()).cr.read().pllrdy().bit_is_set() {}
@@ -75,8 +84,18 @@ fn re_select_input(input_src: InputSrc) {
             (*RCC::ptr()).cr.modify(|_, w| w.pllon().set_bit());
             while (*RCC::ptr()).cr.read().pllrdy().bit_is_clear() {}
         },
-        InputSrc::Hsi16 => (), // Already reset to this? todo
-        InputSrc::Msi => (),   // Already reset to this? todo
+        InputSrc::Hsi16 => {
+            unsafe {
+                // From Reference Manual, RCC_CFGR register section:
+                // "Configured by HW to force MSI oscillator selection when exiting Standby or Shutdown mode.
+                // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in
+                // case of failure of the HSE oscillator, depending on STOPWUCK value."
+                // In tests, from stop, it tends to revert to MSI.
+                (*RCC::ptr()).cr.modify(|_, w| w.hsion().bit(true));
+                while (*RCC::ptr()).cr.read().hsirdy().bit_is_clear() {}
+            }
+        },
+        InputSrc::Msi => (),   // Already reset to this
     }
 }
 
