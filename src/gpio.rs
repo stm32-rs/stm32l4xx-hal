@@ -115,14 +115,11 @@ pub struct AF14;
 /// Alternate function 15 (type state)
 pub struct AF15;
 
-// Using SCREAMING_SNAKE_CASE to be consistent with other HALs
-// see 59b2740 and #125 for motivation
-#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub enum Edge {
-    RISING,
-    FALLING,
-    RISING_FALLING,
+    Rising,
+    Falling,
+    RisingFalling,
 }
 
 /// External Interrupt Pin
@@ -186,7 +183,7 @@ macro_rules! gpio {
             use super::{
 
                 Alternate, AlternateOD,
-                AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
+                AF0, AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
                 Floating, GpioExt, Input, OpenDrain, Output, Analog, Edge, ExtiPin,
                 PullDown, PullUp, PushPull, State, Speed,
             };
@@ -354,15 +351,15 @@ macro_rules! gpio {
                 /// Generate interrupt on rising edge, falling edge or both
                 fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
                     match edge {
-                        Edge::RISING => {
+                        Edge::Rising => {
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
                         },
-                        Edge::FALLING => {
+                        Edge::Falling => {
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.i)) });
                         },
-                        Edge::RISING_FALLING => {
+                        Edge::RisingFalling => {
                             exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                             exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.i)) });
                         }
@@ -699,15 +696,15 @@ macro_rules! gpio {
                     /// Generate interrupt on rising edge, falling edge or both
                     fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
                         match edge {
-                            Edge::RISING => {
+                            Edge::Rising => {
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                             },
-                            Edge::FALLING => {
+                            Edge::Falling => {
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() & !(1 << $i)) });
                             },
-                            Edge::RISING_FALLING => {
+                            Edge::RisingFalling => {
                                 exti.rtsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                                 exti.ftsr1.modify(|r, w| unsafe { w.bits(r.bits() | (1 << $i)) });
                             }
@@ -738,6 +735,7 @@ macro_rules! gpio {
                 impl<MODE> $PXi<MODE> {
                     impl_into_af! {
                         $PXi $AFR $i,
+                        (AF0, 0, into_af0);
                         (AF1, 1, into_af1);
                         (AF2, 2, into_af2);
                         (AF3, 3, into_af3);

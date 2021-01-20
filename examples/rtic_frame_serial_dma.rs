@@ -12,10 +12,10 @@
 
 use hal::{
     dma::{self, consts, DMAFrame, FrameReader, FrameSender},
+    flash::FlashVariant,
     prelude::*,
     rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
     serial::{self, Config, Serial},
-    flash::FlashVariant
 };
 use heapless::{
     pool,

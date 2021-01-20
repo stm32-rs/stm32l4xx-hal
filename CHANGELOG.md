@@ -5,9 +5,43 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+## [v0.6.0] - 2020-12-11
+
 ### Added
 
-    - Added USB driver for `stm32l4x2` and `stm32l4x3` devices
+    - USB driver for `stm32l4x2` and `stm32l4x3` devices.
+    - USART3 and UART4, with dma support.
+    - Support for GPIOF and GPIOG.
+    - USB driver examples.
+    - Support for external pin interrupts (EXTI).
+    - Implement hardware flow control for serial.
+    - Support for CRC peripheral.
+    - Implement `core::hash::Hasher` for the CRC peripheral.
+    - Support for serial framing.
+    - Support for Half-Duplex Serial.
+    - Support for timers 5 and 6.
+    - Bump stm32l4 to `0.11.0`.
+    - Support for QSPI.
+    - Support for RTC alarms.
+    - Support for the Independant Watch Dog Timer.
+    - VSCode configurations.
+    - Added signature module.
+
+
+## Changed
+    - Reworked clock control with RCC.
+    - Rework the DMA API.
+    - Rework the FLASH programming API.
+    - Rework GPIO output to support setting Speed, Pullups and drain functionality.
+    - Switched to Github actions.
+
+### Fixed
+    - Re-add support for GPIOD & GPIOE.
+    - Fix enable bits for PWM.
+    - Fix clearing serial error flag bits.
+    - I2C 7bit adressing shift.
+    - Fix the systick delay to support delays greater than `1 << 24`
+    - Clean up examples, and Deps.
 
 ## [v0.5.0] - 2019-09-02
 
@@ -18,8 +52,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Breaking
 
     - Serial ports now use a config, instead of just the baudrate.
-    - Upgraded embedded-hal, gpio method signitures are now fallible
-    - Bumped cortex-m
+    - Upgraded embedded-hal, gpio method signitures are now fallible.
+    - Bumped cortex-m.
 
 
 ## [v0.4.0] - 2019-05-08
@@ -158,7 +192,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.5.0...v0.6.0
+[v0.5.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.6...v0.4.0
 [v0.3.6]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.5...v0.3.6
 [v0.3.5]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.4...v0.3.5

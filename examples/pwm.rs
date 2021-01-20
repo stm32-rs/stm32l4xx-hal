@@ -9,7 +9,7 @@ extern crate panic_halt;
 
 // use cortex_m::asm;
 use cortex_m_rt::entry;
-use stm32l4xx_hal::{delay, prelude::*, stm32, flash::FlashVariant};
+use stm32l4xx_hal::{delay, flash::FlashVariant, prelude::*, stm32};
 
 #[entry]
 fn main() -> ! {

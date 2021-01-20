@@ -19,11 +19,11 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
+use crate::hal::flash::FlashVariant;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
 use cortex_m::asm;
-use crate::hal::flash::FlashVariant;
 
 #[entry]
 fn main() -> ! {
@@ -70,9 +70,9 @@ fn main() -> ! {
     // The `block!` macro makes an operation block until it finishes
     // NOTE the error type is `!`
 
-    block!(tx.write(sent)).ok();
+    block!(tx.try_write(sent)).ok();
 
-    let received = block!(rx.read()).unwrap();
+    let received = block!(rx.try_read()).unwrap();
 
     assert_eq!(received, sent);
 

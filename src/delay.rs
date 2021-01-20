@@ -2,11 +2,13 @@
 
 use cast::u32;
 use core::convert::Infallible;
+use cortex_m::asm;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 
 use crate::hal::blocking::delay::{DelayMs, DelayUs};
 use crate::rcc::Clocks;
+use crate::time::Hertz;
 
 /// System timer (SysTick) as a delay provider
 pub struct Delay {
@@ -93,6 +95,73 @@ impl DelayUs<u16> for Delay {
 }
 
 impl DelayUs<u8> for Delay {
+    type Error = Infallible;
+
+    fn try_delay_us(&mut self, us: u8) -> Result<(), Self::Error> {
+        self.try_delay_us(u32(us))
+    }
+}
+
+/// Cortex-M `asm::delay` as provider
+#[derive(Clone, Copy)]
+pub struct DelayCM {
+    sysclk: Hertz,
+}
+
+impl DelayCM {
+    /// Create a new delay
+    pub fn new(clocks: Clocks) -> Self {
+        DelayCM {
+            sysclk: clocks.sysclk(),
+        }
+    }
+}
+
+impl DelayMs<u32> for DelayCM {
+    type Error = Infallible;
+
+    fn try_delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
+        self.try_delay_us(ms * 1_000)
+    }
+}
+
+impl DelayMs<u16> for DelayCM {
+    type Error = Infallible;
+
+    fn try_delay_ms(&mut self, ms: u16) -> Result<(), Self::Error> {
+        self.try_delay_ms(u32(ms))
+    }
+}
+
+impl DelayMs<u8> for DelayCM {
+    type Error = Infallible;
+
+    fn try_delay_ms(&mut self, ms: u8) -> Result<(), Self::Error> {
+        self.try_delay_ms(u32(ms))
+    }
+}
+
+impl DelayUs<u32> for DelayCM {
+    type Error = Infallible;
+
+    fn try_delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
+        // Max delay is 53_687_091 us at 80 MHz
+        let ticks = self.sysclk.0 / 1_000_000;
+
+        asm::delay(ticks * us);
+        Ok(())
+    }
+}
+
+impl DelayUs<u16> for DelayCM {
+    type Error = Infallible;
+
+    fn try_delay_us(&mut self, us: u16) -> Result<(), Self::Error> {
+        self.try_delay_us(u32(us))
+    }
+}
+
+impl DelayUs<u8> for DelayCM {
     type Error = Infallible;
 
     fn try_delay_us(&mut self, us: u8) -> Result<(), Self::Error> {

@@ -18,8 +18,8 @@ use cortex_m::{
     interrupt::{free, Mutex},
     peripheral::NVIC,
 };
-use rt::entry;
 use hal::flash::FlashVariant;
+use rt::entry;
 
 // Set up global state. It's all mutexed up for concurrency safety.
 static BUTTON: Mutex<RefCell<Option<PC13<Input<PullUp>>>>> = Mutex::new(RefCell::new(None));
@@ -47,7 +47,7 @@ fn main() -> ! {
             .into_pull_up_input(&mut gpioc.moder, &mut gpioc.pupdr);
         board_btn.make_interrupt_source(&mut dp.SYSCFG, &mut rcc.apb2);
         board_btn.enable_interrupt(&mut dp.EXTI);
-        board_btn.trigger_on_edge(&mut dp.EXTI, Edge::FALLING);
+        board_btn.trigger_on_edge(&mut dp.EXTI, Edge::Falling);
 
         // Enable interrupts
         unsafe {
