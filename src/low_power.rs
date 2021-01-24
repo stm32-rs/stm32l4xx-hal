@@ -1,38 +1,11 @@
 //! This module contains code used to place the STM32L4 in low power modes.
 //! Reference section 5.3.3: `Low power modes` of the Reference Manual.
 
-use crate::pac::{PWR, RCC};
+use crate::{
+    clocks::{InputSrc, PllSrc},
+    pac::{PWR, RCC},
+};
 use cortex_m::{asm::wfi, peripheral::SCB};
-
-// These enums are better suited for a clocks or rcc module.
-#[derive(Clone, Copy)]
-#[repr(u8)]
-pub enum PllSrc {
-    Msi = 0b00, // todo: check bit values
-    Hsi16 = 0b01,
-    Hse = 0b10,
-}
-
-#[derive(Clone, Copy)]
-pub enum InputSrc {
-    Msi,
-    Hsi16,
-    Hse,
-    Pll(PllSrc),
-}
-
-impl InputSrc {
-    /// Required due to numerical value on non-uniform discrim being experimental.
-    /// (ie, can't set on `Pll(Pllsrc)`.
-    pub fn bits(&self) -> u8 {
-        match self {
-            Self::Msi => 0b00,
-            Self::Hsi16 => 0b01,
-            Self::Hse => 0b10,
-            Self::Pll(_) => 0b11,
-        }
-    }
-}
 
 // See L4 Reference Manual section 5.3.6. The values correspond
 // todo PWR_CR1, LPMS field.
@@ -52,7 +25,7 @@ fn re_select_input(input_src: InputSrc) {
     // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
     // todo: But this saves a few reg writes.
     match input_src {
-        InputSrc::Hse => unsafe {
+        InputSrc::Hse(_) => unsafe {
             (*RCC::ptr()).cr.modify(|_, w| w.hseon().set_bit());
             while (*RCC::ptr()).cr.read().hserdy().bit_is_clear() {}
 
@@ -63,15 +36,17 @@ fn re_select_input(input_src: InputSrc) {
         InputSrc::Pll(pll_src) => unsafe {
             // todo: DRY with above.
             match pll_src {
-                PllSrc::Hse => {
+                PllSrc::Hse(_) => {
                     (*RCC::ptr()).cr.modify(|_, w| w.hseon().set_bit());
                     while (*RCC::ptr()).cr.read().hserdy().bit_is_clear() {}
                 }
-                PllSrc::Hsi16 => {  // Generally reverts to MSI (see note below)
+                PllSrc::Hsi => {
+                    // Generally reverts to MSI (see note below)
                     (*RCC::ptr()).cr.modify(|_, w| w.hsion().bit(true));
                     while (*RCC::ptr()).cr.read().hsirdy().bit_is_clear() {}
                 }
-                PllSrc::Msi => ()  // Already reverted to this.
+                PllSrc::Msi(_) => (), // Already reverted to this.
+                PllSrc::None => (),
             }
 
             (*RCC::ptr()).cr.modify(|_, w| w.pllon().clear_bit());
@@ -84,7 +59,7 @@ fn re_select_input(input_src: InputSrc) {
             (*RCC::ptr()).cr.modify(|_, w| w.pllon().set_bit());
             while (*RCC::ptr()).cr.read().pllrdy().bit_is_clear() {}
         },
-        InputSrc::Hsi16 => {
+        InputSrc::Hsi => {
             unsafe {
                 // From Reference Manual, RCC_CFGR register section:
                 // "Configured by HW to force MSI oscillator selection when exiting Standby or Shutdown mode.
@@ -94,8 +69,8 @@ fn re_select_input(input_src: InputSrc) {
                 (*RCC::ptr()).cr.modify(|_, w| w.hsion().bit(true));
                 while (*RCC::ptr()).cr.read().hsirdy().bit_is_clear() {}
             }
-        },
-        InputSrc::Msi => (),   // Already reset to this
+        }
+        InputSrc::Msi(_) => (), // Already reset to this
     }
 }
 

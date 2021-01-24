@@ -102,6 +102,7 @@ pub mod dma;
     feature = "stm32l4x6"
 ))]
 pub mod flash;
+pub mod flash_mem;
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
