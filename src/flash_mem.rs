@@ -34,6 +34,8 @@ pub struct Flash {
     pub(crate) regs: FLASH,
 }
 
+/// The Flash memory is organized as 72-bit wide memory cells (64 bits plus 8 ECC bits) that
+/// can be used for storing both code and data constants.
 impl Flash {
     pub fn new(regs: FLASH) -> Self {
         Self { regs }
@@ -189,13 +191,13 @@ impl Flash {
 
         // 4. Perform the data write operation at the desired memory address, inside main memory
         // block or OTP area. Only double word can be programmed.
-        // – Write a first word in an address aligned with double word
-        // – Write the second word
         let mut address = page_to_address(page) as *mut u32;
 
         for dword in data {
             unsafe {
+                // – Write a first word in an address aligned with double word
                 core::ptr::write_volatile(address, *dword as u32);
+                // – Write the second word
                 core::ptr::write_volatile(address.add(1), (*dword >> 32) as u32);
 
                 address = address.add(2);
@@ -224,14 +226,14 @@ impl Flash {
         Ok(())
     }
 
-    /// Read data for a page at a given offset.
+    /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
     pub fn read(&self, page: usize, offset: isize) -> u64 {
+        // todo: Read a length.
         let addr = page_to_address(page) as *const u64;
         unsafe { core::ptr::read(addr.offset(offset)) }
     }
 }
 
 fn page_to_address(page: usize) -> usize {
-    // todo: u64? *u64?
     0x0800_0000 + page as usize * 2048
 }
