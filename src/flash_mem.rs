@@ -9,6 +9,13 @@ use core;
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;
 
+#[derive(Clone, Copy)]
+pub enum BanksToErase {
+    Bank1,
+    Bank2,
+    Both,
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum Error {
     /// Flash controller is not done yet
@@ -32,11 +39,15 @@ impl Flash {
         Self { regs }
     }
     /// Unlock the flash memory, allowing writes. See L4 Reference manual, section 3.3.5
-    pub fn unlock(&mut self) {
+    pub fn unlock(&mut self) -> Result<(), Error> {
         self.regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY1) });
         self.regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY2) });
 
-        while self.regs.cr.read().lock().bit_is_set() {}
+        if self.regs.cr.read().lock().bit_is_clear() {
+            Ok(())
+        } else {
+            Err(Error::Failure)
+        }
     }
 
     /// Lock the flash memory, allowing writes.
@@ -50,7 +61,7 @@ impl Flash {
     /// is full zero, and any attempt will set PROGERR flag in the Flash status register
     /// (FLASH_SR)."
     pub fn erase_page(&mut self, page: usize) -> Result<(), Error> {
-        self.unlock();
+        self.unlock()?;
 
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the Flash
         // status register (FLASH_SR).
@@ -96,6 +107,57 @@ impl Flash {
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
         while self.regs.sr.read().bsy().bit_is_set() {}
 
+        self.regs.cr.modify(|_, w| w.per().clear_bit());
+
+        self.lock();
+
+        Ok(())
+    }
+
+    pub fn erase_bank(&mut self, banks: BanksToErase) -> Result<(), Error> {
+        // todo: DRY
+        self.unlock()?;
+
+        // To perform a bank Mass Erase, follow the procedure below:
+        // RM0351 Rev 7 105/1903
+        // RM0351 Embedded Flash memory (FLASH)
+        // 139
+        // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the
+        // FLASH_SR register.
+        let sr = self.regs.sr.read();
+        if sr.bsy().bit_is_set() {
+            self.lock();
+            return Err(Error::Busy);
+        }
+
+        // 2. Check and clear all error programming flags due to a previous programming. If not,
+        // PGSERR is set.
+        if sr.pgaerr().bit_is_set() || sr.progerr().bit_is_set() || sr.wrperr().bit_is_set() {
+            self.lock();
+            return Err(Error::Illegal);
+        }
+
+        // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
+        // (FLASH_CR). Both banks can be selected in the same operation.
+        match banks {
+            BanksToErase::Bank1 => {
+                self.regs.cr.modify(|_, w| w.mer1().clear_bit());
+            }
+            BanksToErase::Bank2 => {
+                self.regs.cr.modify(|_, w| w.mer2().clear_bit());
+            }
+            BanksToErase::Both => {
+                self.regs.cr.modify(|_, w| w.mer1().clear_bit());
+                self.regs.cr.modify(|_, w| w.mer2().clear_bit());
+            }
+        }
+
+        // 4. Set the STRT bit in the FLASH_CR register.
+        self.regs.cr.modify(|_, w| w.start().set_bit());
+
+        // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
+        while self.regs.sr.read().bsy().bit_is_set() {}
+
         self.lock();
 
         Ok(())
@@ -107,7 +169,7 @@ impl Flash {
         // The Flash memory programming sequence in standard mode is as follows:
         // 1. Check that no Flash main memory operation is ongoing by checking the BSY bit in the
         // Flash status register (FLASH_SR).
-        self.unlock();
+        self.unlock()?;
 
         let sr = self.regs.sr.read();
         if sr.bsy().bit_is_set() {
@@ -167,8 +229,6 @@ impl Flash {
         let addr = page_to_address(page) as *const u64;
         unsafe { core::ptr::read(addr.offset(offset)) }
     }
-
-    // todo: Erase bank method.
 }
 
 fn page_to_address(page: usize) -> usize {
