@@ -92,14 +92,23 @@ impl ADC {
             calibrated_vdda: VDDA_CALIB_MV,
         };
 
-        s.calibrate();
+        // Temporarily enable Vref
+        let mut vref = s.enable_vref(delay);
+
+        s.calibrate(&mut vref);
+
+        s.common.ccr.modify(|_, w| w.vrefen().clear_bit());
 
         s
     }
 
     /// Enable and get the `Vref`
-    pub fn enable_vref(&mut self) -> Vref {
+    pub fn enable_vref(&mut self, delay: &mut impl DelayUs<u32>) -> Vref {
         self.common.ccr.modify(|_, w| w.vrefen().set_bit());
+
+        // "Table 24. Embedded internal voltage reference" states that it takes a maximum of 12 us
+        // to stabilize the internal voltage reference, we wait a little more.
+        delay.delay_us(15);
 
         Vref {}
     }
@@ -119,21 +128,23 @@ impl ADC {
     }
 
     /// Calculates the system VDDA by sampling the internal VREF channel and comparing
-    /// the result with the value stored at the factory.
-    pub fn calibrate(&mut self) {
-        let vref_en = self.common.ccr.read().vrefen().bit_is_set();
-        self.common.ccr.modify(|_, w| w.vrefen().set_bit());
-
+    /// the result with the value stored at the factory. If the chip's VDDA is not stable, run
+    /// this before each ADC conversion.
+    pub fn calibrate(&mut self, vref: &mut Vref) {
         let vref_cal = VrefCal::get().read();
+        let old_sample_time = self.sample_time;
+
+        // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
+        // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
+        // some headroom.
+        self.set_sample_time(SampleTime::Cycles640_5);
 
         // This can't actually fail, it's just in a result to satisfy hal trait
-        let vref_samp = self.read(&mut Vref).unwrap();
+        let vref_samp = self.read(vref).unwrap();
+
+        self.set_sample_time(old_sample_time);
 
         self.calibrated_vdda = (VDDA_CALIB_MV * u32::from(vref_cal)) / u32::from(vref_samp);
-
-        if !vref_en {
-            self.common.ccr.modify(|_, w| w.vrefen().clear_bit());
-        }
     }
 
     /// Set the ADC resolution
@@ -148,10 +159,10 @@ impl ADC {
 
     /// Release the ADC peripheral
     ///
-    /// Drops `ADC` and returns the `pac::ADC` that is was wrapping, giving the
+    /// Drops `ADC` and returns the `(pac::ADC, pad::ADC_COMMON)` that is was wrapping, giving the
     /// user full access to the peripheral.
-    pub fn release(self) -> ADC1 {
-        self.adc
+    pub fn release(self) -> (ADC1, ADC_COMMON) {
+        (self.adc, self.common)
     }
 
     /// Convert a measurement to millivolts
