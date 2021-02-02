@@ -222,6 +222,6 @@ hal! {
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
     TIM4:  (tim4, free_running_tim4, tim4en, tim4rst, APB1R1, u16),
-    TIM5:  (tim5, free_running_tim5, tim5en, tim5rst, APB1R1, u16),
+    TIM5:  (tim5, free_running_tim5, tim5en, tim5rst, APB1R1, u32),
     TIM17: (tim17, free_running_tim17, tim17en, tim17rst, APB2, u16),
 }
