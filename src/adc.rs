@@ -11,7 +11,7 @@ use crate::{
     },
     pac,
     rcc::{AHB2, CCIPR},
-    signature::{VrefCal, VDDA_CALIB_MV},
+    signature::{VrefCal, VtempCal130, VtempCal30, VDDA_CALIB_MV},
 };
 
 use pac::{ADC1, ADC_COMMON};
@@ -168,6 +168,13 @@ impl ADC {
     /// Convert a measurement to millivolts
     pub fn to_millivolts(&self, sample: u16) -> u16 {
         ((u32::from(sample) * self.calibrated_vdda) / self.resolution.to_max_count()) as u16
+    }
+
+    /// Convert a raw sample from the `Temperature` to deg C
+    pub fn to_degrees_centigrade(sample: u16) -> f32 {
+        (130.0 - 30.0) / (VtempCal130::get().read() as f32 - VtempCal30::get().read() as f32)
+            * (adc_sample as f32 - VtempCal30::get().read() as f32)
+            + 30.0
     }
 }
 
