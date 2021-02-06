@@ -48,6 +48,10 @@ version = "0.5.0"
 features = ["ram_access_2x16"]
 optional = true
 
+[dependencies.rtic-core]
+git = "https://github.com/rtic-rs/rtic-core"
+branch = "new_monotonic"
+
 [package.metadata.docs.rs]
 features = ["rt", "stm32l4x2", "stm32-usbd"]
 

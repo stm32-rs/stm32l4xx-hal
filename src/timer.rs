@@ -154,12 +154,13 @@ macro_rules! hal {
                     }
                 }
 
+
                 /// Starts listening for an `event`
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::TimeOut => {
                             // Enable update event interrupt
-                            self.tim.dier.write(|w| w.uie().set_bit());
+                            self.tim.dier.modify(|_, w| w.uie().set_bit());
                         }
                     }
                 }
@@ -173,7 +174,7 @@ macro_rules! hal {
                     match event {
                         Event::TimeOut => {
                             // Clear interrupt flag
-                            self.tim.sr.write(|w| w.uif().clear_bit());
+                            self.tim.sr.modify(|_, w| w.uif().clear_bit());
                         }
                     }
                 }
@@ -184,10 +185,11 @@ macro_rules! hal {
                     match event {
                         Event::TimeOut => {
                             // Enable update event interrupt
-                            self.tim.dier.write(|w| w.uie().clear_bit());
+                            self.tim.dier.modify(|_, w| w.uie().clear_bit());
                         }
                     }
                 }
+
 
                 /// Clears Update Interrupt Flag
                 pub fn clear_update_interrupt_flag(&mut self) {
@@ -208,6 +210,43 @@ macro_rules! hal {
                 }
             }
         )+
+    }
+}
+
+impl rtic_core::monotonic::Clock for Timer<TIM2> {
+    const SCALING_FACTOR: rtic_core::monotonic::Fraction =
+        rtic_core::monotonic::Fraction::new(1, 80_000_000);
+    type T = u32;
+
+    #[inline(always)]
+    fn try_now(
+        &self,
+    ) -> Result<
+        rtic_core::monotonic::Instant<Self>,
+        rtic_core::monotonic::embedded_time::clock::Error,
+    > {
+        let ticks = unsafe { (&*TIM2::ptr()).cnt.read().bits() };
+        Ok(rtic_core::monotonic::Instant::new(ticks))
+    }
+}
+
+impl rtic_core::monotonic::Monotonic for Timer<TIM2> {
+    fn now() -> rtic_core::monotonic::Instant<Self> {
+        let ticks = unsafe { (&*TIM2::ptr()).cnt.read().bits() };
+        rtic_core::monotonic::Instant::new(ticks)
+    }
+
+    unsafe fn reset() {
+        (&*TIM2::ptr()).dier.modify(|_, w| w.cc1ie().set_bit());
+        (&*TIM2::ptr()).cnt.write(|w| w.bits(0));
+    }
+
+    unsafe fn set_compare(val: <Self as rtic_core::monotonic::Clock>::T) {
+        (&*TIM2::ptr()).ccr1.write(|w| w.ccr().bits(val));
+    }
+
+    unsafe fn clear_compare() {
+        (&*TIM2::ptr()).sr.modify(|_, w| w.cc1if().clear_bit());
     }
 }
 
