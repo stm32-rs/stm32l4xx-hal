@@ -496,11 +496,11 @@ impl timer::CountDown for WakeupTimer<'_> {
             rtc.cr.modify(|_, w| {
                 if delay & 0x1_00_00 != 0 {
                     unsafe {
-                        w.wcksel().bits(0b110);
+                        w.wucksel().bits(0b110);
                     }
                 } else {
                     unsafe {
-                        w.wcksel().bits(0b100);
+                        w.wucksel().bits(0b100);
                     }
                 }
 
