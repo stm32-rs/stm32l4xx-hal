@@ -354,7 +354,7 @@ macro_rules! adc_pins {
 }
 
 adc_pins!(
-    //0,  Vref,              smpr1, smp0; // Missing smp0 in PAC
+    0,  Vref,              smpr1, smp0;
     1,  gpio::PC0<Analog>, smpr1, smp1;
     2,  gpio::PC1<Analog>, smpr1, smp2;
     3,  gpio::PC2<Analog>, smpr1, smp3;
@@ -374,22 +374,3 @@ adc_pins!(
     17, Temperature,       smpr2, smp17;
     18, Vbat,              smpr2, smp18;
 );
-
-// SMP0 is missing in PAC, manual impl for now
-impl EmbeddedHalChannel<ADC> for Vref {
-    type ID = u8;
-
-    fn channel() -> Self::ID {
-        0
-    }
-}
-
-impl Channel for Vref {
-    fn set_sample_time(&mut self, adc: &ADC1, sample_time: SampleTime) {
-        adc.smpr1.modify(|r, w| {
-            // This is sound, as all `SampleTime` values are valid
-            // for this field, and the SMP0 field is at the lowest 3 bits.
-            unsafe { w.bits((r.bits() & !0x7) | sample_time as u32) }
-        })
-    }
-}
