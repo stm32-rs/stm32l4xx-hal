@@ -51,7 +51,9 @@ fn main() -> ! {
 
     watchdog.feed();
     writeln!(hstdout, "Good bye!").unwrap();
-    loop {}
+    loop {
+        continue;
+    }
 }
 
 #[exception]

@@ -72,7 +72,9 @@ fn main() -> ! {
     let vlt: u16 = (buffer[0] as u16) << 8 | buffer[1] as u16;
     writeln!(hstdout, "Volt: {}", vlt as f32 * 0.000078125).ok();
 
-    loop {}
+    loop {
+        continue;
+    }
 }
 
 #[exception]

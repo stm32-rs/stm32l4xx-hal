@@ -67,7 +67,9 @@ fn main() -> ! {
     writeln!(hstdout, "Time: {:?}", rtc_time).unwrap();
     writeln!(hstdout, "Date: {:?}", rtc_date).unwrap();
     writeln!(hstdout, "Good bye!").unwrap();
-    loop {}
+    loop {
+        continue;
+    }
 }
 
 #[exception]

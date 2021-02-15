@@ -53,10 +53,10 @@ fn main() -> ! {
     let mut timer = Delay::new(cp.SYST, clocks);
     loop {
         // block!(timer.wait()).unwrap();
-        timer.delay_ms(1000 as u32);
+        timer.delay_ms(1000_u32);
         led.set_high().ok();
         // block!(timer.wait()).unwrap();
-        timer.delay_ms(1000 as u32);
+        timer.delay_ms(1000_u32);
         led.set_low().ok();
     }
 }

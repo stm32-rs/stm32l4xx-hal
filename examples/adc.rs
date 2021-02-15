@@ -22,7 +22,13 @@ fn main() -> ! {
     let clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
 
     let mut delay = Delay::new(cp.SYST, clocks);
-    let mut adc = ADC::new(dp.ADC, &mut rcc.ahb2, &mut rcc.ccipr, &mut delay);
+    let mut adc = ADC::new(
+        dp.ADC1,
+        dp.ADC_COMMON,
+        &mut rcc.ahb2,
+        &mut rcc.ccipr,
+        &mut delay,
+    );
 
     let mut gpioc = dp.GPIOC.split(&mut rcc.ahb2);
     let mut a1 = gpioc.pc0.into_analog(&mut gpioc.moder, &mut gpioc.pupdr);
