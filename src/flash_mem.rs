@@ -1,7 +1,6 @@
 //! Read and write onboard flash memory. Different from `flash.rs`, in that it
 //! doesn't rely on constraining  the FLASH register block, and its code style
 //! more directly matches the datasheet.
-//!
 
 use crate::pac::FLASH;
 use core;
@@ -167,6 +166,7 @@ impl Flash {
 
     /// Write the contents of a page. Must be erased first. See L4 RM, section 3.3.7.
     pub fn write_page(&mut self, page: usize, data: &[u64]) -> Result<(), Error> {
+        // todo: Consider a u8-based approach.
         // todo: DRY from `erase_page`.
         // The Flash memory programming sequence in standard mode is as follows:
         // 1. Check that no Flash main memory operation is ongoing by checking the BSY bit in the
@@ -228,12 +228,22 @@ impl Flash {
 
     /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
     pub fn read(&self, page: usize, offset: isize) -> u64 {
-        // todo: Read a length.
         let addr = page_to_address(page) as *const u64;
         unsafe { core::ptr::read(addr.offset(offset)) }
     }
+
+    /// Read flash memory at a given page and offset into a buffer.
+    pub fn read_to_buffer(&self, page: usize, offset: isize, buff: &mut [u8]) {
+        // todo: This is untested.
+        let addr = page_to_address(page) as *const u8; // todo is this right?
+
+        for val in buff {
+            *val = unsafe { core::ptr::read(addr.offset(offset)) }
+        }
+    }
 }
 
+/// Calculate the address of the start of a given page. Each page is 2,048 Kb.
 fn page_to_address(page: usize) -> usize {
     0x0800_0000 + page as usize * 2048
 }
