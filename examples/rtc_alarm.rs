@@ -73,9 +73,7 @@ fn main() -> ! {
     });
 
     loop {
-
-        // nb::block!(wkp.wait()).unwrap();
-        // writeln!(hstdout, "Good bye!").unwrap();
+        continue;
     }
 }
 

@@ -44,7 +44,9 @@ fn main() -> ! {
     let mut timer = Timer::tim7(dp.TIM7, 1.hz(), clocks, &mut rcc.apb1r1);
     timer.listen(Event::TimeOut);
 
-    loop {}
+    loop {
+        continue;
+    }
 }
 
 #[interrupt]

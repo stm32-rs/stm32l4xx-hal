@@ -88,7 +88,9 @@ fn main() -> ! {
 
     asm::bkpt();
 
-    loop {}
+    loop {
+        continue;
+    }
 }
 
 #[exception]

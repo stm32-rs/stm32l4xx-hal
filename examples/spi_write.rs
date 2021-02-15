@@ -82,7 +82,9 @@ fn main() -> ! {
     // gyroscope and the temperature sensor readings
     asm::bkpt();
 
-    loop {}
+    loop {
+        continue;
+    }
 }
 
 #[exception]
