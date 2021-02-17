@@ -5,8 +5,16 @@ use core::ptr;
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 
 use crate::gpio::{Alternate, Floating, Input, AF5};
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, APB1R1};
 use crate::time::Hertz;
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+use crate::rcc::APB2;
 
 /// SPI error
 #[non_exhaustive]
@@ -206,6 +214,8 @@ macro_rules! hal {
     }
 }
 
+use crate::gpio::{gpiob::*, gpioc::*};
+
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x3",
@@ -213,15 +223,29 @@ macro_rules! hal {
     feature = "stm32l4x6",
 ))]
 use crate::gpio::gpiod::*;
+
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 use crate::gpio::gpiog::*;
-use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
 
-use crate::stm32::SPI1;
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
-    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+))]
+use crate::gpio::{gpioa::*, gpioe::*};
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+use crate::stm32::SPI1;
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x5",
     feature = "stm32l4x6"
 ))]
@@ -232,7 +256,6 @@ hal! {
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
-    feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6"
 ))]
