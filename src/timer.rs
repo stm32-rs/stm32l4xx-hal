@@ -213,40 +213,32 @@ macro_rules! hal {
     }
 }
 
-impl rtic_core::monotonic::Clock for Timer<TIM2> {
-    const SCALING_FACTOR: rtic_core::monotonic::Fraction =
-        rtic_core::monotonic::Fraction::new(1, 80_000_000);
+use rtic_monotonic::{embedded_time, Clock, Fraction, Instant, Monotonic};
+
+impl Clock for Timer<TIM2> {
+    const SCALING_FACTOR: Fraction = Fraction::new(1, 80_000_000);
     type T = u32;
 
     #[inline(always)]
-    fn try_now(
-        &self,
-    ) -> Result<
-        rtic_core::monotonic::Instant<Self>,
-        rtic_core::monotonic::embedded_time::clock::Error,
-    > {
+    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
         let ticks = unsafe { (&*TIM2::ptr()).cnt.read().bits() };
-        Ok(rtic_core::monotonic::Instant::new(ticks))
+        Ok(Instant::new(ticks))
     }
 }
 
-impl rtic_core::monotonic::Monotonic for Timer<TIM2> {
-    fn now() -> rtic_core::monotonic::Instant<Self> {
-        let ticks = unsafe { (&*TIM2::ptr()).cnt.read().bits() };
-        rtic_core::monotonic::Instant::new(ticks)
+impl Monotonic for Timer<TIM2> {
+    fn reset(&mut self) {
+        self.tim.dier.modify(|_, w| w.cc1ie().set_bit());
+        unsafe { self.tim.cnt.write(|w| w.bits(0)) };
     }
 
-    unsafe fn reset() {
-        (&*TIM2::ptr()).dier.modify(|_, w| w.cc1ie().set_bit());
-        (&*TIM2::ptr()).cnt.write(|w| w.bits(0));
+    /// Set the compare value of the timer interrupt.
+    fn set_compare(&mut self, val: <Self as Clock>::T) {
+        self.tim.ccr1.write(|w| w.ccr().bits(val));
     }
 
-    unsafe fn set_compare(val: <Self as rtic_core::monotonic::Clock>::T) {
-        (&*TIM2::ptr()).ccr1.write(|w| w.ccr().bits(val));
-    }
-
-    unsafe fn clear_compare() {
-        (&*TIM2::ptr()).sr.modify(|_, w| w.cc1if().clear_bit());
+    fn clear_compare_flag(&mut self) {
+        self.tim.sr.modify(|_, w| w.cc1if().clear_bit());
     }
 }
 
