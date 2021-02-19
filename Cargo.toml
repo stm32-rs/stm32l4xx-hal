@@ -40,11 +40,7 @@ version = "1.0.0-alpha.4"
 
 [dependencies.embedded-storage]
 git = "https://github.com/rust-embedded-community/embedded-storage"
-<<<<<<< HEAD
 rev = "854b470"
-=======
-rev = "854b4704"
->>>>>>> Interrupt fix
 
 [dependencies.stm32-usbd]
 version = "0.5.1"
