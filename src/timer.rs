@@ -1,14 +1,14 @@
 //! Timers
 
 use crate::hal::timer::{CountDown, Periodic};
+use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::stm32::{TIM15, TIM16, TIM2, TIM6, TIM7};
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 use crate::stm32::{TIM17, TIM4, TIM5};
-use cast::{u16, u32};
-use void::Void;
-
-use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
+use cast::{u16, u32};
+use rtic_monotonic::{embedded_time, Clock, Fraction, Instant, Monotonic};
+use void::Void;
 
 /// Hardware timers
 pub struct Timer<TIM> {
@@ -213,26 +213,25 @@ macro_rules! hal {
     }
 }
 
-use rtic_monotonic::{embedded_time, Clock, Fraction, Instant, Monotonic};
-
+/// Implement Clock for TIM2 as it is the only timer with 32 bits.
 impl Clock for Timer<TIM2> {
     const SCALING_FACTOR: Fraction = Fraction::new(1, 80_000_000);
     type T = u32;
 
     #[inline(always)]
     fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
-        let ticks = unsafe { (&*TIM2::ptr()).cnt.read().bits() };
-        Ok(Instant::new(ticks))
+        Ok(Instant::new(Self::count()))
     }
 }
 
+/// Use Compare channel 1 for Monotonic
 impl Monotonic for Timer<TIM2> {
     fn reset(&mut self) {
+        // Since reset is only called once, we use it to enable the interrupt generation bit.
         self.tim.dier.modify(|_, w| w.cc1ie().set_bit());
         unsafe { self.tim.cnt.write(|w| w.bits(0)) };
     }
 
-    /// Set the compare value of the timer interrupt.
     fn set_compare(&mut self, val: <Self as Clock>::T) {
         self.tim.ccr1.write(|w| w.ccr().bits(val));
     }
