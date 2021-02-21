@@ -234,7 +234,7 @@ impl Clock for ExtendedTimer<TIM15> {
 
         // If the overflow bit is set, we add this to the timer value. It means the `on_interrupt`
         // has not yet happened, and we need to compensate here.
-        let ovf = if self.is_overflow() { 0xffff } else { 0 };
+        let ovf = if self.is_overflow() { 0x10000 } else { 0 };
 
         Ok(Instant::new(cnt as u64 + ovf as u64 + self.ovf))
     }
@@ -252,12 +252,18 @@ impl Monotonic for ExtendedTimer<TIM15> {
     }
 
     fn set_compare(&mut self, val: <Self as Clock>::T) {
-        unsafe {
-            self.tim
-                .tim
-                .ccr1
-                .write(|w| w.ccr1().bits(val.min(0xffff) as u16))
+        let now = self.try_now().unwrap();
+        let cnt = Timer::<TIM15>::count();
+
+        // Since the timer may or may not overflow based on the requested compare val, we check
+        // how many ticks are left.
+        let val = match Instant::new(val).checked_duration_since(&now) {
+            None => cnt.wrapping_add(1),                     // In the past
+            Some(x) if *x.integer() <= 0xffff => val as u16, // Will not overflow
+            Some(_x) => cnt.wrapping_add(0xffff),            // Will overflow
         };
+
+        unsafe { self.tim.tim.ccr1.write(|w| w.ccr1().bits(val)) };
     }
 
     fn clear_compare_flag(&mut self) {
@@ -269,7 +275,7 @@ impl Monotonic for ExtendedTimer<TIM15> {
         if self.is_overflow() {
             self.tim.clear_update_interrupt_flag();
 
-            self.ovf += 0xffff;
+            self.ovf += 0x10000;
         }
     }
 }
