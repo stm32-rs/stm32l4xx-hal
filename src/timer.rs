@@ -229,16 +229,22 @@ impl Clock for ExtendedTimer<TIM15> {
     const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
     type T = u64;
 
-    #[inline(always)]
     fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
         let cnt = Timer::<TIM15>::count();
+
+        // If the overflow bit is set, we add this to the timer value. It means the `on_interrupt`
+        // has not yet happened, and we need to compensate here.
         let ovf = if self.is_overflow() { 0xffff } else { 0 };
+
         Ok(Instant::new(cnt as u64 + ovf as u64 + self.ovf))
     }
 }
 
 /// Use Compare channel 1 for Monotonic
 impl Monotonic for ExtendedTimer<TIM15> {
+    // Since we are counting overflows we can't let RTIC disable the interrupt.
+    const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
+
     fn reset(&mut self) {
         // Since reset is only called once, we use it to enable the interrupt generation bit.
         self.tim.tim.dier.modify(|_, w| w.cc1ie().set_bit());
@@ -259,6 +265,7 @@ impl Monotonic for ExtendedTimer<TIM15> {
     }
 
     fn on_interrupt(&mut self) {
+        // If there was an overflow, increment the overflow counter.
         if self.is_overflow() {
             self.tim.clear_update_interrupt_flag();
 
