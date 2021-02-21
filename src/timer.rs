@@ -213,6 +213,62 @@ macro_rules! hal {
     }
 }
 
+/// Extended TIM15/16 to 64 bits
+pub struct ExtendedTimer<TIM> {
+    tim: Timer<TIM>,
+    ovf: u64,
+}
+
+impl ExtendedTimer<TIM15> {
+    fn is_overflow(&self) -> bool {
+        self.tim.tim.sr.read().uif().bit_is_set()
+    }
+}
+
+impl Clock for ExtendedTimer<TIM15> {
+    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
+    type T = u64;
+
+    #[inline(always)]
+    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
+        let cnt = Timer::<TIM15>::count();
+        let ovf = if self.is_overflow() { 0xffff } else { 0 };
+        Ok(Instant::new(cnt as u64 + ovf as u64 + self.ovf))
+    }
+}
+
+/// Use Compare channel 1 for Monotonic
+impl Monotonic for ExtendedTimer<TIM15> {
+    fn reset(&mut self) {
+        // Since reset is only called once, we use it to enable the interrupt generation bit.
+        self.tim.tim.dier.modify(|_, w| w.cc1ie().set_bit());
+        unsafe { self.tim.tim.cnt.write(|w| w.bits(0)) };
+    }
+
+    fn set_compare(&mut self, val: <Self as Clock>::T) {
+        unsafe {
+            self.tim
+                .tim
+                .ccr1
+                .write(|w| w.ccr1().bits(val.min(0xffff) as u16))
+        };
+    }
+
+    fn clear_compare_flag(&mut self) {
+        self.tim.tim.sr.modify(|_, w| w.cc1if().clear_bit());
+    }
+
+    fn on_interrupt(&mut self) {
+        if self.is_overflow() {
+            self.tim.clear_update_interrupt_flag();
+
+            self.ovf += 0xffff;
+        }
+    }
+}
+
+// ------------
+
 /// Implement Clock for TIM2 as it is the only timer with 32 bits.
 impl Clock for Timer<TIM2> {
     const SCALING_FACTOR: Fraction = Fraction::new(1, 80_000_000);
