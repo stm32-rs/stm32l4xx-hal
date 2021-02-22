@@ -251,16 +251,15 @@ impl Monotonic for ExtendedTimer<TIM15> {
         unsafe { self.tim.tim.cnt.write(|w| w.bits(0)) };
     }
 
-    fn set_compare(&mut self, val: <Self as Clock>::T) {
+    fn set_compare(&mut self, instant: &Instant<Self>) {
         let now = self.try_now().unwrap();
-        let cnt = Timer::<TIM15>::count();
 
         // Since the timer may or may not overflow based on the requested compare val, we check
         // how many ticks are left.
-        let val = match Instant::new(val).checked_duration_since(&now) {
-            None => cnt.wrapping_add(1),                     // In the past
-            Some(x) if *x.integer() <= 0xffff => val as u16, // Will not overflow
-            Some(_x) => cnt.wrapping_add(0xffff),            // Will overflow
+        let val = match instant.checked_duration_since(&now) {
+            None => Timer::<TIM15>::count().wrapping_add(1), // In the past
+            Some(x) if *x.integer() <= 0xffff => *instant.duration_since_epoch().integer() as u16, // Will not overflow
+            Some(_x) => Timer::<TIM15>::count().wrapping_add(0xffff), // Will overflow
         };
 
         unsafe { self.tim.tim.ccr1.write(|w| w.ccr1().bits(val)) };
@@ -301,8 +300,10 @@ impl Monotonic for Timer<TIM2> {
         unsafe { self.tim.cnt.write(|w| w.bits(0)) };
     }
 
-    fn set_compare(&mut self, val: <Self as Clock>::T) {
-        self.tim.ccr1.write(|w| w.ccr().bits(val));
+    fn set_compare(&mut self, instant: &Instant<Self>) {
+        self.tim
+            .ccr1
+            .write(|w| w.ccr().bits(*instant.duration_since_epoch().integer()));
     }
 
     fn clear_compare_flag(&mut self) {
