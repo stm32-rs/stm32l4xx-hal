@@ -1,4 +1,6 @@
-//! Inter-Integrated Circuit (I2C) bus
+//! Inter-Integrated Circuit (I2C) bus. Synchronized with the
+//! [stm32h7xx-hal](https://github.com/stm32-rs/stm32h7xx-hal) implementation,
+//! as of 2021-02-25.
 
 use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
@@ -243,7 +245,6 @@ where
     }
 }
 
-/// Copy+pasted from H7. Called from c+p `busy_wait`
 /// Sequence to flush the TXDR register. This resets the TXIS and TXE
 // flags
 macro_rules! flush_txdr {
@@ -260,7 +261,6 @@ macro_rules! flush_txdr {
     };
 }
 
-/// Copy+Pasted from H7. For use in `write_read`.
 macro_rules! busy_wait {
     ($i2c:expr, $flag:ident, $variant:ident) => {
         loop {
@@ -292,7 +292,6 @@ where
     type Error = Error;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        // C+P from H7 HAL.
         // TODO support transfers of more than 255 bytes
         assert!(bytes.len() < 256 && bytes.len() > 0);
 
@@ -392,11 +391,6 @@ where
     type Error = Error;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
-        // Copy+paste from H7 to support repeating starts.
-        // todo: It's worth investigating if we should port more of the
-        // todo H7 I2C module, like `read` and `write`, and remove the `Tx`, et
-        // todo structs here.
-
         // TODO support transfers of more than 255 bytes
         assert!(bytes.len() < 256 && bytes.len() > 0);
         assert!(buffer.len() < 256 && buffer.len() > 0);
