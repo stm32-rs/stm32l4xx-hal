@@ -245,10 +245,10 @@ impl Monotonic for ExtendedTimer<TIM15> {
     // Since we are counting overflows we can't let RTIC disable the interrupt.
     const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
 
-    fn reset(&mut self) {
+    unsafe fn reset(&mut self) {
         // Since reset is only called once, we use it to enable the interrupt generation bit.
         self.tim.tim.dier.modify(|_, w| w.cc1ie().set_bit());
-        unsafe { self.tim.tim.cnt.write(|w| w.bits(0)) };
+        // self.tim.tim.cnt.write(|w| w.bits(0));
     }
 
     fn set_compare(&mut self, instant: &Instant<Self>) {
@@ -294,10 +294,10 @@ impl Clock for Timer<TIM2> {
 
 /// Use Compare channel 1 for Monotonic
 impl Monotonic for Timer<TIM2> {
-    fn reset(&mut self) {
+    unsafe fn reset(&mut self) {
         // Since reset is only called once, we use it to enable the interrupt generation bit.
         self.tim.dier.modify(|_, w| w.cc1ie().set_bit());
-        unsafe { self.tim.cnt.write(|w| w.bits(0)) };
+        // self.tim.cnt.write(|w| w.bits(0));
     }
 
     fn set_compare(&mut self, instant: &Instant<Self>) {
