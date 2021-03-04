@@ -11,6 +11,7 @@ use rtic_monotonic::{embedded_time, Clock, Fraction, Instant, Monotonic};
 use void::Void;
 
 /// Hardware timers
+#[derive(Debug)]
 pub struct Timer<TIM> {
     clocks: Clocks,
     tim: TIM,
@@ -214,6 +215,7 @@ macro_rules! hal {
 }
 
 /// Extended TIM15/16 to 64 bits
+#[derive(Debug)]
 pub struct ExtendedTimer<TIM> {
     tim: Timer<TIM>,
     ovf: u64,
