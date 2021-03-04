@@ -499,7 +499,7 @@ impl Clocks {
         let usb = input_freq as f32 / self.pllm.value() as f32 * self.pll_sai1_mul as f32 / 2.;
 
         let hclk = sysclk / self.hclk_prescaler.value() as f32;
-        let systick = hclk; // todo the required divider is not yet implemented.
+        let systick = hclk; // todo the required divider is not yet implemented. Either 1x or 8x.(div?)
         let fclk = hclk;
         let pclk1 = hclk / self.apb1_prescaler.value() as f32;
         let timer1 = if let ApbPrescaler::Div1 = self.apb1_prescaler {

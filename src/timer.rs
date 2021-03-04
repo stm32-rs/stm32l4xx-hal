@@ -289,6 +289,16 @@ macro_rules! hal {
                      Ok(())
                  }
 
+                /// Enable the timer.
+                pub fn enable(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                }
+
+                /// Disable the timer.
+                pub fn disable(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                }
+
                 /// Reset the countdown; set the counter to 0.
                 pub fn reset_countdown(&mut self) {
                     self.tim.cnt.write(|w| unsafe { w.bits(0) });
@@ -464,6 +474,11 @@ macro_rules! _pwm_features {
                         Channel::Three => self.tim.ccmr2_output().modify(unsafe {|_, w| w.cc3s().bits(mode as u8)}),
                         Channel::Four => self.tim.ccmr2_output().modify(unsafe {|_, w| w.cc4s().bits(mode as u8)}),
                     }
+                }
+
+                /// Set auto reload preloader; useful when changing period and duty mid-run.
+                pub fn set_auto_reload_preload(&mut self, mode: bool) {
+                    self.tim.cr1.modify(|_, w| w.arpe().bit(mode));
                 }
 
                 /// Set preload mode.
