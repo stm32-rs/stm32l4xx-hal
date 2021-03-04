@@ -220,6 +220,10 @@ pub struct ExtendedTimer<TIM> {
 }
 
 impl ExtendedTimer<TIM15> {
+    pub fn new(tim: Timer<TIM15>) -> Self {
+        ExtendedTimer { tim, ovf: 0 }
+    }
+
     fn is_overflow(&self) -> bool {
         self.tim.tim.sr.read().uif().bit_is_set()
     }
