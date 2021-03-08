@@ -27,6 +27,10 @@ stm32l4 = "0.13.0"
 as-slice = "0.1"
 generic-array = "0.13"
 
+[dependencies.rand_core]
+version = "0.6.2"
+default-features = false
+
 [dependencies.cast]
 version  = "0.2.2"
 default-features = false
