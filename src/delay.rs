@@ -101,6 +101,14 @@ impl DelayCM {
             sysclk: clocks.sysclk(),
         }
     }
+
+    /// Create a new delay that is unchecked. The user needs to know the `sysclk`.
+    ///
+    /// # Safety
+    /// Sysclk must be the same as the actual clock frequency of the chip
+    pub unsafe fn new_unchecked(sysclk: Hertz) -> Self {
+        DelayCM { sysclk }
+    }
 }
 
 impl DelayMs<u32> for DelayCM {
