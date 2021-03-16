@@ -1,9 +1,10 @@
 //! # Analog to Digital converter
 
-use core::convert::Infallible;
 use core::ptr;
+use core::{convert::Infallible, ops::DerefMut};
 
 use crate::{
+    dma::{dma2, DMAFrame, FrameReader},
     gpio::{self, Analog},
     hal::{
         adc::{Channel as EmbeddedHalChannel, OneShot},
@@ -14,7 +15,9 @@ use crate::{
     signature::{VrefCal, VtempCal130, VtempCal30, VDDA_CALIB_MV},
 };
 
+use generic_array::typenum;
 use pac::{ADC1, ADC_COMMON};
+use stable_deref_trait::StableDeref;
 
 /// Vref internal signal, used for calibration
 pub struct Vref;
@@ -175,6 +178,44 @@ impl ADC {
         (130.0 - 30.0) / (VtempCal130::get().read() as f32 - VtempCal30::get().read() as f32)
             * (sample as f32 - VtempCal30::get().read() as f32)
             + 30.0
+    }
+
+    pub fn frame_read<BUFFER>(
+        self,
+        mut channel: dma2::C3,
+        buffer: BUFFER,
+    ) -> FrameReader<BUFFER, dma2::C3, typenum::consts::U2>
+    where
+        BUFFER: Sized + StableDeref<Target = DMAFrame<typenum::consts::U2>> + DerefMut + 'static,
+    {
+        // Enable DMA
+        self.adc.cfgr.write(|w| w.dmaen().set_bit());
+        // Set DMA circular mode
+        self.adc.cfgr.write(|w| w.dmacfg().set_bit());
+
+        let buf = &*buffer;
+        channel.set_peripheral_address(&self.adc.dr as *const _ as u32, false);
+        channel.set_memory_address(unsafe { buf.buffer_address_for_dma() as u32 }, true);
+        channel.set_transfer_length(2);
+
+        // Select ADC1 request for channel 3
+        channel.cselr().write(|w| {
+            // See reference manual: "DMA2 requests for each channel"
+            w.c3s().bits(0b0000)
+        });
+
+        channel.ccr().write(|w| unsafe {
+            w.mem2mem()
+                .clear_bit()
+                .msize()
+                .bits(0b01)
+                .psize()
+                .bits(0b01)
+                .dir()
+                .clear_bit()
+        });
+
+        return ();
     }
 }
 
