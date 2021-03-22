@@ -1,10 +1,9 @@
 //! # Analog to Digital converter
 
+use core::convert::Infallible;
 use core::ptr;
-use core::{convert::Infallible, ops::DerefMut};
 
 use crate::{
-    dma::{dma2, DMAFrame, FrameReader},
     gpio::{self, Analog},
     hal::{
         adc::{Channel as EmbeddedHalChannel, OneShot},
@@ -15,9 +14,7 @@ use crate::{
     signature::{VrefCal, VtempCal130, VtempCal30, VDDA_CALIB_MV},
 };
 
-use generic_array::typenum;
 use pac::{ADC1, ADC_COMMON};
-use stable_deref_trait::StableDeref;
 
 /// Vref internal signal, used for calibration
 pub struct Vref;
@@ -35,6 +32,73 @@ pub struct ADC {
     resolution: Resolution,
     sample_time: SampleTime,
     calibrated_vdda: u32,
+    sequence_len: u8,
+}
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
+pub enum Sequence {
+    One = 0,
+    Two = 1,
+    Three = 2,
+    Four = 3,
+    Five = 4,
+    Six = 5,
+    Seven = 6,
+    Eight = 7,
+    Nine = 8,
+    Ten = 9,
+    Eleven = 10,
+    Twelve = 11,
+    Thirteen = 12,
+    Fourteen = 13,
+    Fifteen = 14,
+    Sixteen = 15,
+}
+
+impl From<u8> for Sequence {
+    fn from(bits: u8) -> Self {
+        match bits {
+            0 => Sequence::One,
+            1 => Sequence::Two,
+            2 => Sequence::Three,
+            3 => Sequence::Four,
+            4 => Sequence::Five,
+            5 => Sequence::Six,
+            6 => Sequence::Seven,
+            7 => Sequence::Eight,
+            8 => Sequence::Nine,
+            9 => Sequence::Ten,
+            10 => Sequence::Eleven,
+            11 => Sequence::Twelve,
+            12 => Sequence::Thirteen,
+            13 => Sequence::Fourteen,
+            14 => Sequence::Fifteen,
+            15 => Sequence::Sixteen,
+            _ => unimplemented!(),
+        }
+    }
+}
+
+impl Into<u8> for Sequence {
+    fn into(self) -> u8 {
+        match self {
+            Sequence::One => 0,
+            Sequence::Two => 1,
+            Sequence::Three => 2,
+            Sequence::Four => 3,
+            Sequence::Five => 4,
+            Sequence::Six => 5,
+            Sequence::Seven => 6,
+            Sequence::Eight => 7,
+            Sequence::Nine => 8,
+            Sequence::Ten => 9,
+            Sequence::Eleven => 10,
+            Sequence::Twelve => 11,
+            Sequence::Thirteen => 12,
+            Sequence::Fourteen => 13,
+            Sequence::Fifteen => 14,
+            Sequence::Sixteen => 15,
+        }
+    }
 }
 
 impl ADC {
@@ -93,6 +157,7 @@ impl ADC {
             resolution: Resolution::default(),
             sample_time: SampleTime::default(),
             calibrated_vdda: VDDA_CALIB_MV,
+            sequence_len: 0,
         };
 
         // Temporarily enable Vref
@@ -180,42 +245,67 @@ impl ADC {
             + 30.0
     }
 
-    pub fn frame_read<BUFFER>(
-        self,
-        mut channel: dma2::C3,
-        buffer: BUFFER,
-    ) -> FrameReader<BUFFER, dma2::C3, typenum::consts::U2>
-    where
-        BUFFER: Sized + StableDeref<Target = DMAFrame<typenum::consts::U2>> + DerefMut + 'static,
+    pub fn configure_sequence<C>(
+        &mut self,
+        _channel: Option<C>,
+        sequence: Sequence,
+        sample_time: SampleTime,
+    ) where
+        C: Channel,
     {
+        let channel_bits = match _channel {
+            Some(_) => C::channel(),
+            None => 0,
+        };
+
+        self.adc.sqr1.modify(|r, w| {
+            let prev: Sequence = r.l3().bits().into();
+            if prev < sequence {
+                unsafe { w.l3().bits(sequence.into()) }
+            } else {
+                w
+            }
+        });
+
+        unsafe {
+            match sequence {
+                Sequence::One => self.adc.sqr1.write(|w| w.sq1().bits(channel_bits)),
+                Sequence::Two => self.adc.sqr1.write(|w| w.sq2().bits(channel_bits)),
+                Sequence::Three => self.adc.sqr1.write(|w| w.sq3().bits(channel_bits)),
+                Sequence::Four => self.adc.sqr1.write(|w| w.sq4().bits(channel_bits)),
+                Sequence::Five => self.adc.sqr2.write(|w| w.sq5().bits(channel_bits)),
+                Sequence::Six => self.adc.sqr2.write(|w| w.sq6().bits(channel_bits)),
+                Sequence::Seven => self.adc.sqr2.write(|w| w.sq7().bits(channel_bits)),
+                Sequence::Eight => self.adc.sqr2.write(|w| w.sq8().bits(channel_bits)),
+                Sequence::Nine => self.adc.sqr2.write(|w| w.sq9().bits(channel_bits)),
+                Sequence::Ten => self.adc.sqr3.write(|w| w.sq10().bits(channel_bits)),
+                Sequence::Eleven => self.adc.sqr3.write(|w| w.sq11().bits(channel_bits)),
+                Sequence::Twelve => self.adc.sqr3.write(|w| w.sq12().bits(channel_bits)),
+                Sequence::Thirteen => self.adc.sqr3.write(|w| w.sq13().bits(channel_bits)),
+                Sequence::Fourteen => self.adc.sqr3.write(|w| w.sq14().bits(channel_bits)),
+                Sequence::Fifteen => self.adc.sqr4.write(|w| w.sq15().bits(channel_bits)),
+                Sequence::Sixteen => self.adc.sqr4.write(|w| w.sq16().bits(channel_bits)),
+            }
+        }
+
+        match channel_bits {
+            0..=9 => {
+                let bits = (sample_time as u32) << (channel_bits * 3);
+                self.adc.smpr1.write(|w| unsafe { w.bits(bits) })
+            }
+            10..=15 => {
+                let bits = (sample_time as u32) << ((channel_bits - 10) * 3);
+                self.adc.smpr1.write(|w| unsafe { w.bits(bits) })
+            }
+            _ => {
+                unimplemented!()
+            }
+        }
+    }
+
+    pub fn start_dma(&mut self) {
         // Enable DMA
         self.adc.cfgr.write(|w| w.dmaen().set_bit());
-        // Set DMA circular mode
-        self.adc.cfgr.write(|w| w.dmacfg().set_bit());
-
-        let buf = &*buffer;
-        channel.set_peripheral_address(&self.adc.dr as *const _ as u32, false);
-        channel.set_memory_address(unsafe { buf.buffer_address_for_dma() as u32 }, true);
-        channel.set_transfer_length(2);
-
-        // Select ADC1 request for channel 3
-        channel.cselr().write(|w| {
-            // See reference manual: "DMA2 requests for each channel"
-            w.c3s().bits(0b0000)
-        });
-
-        channel.ccr().write(|w| unsafe {
-            w.mem2mem()
-                .clear_bit()
-                .msize()
-                .bits(0b01)
-                .psize()
-                .bits(0b01)
-                .dir()
-                .clear_bit()
-        });
-
-        return ();
     }
 }
 
