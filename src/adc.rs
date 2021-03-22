@@ -32,8 +32,15 @@ pub struct ADC {
     resolution: Resolution,
     sample_time: SampleTime,
     calibrated_vdda: u32,
-    sequence_len: u8,
 }
+
+#[derive(Copy, Clone)]
+pub enum DmaMode {
+    Disabled = 0,
+    Oneshot = 1,
+    Circular = 2,
+}
+
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub enum Sequence {
     One = 0,
@@ -157,7 +164,6 @@ impl ADC {
             resolution: Resolution::default(),
             sample_time: SampleTime::default(),
             calibrated_vdda: VDDA_CALIB_MV,
-            sequence_len: 0,
         };
 
         // Temporarily enable Vref
@@ -245,62 +251,119 @@ impl ADC {
             + 30.0
     }
 
+    pub fn set_dma_mode(&mut self, mode: DmaMode) {
+        let (enable, circular) = match mode {
+            DmaMode::Disabled => (false, false),
+            DmaMode::Oneshot => (false, true),
+            DmaMode::Circular => (true, true),
+        };
+        self.adc
+            .cfgr
+            .write(|w| w.dmaen().bit(enable).dmacfg().bit(circular))
+    }
+
+    pub fn get_adc_data(&mut self) -> u16 {
+        // This will not panic because bits 31:16 are reserved, read-only and 0 in ADC_DR
+        self.adc.dr.read().bits() as u16
+    }
+
     pub fn configure_sequence<C>(
         &mut self,
-        _channel: Option<C>,
+        _channel: &C,
         sequence: Sequence,
         sample_time: SampleTime,
     ) where
         C: Channel,
     {
-        let channel_bits = match _channel {
-            Some(_) => C::channel(),
-            None => 0,
-        };
+        let channel_bits = C::channel();
 
-        self.adc.sqr1.modify(|r, w| {
-            let prev: Sequence = r.l3().bits().into();
-            if prev < sequence {
-                unsafe { w.l3().bits(sequence.into()) }
-            } else {
-                w
-            }
-        });
+        // This will only ever extend the sequence, not shrink it.
+        let current_seql = self.get_sequence_length();
+        let next_seql: u8 = sequence.into();
+        if next_seql >= current_seql {
+            self.set_sequence_length(sequence.into());
+        }
 
         unsafe {
+            // This is sound as channel() always returns a valid channel number
             match sequence {
-                Sequence::One => self.adc.sqr1.write(|w| w.sq1().bits(channel_bits)),
-                Sequence::Two => self.adc.sqr1.write(|w| w.sq2().bits(channel_bits)),
-                Sequence::Three => self.adc.sqr1.write(|w| w.sq3().bits(channel_bits)),
-                Sequence::Four => self.adc.sqr1.write(|w| w.sq4().bits(channel_bits)),
-                Sequence::Five => self.adc.sqr2.write(|w| w.sq5().bits(channel_bits)),
-                Sequence::Six => self.adc.sqr2.write(|w| w.sq6().bits(channel_bits)),
-                Sequence::Seven => self.adc.sqr2.write(|w| w.sq7().bits(channel_bits)),
-                Sequence::Eight => self.adc.sqr2.write(|w| w.sq8().bits(channel_bits)),
-                Sequence::Nine => self.adc.sqr2.write(|w| w.sq9().bits(channel_bits)),
-                Sequence::Ten => self.adc.sqr3.write(|w| w.sq10().bits(channel_bits)),
-                Sequence::Eleven => self.adc.sqr3.write(|w| w.sq11().bits(channel_bits)),
-                Sequence::Twelve => self.adc.sqr3.write(|w| w.sq12().bits(channel_bits)),
-                Sequence::Thirteen => self.adc.sqr3.write(|w| w.sq13().bits(channel_bits)),
-                Sequence::Fourteen => self.adc.sqr3.write(|w| w.sq14().bits(channel_bits)),
-                Sequence::Fifteen => self.adc.sqr4.write(|w| w.sq15().bits(channel_bits)),
-                Sequence::Sixteen => self.adc.sqr4.write(|w| w.sq16().bits(channel_bits)),
+                Sequence::One => self.adc.sqr1.modify(|_, w| w.sq1().bits(channel_bits)),
+                Sequence::Two => self.adc.sqr1.modify(|_, w| w.sq2().bits(channel_bits)),
+                Sequence::Three => self.adc.sqr1.modify(|_, w| w.sq3().bits(channel_bits)),
+                Sequence::Four => self.adc.sqr1.modify(|_, w| w.sq4().bits(channel_bits)),
+                Sequence::Five => self.adc.sqr2.modify(|_, w| w.sq5().bits(channel_bits)),
+                Sequence::Six => self.adc.sqr2.modify(|_, w| w.sq6().bits(channel_bits)),
+                Sequence::Seven => self.adc.sqr2.modify(|_, w| w.sq7().bits(channel_bits)),
+                Sequence::Eight => self.adc.sqr2.modify(|_, w| w.sq8().bits(channel_bits)),
+                Sequence::Nine => self.adc.sqr2.modify(|_, w| w.sq9().bits(channel_bits)),
+                Sequence::Ten => self.adc.sqr3.modify(|_, w| w.sq10().bits(channel_bits)),
+                Sequence::Eleven => self.adc.sqr3.modify(|_, w| w.sq11().bits(channel_bits)),
+                Sequence::Twelve => self.adc.sqr3.modify(|_, w| w.sq12().bits(channel_bits)),
+                Sequence::Thirteen => self.adc.sqr3.modify(|_, w| w.sq13().bits(channel_bits)),
+                Sequence::Fourteen => self.adc.sqr3.modify(|_, w| w.sq14().bits(channel_bits)),
+                Sequence::Fifteen => self.adc.sqr4.modify(|_, w| w.sq15().bits(channel_bits)),
+                Sequence::Sixteen => self.adc.sqr4.modify(|_, w| w.sq16().bits(channel_bits)),
             }
         }
 
         match channel_bits {
             0..=9 => {
                 let bits = (sample_time as u32) << (channel_bits * 3);
-                self.adc.smpr1.write(|w| unsafe { w.bits(bits) })
+                self.adc
+                    .smpr1
+                    .modify(|r, w| unsafe { w.bits(r.bits() | bits) })
             }
             10..=15 => {
                 let bits = (sample_time as u32) << ((channel_bits - 10) * 3);
-                self.adc.smpr1.write(|w| unsafe { w.bits(bits) })
+                self.adc
+                    .smpr1
+                    .modify(|r, w| unsafe { w.bits(r.bits() | bits) })
             }
             _ => {
                 unimplemented!()
             }
         }
+    }
+
+    pub fn get_sequence_length(&mut self) -> u8 {
+        self.adc.sqr1.read().l3().bits()
+    }
+
+    pub fn set_sequence_length(&mut self, length: u8) {
+        self.adc.sqr1.modify(|_, w| unsafe { w.l3().bits(length) });
+    }
+
+    pub fn has_completed_conversion(&mut self) -> bool {
+        self.adc.isr.read().eoc().bit_is_set()
+    }
+
+    pub fn has_completed_sequence(&mut self) -> bool {
+        self.adc.isr.read().eos().bit_is_set()
+    }
+
+    pub fn clear_flags(&mut self) {
+        // EOS and EOC are reset by setting them (See reference manual section 16.6.1)
+        self.adc
+            .isr
+            .modify(|_, w| w.eos().set_bit().eoc().set_bit());
+    }
+
+    pub fn clear_eoc(&mut self) {
+        self.adc.isr.modify(|_, w| w.eoc().set_bit())
+    }
+
+    pub fn start_conversion(&mut self) {
+        self.clear_flags();
+        self.adc.cr.modify(|_, w| w.adstart().set_bit());
+    }
+
+    pub fn enable(&mut self) {
+        // Clear ADRDY by setting it (See Reference Manual section 1.16.1)
+        self.adc.isr.write(|w| w.adrdy().set_bit());
+        self.adc
+            .cr
+            .write(|w| w.aden().set_bit().addis().clear_bit());
+        while self.adc.isr.read().adrdy().bit_is_clear() {}
     }
 
     pub fn start_dma(&mut self) {
