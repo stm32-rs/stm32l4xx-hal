@@ -4,6 +4,7 @@ use core::convert::Infallible;
 use core::ptr;
 
 use crate::{
+    dma::dma1,
     gpio::{self, Analog},
     hal::{
         adc::{Channel as EmbeddedHalChannel, OneShot},
@@ -108,6 +109,12 @@ impl Into<u8> for Sequence {
     }
 }
 
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
+pub enum Event {
+    EndOfRegularSequence,
+    EndOfRegularConversion,
+}
+
 impl ADC {
     /// Initialize the ADC
     pub fn new(
@@ -172,7 +179,6 @@ impl ADC {
         s.calibrate(&mut vref);
 
         s.common.ccr.modify(|_, w| w.vrefen().clear_bit());
-
         s
     }
 
@@ -251,38 +257,76 @@ impl ADC {
             + 30.0
     }
 
-    pub fn set_dma_mode(&mut self, mode: DmaMode) {
+    // DMA channels:
+    //  ADC1: DMA2_3 with CxS 0000
+    //  ADC2: DMA2_4 with CxS 0000
+    //  ADC1: DMA1_1 with CxS 0000
+    //  ADC2: DMA1_2 with CxS 0000
+
+    pub fn start_dma<const N: usize>(
+        &mut self,
+        mode: DmaMode,
+        dma_channel: &mut dma1::C1,
+        buffer: &mut [u16; N],
+    ) {
+        let adc = unsafe { &(*pac::ADC1::ptr()) };
+
         let (enable, circular) = match mode {
             DmaMode::Disabled => (false, false),
             DmaMode::Oneshot => (false, true),
             DmaMode::Circular => (true, true),
         };
+
+        dma_channel.set_peripheral_address(&adc.dr as *const _ as u32, false);
+        dma_channel.set_memory_address(buffer.as_ptr() as u32, true);
+        dma_channel.set_transfer_length((N as u16) * 2);
+
+        dma_channel.cselr().modify(|_, w| w.c1s().bits(0b0000));
+
+        dma_channel.ccr().modify(|_, w| unsafe {
+            w.mem2mem()
+                .clear_bit()
+                // 00: Low, 01: Medium, 10: High, 11: Very high
+                .pl()
+                .bits(0b01)
+                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                .msize()
+                .bits(0b01)
+                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                .psize()
+                .bits(0b01)
+                // Peripheral -> Mem
+                .dir()
+                .clear_bit()
+                .circ()
+                .bit(circular)
+        });
+
         self.adc
             .cfgr
-            .write(|w| w.dmaen().bit(enable).dmacfg().bit(circular))
+            .write(|w| w.dmaen().bit(enable).dmacfg().bit(circular));
+
+        match mode {
+            DmaMode::Disabled => dma_channel.stop(),
+            _ => dma_channel.start(),
+        }
     }
 
-    pub fn get_adc_data(&mut self) -> u16 {
-        // This will not panic because bits 31:16 are reserved, read-only and 0 in ADC_DR
+    pub fn get_data(&mut self) -> u16 {
+        // Sound, as bits 31:16 are reserved, read-only and 0 in ADC_DR
         self.adc.dr.read().bits() as u16
     }
 
     pub fn configure_sequence<C>(
         &mut self,
-        _channel: &C,
+        channel: &mut C,
         sequence: Sequence,
         sample_time: SampleTime,
     ) where
         C: Channel,
     {
         let channel_bits = C::channel();
-
-        // This will only ever extend the sequence, not shrink it.
-        let current_seql = self.get_sequence_length();
-        let next_seql: u8 = sequence.into();
-        if next_seql >= current_seql {
-            self.set_sequence_length(sequence.into());
-        }
+        channel.set_sample_time(&self.adc, sample_time);
 
         unsafe {
             // This is sound as channel() always returns a valid channel number
@@ -306,23 +350,17 @@ impl ADC {
             }
         }
 
-        match channel_bits {
-            0..=9 => {
-                let bits = (sample_time as u32) << (channel_bits * 3);
-                self.adc
-                    .smpr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() | bits) })
-            }
-            10..=15 => {
-                let bits = (sample_time as u32) << ((channel_bits - 10) * 3);
-                self.adc
-                    .smpr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() | bits) })
-            }
-            _ => {
-                unimplemented!()
-            }
+        // This will only ever extend the sequence, not shrink it.
+        let current_seql = self.get_sequence_length();
+        let next_seql: u8 = sequence.into();
+        if next_seql >= current_seql {
+            // Note: sequence length of 0 = 1 conversion
+            self.set_sequence_length(sequence.into());
         }
+    }
+
+    pub fn get_bits1(&mut self) -> u8 {
+        self.adc.sqr1.read().sq1().bits()
     }
 
     pub fn get_sequence_length(&mut self) -> u8 {
@@ -341,34 +379,51 @@ impl ADC {
         self.adc.isr.read().eos().bit_is_set()
     }
 
-    pub fn clear_flags(&mut self) {
+    pub fn clear_end_flags(&mut self) {
         // EOS and EOC are reset by setting them (See reference manual section 16.6.1)
         self.adc
             .isr
             .modify(|_, w| w.eos().set_bit().eoc().set_bit());
     }
 
-    pub fn clear_eoc(&mut self) {
-        self.adc.isr.modify(|_, w| w.eoc().set_bit())
-    }
-
     pub fn start_conversion(&mut self) {
-        self.clear_flags();
+        self.clear_end_flags();
         self.adc.cr.modify(|_, w| w.adstart().set_bit());
     }
 
-    pub fn enable(&mut self) {
-        // Clear ADRDY by setting it (See Reference Manual section 1.16.1)
-        self.adc.isr.write(|w| w.adrdy().set_bit());
-        self.adc
-            .cr
-            .write(|w| w.aden().set_bit().addis().clear_bit());
-        while self.adc.isr.read().adrdy().bit_is_clear() {}
+    pub fn is_converting(&self) -> bool {
+        self.adc.cr.read().adstart().bit_is_set()
     }
 
-    pub fn start_dma(&mut self) {
-        // Enable DMA
-        self.adc.cfgr.write(|w| w.dmaen().set_bit());
+    pub fn listen(&mut self, event: Event) {
+        self.adc.ier.modify(|_, w| match event {
+            Event::EndOfRegularSequence => w.eosie().set_bit(),
+            Event::EndOfRegularConversion => w.eocie().set_bit(),
+        });
+    }
+
+    pub fn unlisten(&mut self, event: Event) {
+        self.adc.ier.modify(|_, w| match event {
+            Event::EndOfRegularSequence => w.eosie().clear_bit(),
+            Event::EndOfRegularConversion => w.eocie().clear_bit(),
+        });
+    }
+
+    pub fn enable(&mut self) {
+        // Make sure bits are off
+        while self.adc.cr.read().addis().bit_is_set() {}
+
+        // Clear ADRDY by setting it (See Reference Manual section 1.16.1)
+        self.adc.isr.write(|w| w.adrdy().set_bit());
+        self.adc.cr.write(|w| w.aden().set_bit());
+        while self.adc.isr.read().adrdy().bit_is_clear() {}
+
+        // Configure ADC
+        self.adc.cfgr.write(|w| {
+            // This is sound, as all `Resolution` values are valid for this
+            // field.
+            unsafe { w.res().bits(self.resolution as u8) }
+        });
     }
 }
 
