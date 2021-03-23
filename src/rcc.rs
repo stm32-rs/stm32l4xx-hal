@@ -684,12 +684,16 @@ impl CFGR {
         // adjust flash wait states
         unsafe {
             acr.acr().write(|w| {
-                w.latency().bits(if sysclk <= 24_000_000 {
+                w.latency().bits(if hclk <= 16_000_000 {
                     0b000
-                } else if sysclk <= 48_000_000 {
+                } else if hclk <= 32_000_000 {
                     0b001
-                } else {
+                } else if hclk <= 48_000_000 {
                     0b010
+                } else if hclk <= 64_000_000 {
+                    0b011
+                } else {
+                    0b100
                 })
             })
         }
