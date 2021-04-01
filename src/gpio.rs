@@ -176,7 +176,7 @@ macro_rules! gpio {
             use core::marker::PhantomData;
             use core::convert::Infallible;
 
-            use crate::hal::digital::v2::{OutputPin, StatefulOutputPin, InputPin};
+            use crate::hal::digital::v2::{OutputPin, StatefulOutputPin, toggleable, InputPin};
             use crate::stm32::{$gpioy, $GPIOX, EXTI, SYSCFG};
 
             use crate::rcc::{AHB2, APB2};
@@ -679,7 +679,7 @@ macro_rules! gpio {
                   }
                 }
 
-                impl<MODE> embedded_hal::digital::v2::toggleable::Default for $PXi<Output<MODE>> {}
+                impl<MODE> toggleable::Default for $PXi<Output<MODE>> {}
 
                 impl<MODE> InputPin for $PXi<Input<MODE>> {
                     type Error = Infallible;
