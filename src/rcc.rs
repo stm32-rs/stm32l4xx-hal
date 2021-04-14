@@ -768,6 +768,19 @@ impl CFGR {
 
         while rcc.cfgr.read().sws().bits() != sysclk_src_bits {}
 
+        // Enable PLLSAI2
+        rcc.pllsai2cfgr.modify(|_,w| unsafe {
+            w.pllsai2m().bits(0b11)
+             .pllsai2n().bits(20)
+             //.pllsai2pdiv().bits(2)
+             //.pllsai2q().bits(2)
+             //.pllsai2r().bits(2)
+             .pllsai2ren().set_bit()
+        });
+
+        rcc.cr.modify(|_,w| w.pllsai2on().set_bit());
+        while rcc.cr.read().pllsai2rdy().bit_is_clear() { }
+
         //
         // 3. Shutdown unused clocks that have auto-started
         //

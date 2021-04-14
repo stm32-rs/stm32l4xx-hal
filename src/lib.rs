@@ -122,7 +122,8 @@ pub mod gpio;
     feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
-    feature = "stm32l4x6"
+    feature = "stm32l4x6",
+    feature = "stm32l4r9",
 ))]
 pub mod i2c;
 #[cfg(any(
@@ -204,7 +205,8 @@ pub mod signature;
     feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
-    feature = "stm32l4x6"
+    feature = "stm32l4x6",
+    feature = "stm32l4r9",
 ))]
 pub mod spi;
 #[cfg(any(
