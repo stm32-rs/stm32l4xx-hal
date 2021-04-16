@@ -1,4 +1,7 @@
 //! Low power timers
+
+use rtic_monotonic::{embedded_time, Clock, Fraction, Instant, Monotonic};
+
 use crate::rcc::{Clocks, APB1R1, APB1R2, CCIPR};
 
 use crate::stm32::{LPTIM1, LPTIM2, RCC};
@@ -109,6 +112,7 @@ impl LowPowerTimerConfig {
 /// * Auto reload matches
 pub struct LowPowerTimer<LPTIM> {
     lptim: LPTIM,
+    ovf: u64,
 }
 
 macro_rules! hal {
@@ -192,7 +196,7 @@ macro_rules! hal {
                         .clear_bit()
                 });
 
-                let mut instance = LowPowerTimer { lptim };
+                let mut instance = LowPowerTimer { lptim, ovf: 0 };
 
                 instance.enable();
 
@@ -281,3 +285,58 @@ macro_rules! hal {
 
 hal!(LPTIM1, lptim1, APB1R1, lptim1en, lptim1rst, lptim1sel);
 hal!(LPTIM2, lptim2, APB1R2, lptim2en, lptim2rst, lptim2sel);
+
+impl Clock for LowPowerTimer<LPTIM1> {
+    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
+    type T = u64;
+
+    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
+        let cnt = self.get_counter();
+
+        // If the overflow bit is set, we add this to the timer value. It means the `on_interrupt`
+        // has not yet happened, and we need to compensate here.
+        let ovf = if self.is_event_triggered(Event::CompareMatch, false) {
+            0x10000
+        } else {
+            0
+        };
+
+        Ok(Instant::new(cnt as u64 + ovf as u64 + self.ovf))
+    }
+}
+
+/// Use Compare channel 1 for Monotonic
+impl Monotonic for LowPowerTimer<LPTIM1> {
+    // Since we are counting overflows we can't let RTIC disable the interrupt.
+    const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
+
+    unsafe fn reset(&mut self) {
+        // Since reset is only called once, we use it to enable the interrupt generation bit.
+        self.listen(Event::CompareMatch);
+    }
+
+    fn set_compare(&mut self, instant: &Instant<Self>) {
+        let now = self.try_now().unwrap();
+
+        // Since the timer may or may not overflow based on the requested compare val, we check
+        // how many ticks are left.
+        let val = match instant.checked_duration_since(&now) {
+            None => self.get_counter().wrapping_add(1), // In the past
+            Some(x) if *x.integer() <= 0xffff => *instant.duration_since_epoch().integer() as u16, // Will not overflow
+            Some(_x) => self.get_counter().wrapping_add(0xffff), // Will overflow
+        };
+
+        self.set_compare_match(val);
+    }
+
+    fn clear_compare_flag(&mut self) {
+        self.is_event_triggered(Event::CompareMatch, true);
+    }
+
+    fn on_interrupt(&mut self) {
+        // If there was an overflow, increment the overflow counter.
+        if self.is_event_triggered(Event::AutoReloadMatch, true) {
+            self.ovf += 0x10000;
+        }
+    }
+}
