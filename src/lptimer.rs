@@ -1,15 +1,10 @@
-//! Timers
+//! Low power timers
 
 use crate::rcc::{APB1R1, APB1R2, CCIPR};
 
 use crate::stm32::{LPTIM1, LPTIM2};
 
-/// Hardware timers
-pub struct LowPowerTimer<LPTIM> {
-    lptim: LPTIM,
-}
-
-/// Clock sources
+/// Clock sources available for timers
 pub enum ClockSource {
     PCLK = 0b00,
     LSI = 0b01,
@@ -17,6 +12,7 @@ pub enum ClockSource {
     LSE = 0b11,
 }
 
+/// The prescaler value to use for a timer
 pub enum PreScaler {
     U1 = 0b000,
     U2 = 0b001,
@@ -28,6 +24,9 @@ pub enum PreScaler {
     U128 = 0b111,
 }
 
+/// Count modes that are available.
+///
+/// All ClockSources currently require the Internal count mode
 pub enum CountMode {
     Internal = 0b0,
     External = 0b1,
@@ -39,6 +38,7 @@ pub enum Event {
     AutoReloadMatch,
 }
 
+/// Configuration of a low power timer
 pub struct LowPowerTimerConfig {
     clock_source: ClockSource,
     prescaler: PreScaler,
@@ -79,11 +79,42 @@ impl LowPowerTimerConfig {
         self.compare_value = compare_value;
         self
     }
+
+    pub fn arr_value(mut self, arr_value: u16) -> Self {
+        self.arr_value = arr_value;
+        self
+    }
+}
+
+/// A low power hardware timer
+///
+/// Supported things:
+/// * Compare match
+/// * Auto reload matches
+pub struct LowPowerTimer<LPTIM> {
+    lptim: LPTIM,
 }
 
 macro_rules! hal {
     ($timer_type: ident, $lptimX: ident, $apb1rX: ident, $timXen: ident, $timXrst: ident, $timXsel: ident) => {
         impl LowPowerTimer<$timer_type> {
+            fn enable(&mut self) {
+                self.set_enable(true);
+            }
+
+            fn disable(&mut self) {
+                self.set_enable(true);
+            }
+
+            fn set_enable(&mut self, enabled: bool) {
+                self.lptim.cr.modify(|_, w| w.enable().bit(enabled));
+            }
+
+            /// Consume the LPTIM and produce a LowPowerTimer that encapsulates
+            /// said LPTIM.
+            ///
+            /// `config` contains details about the desired configuration for the
+            /// LowPowerTimer
             pub fn $lptimX(
                 apb1rn: &mut $apb1rX,
                 ccipr: &mut CCIPR,
@@ -112,14 +143,14 @@ macro_rules! hal {
 
                 lptim.cfgr.modify(|_, w| unsafe {
                     w.enc()
-                        .bit(false)
+                        .clear_bit()
                         .countmode()
                         .bit(count_mode as u8 > 0)
                         // This operation is sound as `PreScaler as u8` only produces valid values
                         .presc()
                         .bits(prescaler as u8)
                         .cksel()
-                        .bit(false)
+                        .clear_bit()
                 });
 
                 let mut instance = LowPowerTimer { lptim };
@@ -127,7 +158,7 @@ macro_rules! hal {
                 instance.enable();
 
                 // Write compare, arr, and continous mode start register _after_ enabling lptim
-                instance.lptim.cr.modify(|_, w| w.cntstrt().bit(true));
+                instance.lptim.cr.modify(|_, w| w.cntstrt().set_bit());
 
                 // This operation is sound as arr_value is a u16, and there are 16 writeable bits
                 instance
@@ -140,18 +171,7 @@ macro_rules! hal {
                 instance
             }
 
-            fn set_enable(&mut self, enabled: bool) {
-                self.lptim.cr.modify(|_, w| w.enable().bit(enabled));
-            }
-
-            fn enable(&mut self) {
-                self.set_enable(true);
-            }
-
-            fn disable(&mut self) {
-                self.set_enable(true);
-            }
-
+            /// Enable interrupts for the specified event
             pub fn listen(&mut self, event: Event) {
                 // LPTIM_IER may only be modified when LPTIM is disabled
                 self.disable();
@@ -162,6 +182,7 @@ macro_rules! hal {
                 self.enable();
             }
 
+            /// Disable interrupts for the specified event
             pub fn unlisten(&mut self, event: Event) {
                 // LPTIM_IER may only be modified when LPTIM is disabled
                 self.disable();
@@ -172,6 +193,14 @@ macro_rules! hal {
                 self.enable();
             }
 
+            /// Check if the specified event has been triggered for this LPTIM.
+            ///
+            /// This function must be called if an event which this LPTIM listens to has
+            /// generated an interrupt
+            ///
+            /// If the event has occured, and `clear_interrupt` is true, the interrupt flag for this
+            /// event will be cleared. Otherwise, the interrupt flag for this event will not
+            /// be cleared.
             pub fn is_event_triggered(&self, event: Event, clear_interrupt: bool) -> bool {
                 let reg_val = self.lptim.isr.read();
                 let bit_is_set = match event {
@@ -187,16 +216,20 @@ macro_rules! hal {
                 bit_is_set
             }
 
+            /// Set the compare match field for this LPTIM
             pub fn set_compare_match(&mut self, value: u16) {
                 // This operation is sound as compare_value is a u16, and there are 16 writeable bits
                 // Additionally, the LPTIM peripheral will always be in the enabled state when this code is called
                 self.lptim.cmp.write(|w| unsafe { w.bits(value as u32) });
             }
 
+            /// Get the current counter value for this LPTIM
             pub fn get_counter(&mut self) -> u16 {
                 self.lptim.cnt.read().bits() as u16
             }
 
+            /// Get the value of the LPTIM_ARR register for this
+            /// LPTIM
             pub fn get_arr(&mut self) -> u16 {
                 self.lptim.arr.read().bits() as u16
             }
