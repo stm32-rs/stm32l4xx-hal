@@ -11,7 +11,7 @@
 #![no_std]
 
 use hal::{
-    dma::{self, consts, DMAFrame, FrameReader, FrameSender},
+    dma::{self, DMAFrame, FrameReader, FrameSender},
     prelude::*,
     rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
     serial::{self, Config, Serial},
@@ -27,15 +27,15 @@ use stm32l4xx_hal as hal;
 // The pool gives out `Box<DMAFrame>`s that can hold 8 bytes
 pool!(
     #[allow(non_upper_case_globals)]
-    SerialDMAPool: DMAFrame<consts::U8>
+    SerialDMAPool: DMAFrame<8>
 );
 
 #[app(device = stm32l4xx_hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
         rx: serial::Rx<hal::stm32::USART2>,
-        frame_reader: FrameReader<Box<SerialDMAPool>, dma::dma1::C6, consts::U8>,
-        frame_sender: FrameSender<Box<SerialDMAPool>, dma::dma1::C7, consts::U8>,
+        frame_reader: FrameReader<Box<SerialDMAPool>, dma::dma1::C6, 8>,
+        frame_sender: FrameSender<Box<SerialDMAPool>, dma::dma1::C7, 8>,
     }
 
     #[init]
@@ -94,7 +94,7 @@ const APP: () = {
         };
 
         // Serial frame sender (DMA based)
-        let fs: FrameSender<Box<SerialDMAPool>, _, _> = serial_tx.frame_sender(dma_ch7);
+        let fs: FrameSender<Box<SerialDMAPool>, _, 8> = serial_tx.frame_sender(dma_ch7);
 
         init::LateResources {
             rx: serial_rx,

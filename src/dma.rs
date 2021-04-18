@@ -10,9 +10,6 @@ use core::ptr;
 use core::slice;
 
 use crate::rcc::AHB1;
-use as_slice::AsSlice;
-pub use generic_array::typenum::{self, consts};
-use generic_array::{ArrayLength, GenericArray};
 use stable_deref_trait::StableDeref;
 
 #[non_exhaustive]
@@ -34,21 +31,18 @@ pub enum Half {
 }
 
 /// Frame reader "worker", access and handling of frame reads is made through this structure.
-pub struct FrameReader<BUFFER, CHANNEL, N>
+pub struct FrameReader<BUFFER, CHANNEL, const N: usize>
 where
     BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-    N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: BUFFER,
     channel: CHANNEL,
     matching_character: u8,
-    _marker: core::marker::PhantomData<N>, // Needed to make the compiler happy
 }
 
-impl<BUFFER, CHANNEL, N> FrameReader<BUFFER, CHANNEL, N>
+impl<BUFFER, CHANNEL, const N: usize> FrameReader<BUFFER, CHANNEL, N>
 where
     BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-    N: ArrayLength<MaybeUninit<u8>>,
 {
     pub(crate) fn new(
         buffer: BUFFER,
@@ -59,33 +53,28 @@ where
             buffer,
             channel,
             matching_character,
-            _marker: core::marker::PhantomData,
         }
     }
 }
 
 /// Frame sender "worker", access and handling of frame transmissions is made through this
 /// structure.
-pub struct FrameSender<BUFFER, CHANNEL, N>
+pub struct FrameSender<BUFFER, CHANNEL, const N: usize>
 where
     BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-    N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: Option<BUFFER>,
     channel: CHANNEL,
-    _marker: core::marker::PhantomData<N>,
 }
 
-impl<BUFFER, CHANNEL, N> FrameSender<BUFFER, CHANNEL, N>
+impl<BUFFER, CHANNEL, const N: usize> FrameSender<BUFFER, CHANNEL, N>
 where
     BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-    N: ArrayLength<MaybeUninit<u8>>,
 {
     pub(crate) fn new(channel: CHANNEL) -> FrameSender<BUFFER, CHANNEL, N> {
         Self {
             buffer: None,
             channel,
-            _marker: core::marker::PhantomData,
         }
     }
 }
@@ -96,27 +85,18 @@ where
 /// used with, for example, [`heapless::pool`] to create a pool of serial frames.
 ///
 /// [`heapless::pool`]: https://docs.rs/heapless/0.5.3/heapless/pool/index.html
-pub struct DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+pub struct DMAFrame<const N: usize> {
     len: u16,
-    buf: GenericArray<MaybeUninit<u8>, N>,
+    buf: [MaybeUninit<u8>; N],
 }
 
-impl<N> fmt::Debug for DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+impl<const N: usize> fmt::Debug for DMAFrame<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.read())
     }
 }
 
-impl<N> fmt::Write for DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+impl<const N: usize> fmt::Write for DMAFrame<N> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let free = self.free();
 
@@ -129,29 +109,21 @@ where
     }
 }
 
-impl<N> Default for DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+impl<const N: usize> Default for DMAFrame<N> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<N> DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+impl<const N: usize> DMAFrame<N> {
+    const INIT: MaybeUninit<u8> = MaybeUninit::uninit();
     /// Creates a new node for the Serial DMA
     #[inline]
-    pub fn new() -> Self {
-        // Create an uninitialized array of `MaybeUninit<u8>`. The `assume_init` is
-        // safe because the type we are claiming to have initialized here is a
-        // bunch of `MaybeUninit`s, which do not require initialization.
-        #[allow(clippy::uninit_assumed_init)]
+    pub const fn new() -> Self {
+        // Create an uninitialized array of `MaybeUninit<u8>`.
         Self {
             len: 0,
-            buf: unsafe { MaybeUninit::uninit().assume_init() },
+            buf: [Self::INIT; N],
         }
     }
 
@@ -162,7 +134,7 @@ where
     pub fn write(&mut self) -> &mut [u8] {
         // Initialize remaining memory with a safe value
         for elem in &mut self.buf[self.len as usize..] {
-            *elem = MaybeUninit::zeroed();
+            *elem = MaybeUninit::new(0);
         }
 
         self.len = self.max_len() as u16;
@@ -183,7 +155,7 @@ where
     /// Gives an uninitialized `&mut [MaybeUninit<u8>]` slice to write into, the `set_len` method
     /// must then be used to set the actual number of bytes written.
     #[inline]
-    pub fn write_uninit(&mut self) -> &mut [MaybeUninit<u8>] {
+    pub fn write_uninit(&mut self) -> &mut [MaybeUninit<u8>; N] {
         &mut self.buf
     }
 
@@ -256,7 +228,7 @@ where
     /// Get the max length of the frame
     #[inline]
     pub fn max_len(&self) -> usize {
-        N::to_usize()
+        N
     }
 
     /// Checks if the frame is empty
@@ -281,13 +253,9 @@ where
     }
 }
 
-impl<N> AsSlice for DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
-    type Element = u8;
-
-    fn as_slice(&self) -> &[Self::Element] {
+impl<const N: usize> AsRef<[u8]> for DMAFrame<N> {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
         self.read()
     }
 }
@@ -394,10 +362,7 @@ macro_rules! dma {
         $(
             pub mod $dmaX {
                 use core::sync::atomic::{self, Ordering};
-                use as_slice::{AsSlice};
                 use crate::stm32::{$DMAX, dma1};
-                use core::mem::MaybeUninit;
-                use generic_array::ArrayLength;
                 use core::ops::DerefMut;
                 use core::ptr;
                 use stable_deref_trait::StableDeref;
@@ -525,10 +490,9 @@ macro_rules! dma {
 
                     }
 
-                    impl<BUFFER, N> FrameSender<BUFFER, $CX, N>
+                    impl<BUFFER, const N: usize> FrameSender<BUFFER, $CX, N>
                     where
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-                        N: ArrayLength<MaybeUninit<u8>>,
                     {
                         /// This method should be called in the transfer complete interrupt of the
                         /// DMA, will return the sent frame if the transfer was truly completed.
@@ -593,10 +557,9 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, N> FrameReader<BUFFER, $CX, N>
+                    impl<BUFFER, const N: usize> FrameReader<BUFFER, $CX, N>
                     where
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-                        N: ArrayLength<MaybeUninit<u8>>,
                     {
                         /// This function should be called from the transfer complete interrupt of
                         /// the corresponding DMA channel.
@@ -726,7 +689,7 @@ macro_rules! dma {
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
                             B: StableDeref<Target = [H; 2]> + 'static,
-                            H: AsSlice<Element=T>,
+                            H: AsRef<[T]>,
                         {
                             // this inverts expectation and returns the half being _written_
                             let buf = match self.readable_half {
@@ -737,7 +700,7 @@ macro_rules! dma {
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
                             //                       ^- pending=11
                             let pending = self.channel.get_cndtr() as usize; // available bytes in _whole_ buffer
-                            let slice = buf.as_slice();
+                            let slice = buf.as_ref();
                             let capacity = slice.len(); // capacity of _half_ a buffer
                             //     <--- capacity=10 --->
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
@@ -754,7 +717,7 @@ macro_rules! dma {
                             //                       ^- end=9
                             //             ^- consumed_offset=4
                             //             [y y y y y] <-- slice
-                            let slice = &buf.as_slice()[self.consumed_offset..end];
+                            let slice = &buf.as_ref()[self.consumed_offset..end];
                             match f(slice, self.readable_half) {
                                 Ok((l, r)) => { self.consumed_offset += l; Ok(r) },
                                 Err(_) => Err(Error::BufferError),
@@ -767,14 +730,14 @@ macro_rules! dma {
                             where
                             F: FnOnce(&[T], Half) -> R,
                             B: StableDeref<Target = [H; 2]> + 'static,
-                            H: AsSlice<Element=T>,
+                            H: AsRef<[T]>,
                         {
                             let half_being_read = self.readable_half()?;
                             let buf = match half_being_read {
                                 Half::First => &self.buffer[0],
                                 Half::Second => &self.buffer[1],
                             };
-                            let slice = &buf.as_slice()[self.consumed_offset..];
+                            let slice = &buf.as_ref()[self.consumed_offset..];
                             self.consumed_offset = 0;
                             Ok(f(slice, half_being_read))
                         }
@@ -844,13 +807,13 @@ macro_rules! dma {
                     impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, $CX, PAYLOAD> {
                         pub fn peek<T>(&self) -> &[T]
                         where
-                            BUFFER: AsSlice<Element=T>,
+                            BUFFER: AsRef<[T]>
                         {
                             let pending = self.channel.get_cndtr() as usize;
 
-                            let capacity = self.buffer.as_slice().len();
+                            let capacity = self.buffer.as_ref().len();
 
-                            &self.buffer.as_slice()[..(capacity - pending)]
+                            &self.buffer.as_ref()[..(capacity - pending)]
                         }
                     }
                 )+
