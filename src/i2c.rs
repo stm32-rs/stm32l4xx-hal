@@ -147,7 +147,7 @@ impl<SCL, SDA> I2c<I2C2, (SCL, SDA)> {
     }
 }
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 impl<SCL, SDA> I2c<I2C3, (SCL, SDA)> {
     pub fn i2c3<F>(i2c: I2C3, pins: (SCL, SDA), freq: F, clocks: Clocks, apb1: &mut APB1R1) -> Self
     where
