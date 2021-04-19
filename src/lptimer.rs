@@ -124,7 +124,7 @@ macro_rules! hal {
                 config: LowPowerTimerConfig,
                 apb1rn: &mut $apb1rX,
                 ccipr: &mut CCIPR,
-                clocks: &mut Clocks,
+                clocks: Clocks,
             ) -> Self {
                 let LowPowerTimerConfig {
                     clock_source,
@@ -139,7 +139,6 @@ macro_rules! hal {
 
                 // The used clock source must actually be enabled
                 // PCLK is always on if a `Clocks` eixsts.
-
                 match clock_source {
                     ClockSource::LSE => assert!(clocks.lse()),
                     ClockSource::LSI => assert!(clocks.lsi()),
