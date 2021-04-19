@@ -4,6 +4,8 @@ use rtic_monotonic::{embedded_time, Clock, Fraction, Instant, Monotonic};
 
 use crate::rcc::{Clocks, APB1R1, APB1R2, CCIPR};
 
+use crate::rcc::{Clocks, APB1R1, APB1R2, CCIPR};
+
 use crate::stm32::{LPTIM1, LPTIM2, RCC};
 
 /// Clock sources available for timers
