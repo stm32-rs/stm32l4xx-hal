@@ -1,8 +1,8 @@
 //! Low power timers
 
-use crate::rcc::{APB1R1, APB1R2, CCIPR};
+use crate::rcc::{Clocks, APB1R1, APB1R2, CCIPR};
 
-use crate::stm32::{LPTIM1, LPTIM2};
+use crate::stm32::{LPTIM1, LPTIM2, RCC};
 
 /// Clock sources available for timers
 pub enum ClockSource {
@@ -26,10 +26,10 @@ pub enum PreScaler {
 
 /// Count modes that are available.
 ///
-/// All ClockSources currently require the Internal count mode
+/// All ClockSources currently supported require the Internal count mode
 pub enum CountMode {
     Internal = 0b0,
-    External = 0b1,
+    // External = 0b1,
 }
 
 /// All currently supported interrupt events
@@ -115,11 +115,16 @@ macro_rules! hal {
             ///
             /// `config` contains details about the desired configuration for the
             /// LowPowerTimer
+            ///
+            /// # Panics
+            /// This function panics if the value of ARR is less than or equal to CMP,
+            /// and if the clock source is HSI16, LSI, or LSE and that clock is not enabled.
             pub fn $lptimX(
-                apb1rn: &mut $apb1rX,
-                ccipr: &mut CCIPR,
                 lptim: $timer_type,
                 config: LowPowerTimerConfig,
+                apb1rn: &mut $apb1rX,
+                ccipr: &mut CCIPR,
+                clocks: &mut Clocks,
             ) -> Self {
                 let LowPowerTimerConfig {
                     clock_source,
@@ -132,6 +137,21 @@ macro_rules! hal {
                 // ARR value must be strictly greater than CMP value
                 assert!(arr_value > compare_value);
 
+                // The used clock source must actually be enabled
+                // PCLK is always on if a `Clocks` eixsts.
+
+                match clock_source {
+                    ClockSource::LSE => assert!(clocks.lse()),
+                    ClockSource::LSI => assert!(clocks.lsi()),
+                    // Check if HSI16 is enabled
+                    // This operation is sound, as it is an atomic memory access
+                    // that does not modify the memory/read value
+                    ClockSource::HSI16 => {
+                        assert!(unsafe { (&*RCC::ptr()).cr.read().hsion().bit_is_set() })
+                    }
+                    _ => {}
+                }
+
                 apb1rn.enr().modify(|_, w| w.$timXen().set_bit());
                 apb1rn.rstr().modify(|_, w| w.$timXrst().set_bit());
                 apb1rn.rstr().modify(|_, w| w.$timXrst().clear_bit());
@@ -141,12 +161,13 @@ macro_rules! hal {
                     .ccipr()
                     .modify(|_, w| unsafe { w.$timXsel().bits(clock_source as u8) });
 
+                // This operation is sound as `PreScaler as u8` (which is the "unsafe" part) only
+                // produces valid values
                 lptim.cfgr.modify(|_, w| unsafe {
                     w.enc()
                         .clear_bit()
                         .countmode()
                         .bit(count_mode as u8 > 0)
-                        // This operation is sound as `PreScaler as u8` only produces valid values
                         .presc()
                         .bits(prescaler as u8)
                         .cksel()
