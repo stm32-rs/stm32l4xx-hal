@@ -2,14 +2,11 @@
 //!
 //! This module support both polling and interrupt based accesses to the serial peripherals.
 
-use as_slice::AsMutSlice;
 use core::fmt;
 use core::marker::PhantomData;
-use core::mem::MaybeUninit;
 use core::ops::DerefMut;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
-use generic_array::ArrayLength;
 use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
@@ -512,9 +509,9 @@ macro_rules! hal {
                 ) -> CircBuffer<B, $rx_chan>
                 where
                     B: StableDeref<Target = [H; 2]> + DerefMut + 'static,
-                    H: AsMutSlice<Element = u8>
+                    H: AsMut<[u8]>
                 {
-                    let buf = buffer[0].as_mut_slice();
+                    let buf = buffer[0].as_mut();
                     chan.set_peripheral_address(unsafe{ &(*pac::$USARTX::ptr()).rdr as *const _ as u32 }, false);
                     chan.set_memory_address(buf.as_ptr() as u32, true);
                     chan.set_transfer_length((buf.len() * 2) as u16);
@@ -553,14 +550,13 @@ macro_rules! hal {
 
                 /// Create a frame reader that can either react on the Character match interrupt or
                 /// Transfer Complete from the DMA.
-                pub fn frame_read<BUFFER, N>(
+                pub fn frame_read<BUFFER, const N: usize>(
                     &self,
                     mut channel: $rx_chan,
                     buffer: BUFFER,
                 ) -> FrameReader<BUFFER, $rx_chan, N>
                     where
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-                        N: ArrayLength<MaybeUninit<u8>>,
                 {
                     let usart = unsafe{ &(*pac::$USARTX::ptr()) };
 
@@ -684,13 +680,12 @@ macro_rules! hal {
 
             impl Tx<pac::$USARTX> {
                 /// Creates a new DMA frame sender
-                pub fn frame_sender<BUFFER, N>(
+                pub fn frame_sender<BUFFER, const N: usize>(
                     &self,
                     mut channel: $tx_chan,
                 ) -> FrameSender<BUFFER, $tx_chan, N>
                     where
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-                        N: ArrayLength<MaybeUninit<u8>>,
                 {
                     let usart = unsafe{ &(*pac::$USARTX::ptr()) };
 
