@@ -232,30 +232,29 @@ macro_rules! hal {
                 self.enable();
             }
 
-            /// Check if the specified event has been triggered for this LPTIM.
+            /// Check if the specified event has been triggered for this LowPowerTimer.
             ///
-            /// This function must be called if an event which this LPTIM listens to has
-            /// generated an interrupt
-            ///
-            /// If the event has occured, and `clear_interrupt` is true, the interrupt flag for this
-            /// event will be cleared. Otherwise, the interrupt flag for this event will not
-            /// be cleared.
-            pub fn is_event_triggered(&self, event: Event, clear_interrupt: bool) -> bool {
+            /// If this function returns `true` for an `Event` that this LowPowerTimer is listening for,
+            /// [`LowPowerTimer::clear_event_flag`] must be called for that event to prevent the
+            /// interrupt from looping eternally. This is not done in a single function to
+            /// avoid using a mutable reference for an operation that does not require it.
+            pub fn is_event_triggered(&self, event: Event) -> bool {
                 let reg_val = self.lptim.isr.read();
-                let bit_is_set = match event {
+                match event {
                     Event::CompareMatch => reg_val.cmpm().bit_is_set(),
                     Event::AutoReloadMatch => reg_val.arrm().bit_is_set(),
-                };
-                if bit_is_set && clear_interrupt {
-                    self.lptim.icr.write(|w| match event {
-                        Event::CompareMatch => w.cmpmcf().set_bit(),
-                        Event::AutoReloadMatch => w.arrmcf().set_bit(),
-                    });
                 }
-                bit_is_set
             }
 
-            /// Set the compare match field for this LPTIM
+            /// Clear the interrupt flag for the specified event
+            pub fn clear_event_flag(&mut self, event: Event) {
+                self.lptim.icr.write(|w| match event {
+                    Event::CompareMatch => w.cmpmcf().set_bit(),
+                    Event::AutoReloadMatch => w.arrmcf().set_bit(),
+                });
+            }
+
+            /// Set the compare match field for this LowPowerTimer
             #[inline]
             pub fn set_compare_match(&mut self, value: u16) {
                 // This operation is sound as compare_value is a u16, and there are 16 writeable bits
@@ -263,16 +262,16 @@ macro_rules! hal {
                 self.lptim.cmp.write(|w| unsafe { w.bits(value as u32) });
             }
 
-            /// Get the current counter value for this LPTIM
+            /// Get the current counter value for this LowPowerTimer
             #[inline]
-            pub fn get_counter(&mut self) -> u16 {
+            pub fn get_counter(&self) -> u16 {
                 self.lptim.cnt.read().bits() as u16
             }
 
-            /// Get the value of the LPTIM_ARR register for this
-            /// LPTIM
+            /// Get the value of the ARR register for this
+            /// LowPowerTimer
             #[inline]
-            pub fn get_arr(&mut self) -> u16 {
+            pub fn get_arr(&self) -> u16 {
                 self.lptim.arr.read().bits() as u16
             }
         }
