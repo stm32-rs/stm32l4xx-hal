@@ -60,8 +60,8 @@ pub struct LowPowerTimerConfig {
 impl Default for LowPowerTimerConfig {
     fn default() -> Self {
         Self {
-            clock_source: ClockSource::LSE,
-            prescaler: PreScaler::U128,
+            clock_source: ClockSource::LSI,
+            prescaler: PreScaler::U1,
             count_mode: CountMode::Internal,
             compare_value: 0x0,
             arr_value: 0xFFFF,
