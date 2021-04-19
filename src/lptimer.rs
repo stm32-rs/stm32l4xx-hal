@@ -33,10 +33,11 @@ pub enum PreScaler {
 /// Count modes that are available.
 ///
 /// All ClockSources currently supported require the Internal count mode
+#[derive(PartialEq)]
 pub enum CountMode {
     /// Use an internal clock source (which also includes LSE)
-    Internal = 0b0,
-    // External = 0b1,
+    Internal,
+    // External,
 }
 
 /// All currently supported interrupt events
@@ -184,7 +185,7 @@ macro_rules! hal {
                     w.enc()
                         .clear_bit()
                         .countmode()
-                        .bit(count_mode as u8 > 0)
+                        .bit(count_mode != CountMode::Internal)
                         .presc()
                         .bits(prescaler as u8)
                         .cksel()
@@ -255,6 +256,7 @@ macro_rules! hal {
             }
 
             /// Set the compare match field for this LPTIM
+            #[inline]
             pub fn set_compare_match(&mut self, value: u16) {
                 // This operation is sound as compare_value is a u16, and there are 16 writeable bits
                 // Additionally, the LPTIM peripheral will always be in the enabled state when this code is called
@@ -262,12 +264,14 @@ macro_rules! hal {
             }
 
             /// Get the current counter value for this LPTIM
+            #[inline]
             pub fn get_counter(&mut self) -> u16 {
                 self.lptim.cnt.read().bits() as u16
             }
 
             /// Get the value of the LPTIM_ARR register for this
             /// LPTIM
+            #[inline]
             pub fn get_arr(&mut self) -> u16 {
                 self.lptim.arr.read().bits() as u16
             }
