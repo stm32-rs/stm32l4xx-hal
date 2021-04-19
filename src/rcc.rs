@@ -913,9 +913,14 @@ impl Clocks {
         self.msi
     }
 
-    /// Returns status of HSI48
+    /// Returns status of the LSI
     pub fn lsi(&self) -> bool {
         self.lsi
+    }
+
+    // Return the status of the LSE
+    pub fn lse(&self) -> bool {
+        self.lse
     }
 
     /// Returns the frequency of the APB1
@@ -926,6 +931,11 @@ impl Clocks {
     /// Returns the frequency of the APB2
     pub fn pclk2(&self) -> Hertz {
         self.pclk2
+    }
+
+    /// Get which source is being used for PLL
+    pub fn pll_source(&self) -> Option<PllSource> {
+        self.pll_source
     }
 
     // TODO remove `allow`
