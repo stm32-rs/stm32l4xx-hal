@@ -933,8 +933,9 @@ impl Clocks {
         self.pclk2
     }
 
+    /// Get which source is being used for PLL
     pub fn pll_source(&self) -> Option<PllSource> {
-        self.pll_source.clone()
+        self.pll_source
     }
 
     // TODO remove `allow`

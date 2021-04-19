@@ -1,18 +1,24 @@
 //! Low power timers
-
 use crate::rcc::{Clocks, APB1R1, APB1R2, CCIPR};
 
 use crate::stm32::{LPTIM1, LPTIM2, RCC};
 
 /// Clock sources available for timers
 pub enum ClockSource {
+    /// Use PCLK as clock source
     PCLK = 0b00,
+    /// Use LSI as clock source
     LSI = 0b01,
+    /// Use HSI16 as clock source
     HSI16 = 0b10,
+    /// Use LSE as clock source
     LSE = 0b11,
 }
 
 /// The prescaler value to use for a timer
+///
+/// Allow missing docs because the type is self explanatory
+#[allow(missing_docs)]
 pub enum PreScaler {
     U1 = 0b000,
     U2 = 0b001,
@@ -28,13 +34,17 @@ pub enum PreScaler {
 ///
 /// All ClockSources currently supported require the Internal count mode
 pub enum CountMode {
+    /// Use an internal clock source (which also includes LSE)
     Internal = 0b0,
     // External = 0b1,
 }
 
 /// All currently supported interrupt events
 pub enum Event {
+    /// Occurs when the compare value is the same as the counter value
     CompareMatch,
+    /// Occurs when the arr value is the same as the counter value.
+    /// When this event occurs, the counter value is set to 0 (by hardware)
     AutoReloadMatch,
 }
 
@@ -60,26 +70,31 @@ impl Default for LowPowerTimerConfig {
 }
 
 impl LowPowerTimerConfig {
+    /// Select which clock source should be used
     pub fn clock_source(mut self, clock_source: ClockSource) -> Self {
         self.clock_source = clock_source;
         self
     }
 
+    /// Select which prescaler value should be used
     pub fn prescaler(mut self, prescaler: PreScaler) -> Self {
         self.prescaler = prescaler;
         self
     }
 
+    /// Select the count mode that should be used
     pub fn count_mode(mut self, count_mode: CountMode) -> Self {
         self.count_mode = count_mode;
         self
     }
 
+    /// Set the value of the compare register
     pub fn compare_value(mut self, compare_value: u16) -> Self {
         self.compare_value = compare_value;
         self
     }
 
+    /// Set the value of the auto reload register
     pub fn arr_value(mut self, arr_value: u16) -> Self {
         self.arr_value = arr_value;
         self
@@ -98,14 +113,17 @@ pub struct LowPowerTimer<LPTIM> {
 macro_rules! hal {
     ($timer_type: ident, $lptimX: ident, $apb1rX: ident, $timXen: ident, $timXrst: ident, $timXsel: ident) => {
         impl LowPowerTimer<$timer_type> {
+            #[inline(always)]
             fn enable(&mut self) {
                 self.set_enable(true);
             }
 
+            #[inline(always)]
             fn disable(&mut self) {
-                self.set_enable(true);
+                self.set_enable(false);
             }
 
+            #[inline(always)]
             fn set_enable(&mut self, enabled: bool) {
                 self.lptim.cr.modify(|_, w| w.enable().bit(enabled));
             }
