@@ -6,7 +6,7 @@ use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::{i2c1, I2C1, I2C2};
 use crate::rcc::{Clocks, APB1R1};
-#[cfg(feature = "stm32l4x5")]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 use crate::stm32::I2C3;
 use crate::time::Hertz;
 use cast::{u16, u8};
@@ -143,6 +143,21 @@ impl<SCL, SDA> I2c<I2C2, (SCL, SDA)> {
         apb1.enr().modify(|_, w| w.i2c2en().set_bit());
         apb1.rstr().modify(|_, w| w.i2c2rst().set_bit());
         apb1.rstr().modify(|_, w| w.i2c2rst().clear_bit());
+        Self::new(i2c, pins, freq, clocks)
+    }
+}
+
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+impl<SCL, SDA> I2c<I2C3, (SCL, SDA)> {
+    pub fn i2c3<F>(i2c: I2C3, pins: (SCL, SDA), freq: F, clocks: Clocks, apb1: &mut APB1R1) -> Self
+    where
+        F: Into<Hertz>,
+        SCL: SclPin<I2C3>,
+        SDA: SdaPin<I2C3>,
+    {
+        apb1.enr().modify(|_, w| w.i2c3en().set_bit());
+        apb1.rstr().modify(|_, w| w.i2c3rst().set_bit());
+        apb1.rstr().modify(|_, w| w.i2c3rst().clear_bit());
         Self::new(i2c, pins, freq, clocks)
     }
 }
@@ -460,7 +475,7 @@ where
 use crate::gpio::gpioa::{PA10, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5"))]
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6"))]
 use crate::gpio::gpioc::{PC0, PC1};
 
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x3", feature = "stm32l4x6"))]
@@ -481,7 +496,7 @@ pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
 pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);
 
-#[cfg(feature = "stm32l4x5")]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
 
 #[cfg(feature = "stm32l4x3")]
