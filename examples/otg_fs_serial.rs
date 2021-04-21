@@ -7,11 +7,13 @@
 extern crate panic_semihosting;
 
 use cortex_m_rt::entry;
-use stm32l4xx_hal::stm32::{RCC, CRS, PWR, Peripherals};
-use stm32l4xx_hal::rcc::{PllConfig, PllDivider, PllSource, MsiFreq, CrystalBypass, ClockSecuritySystem};
 use stm32l4xx_hal::gpio::Speed;
-use stm32l4xx_hal::otg_fs::{USB, UsbBus};
+use stm32l4xx_hal::otg_fs::{UsbBus, USB};
 use stm32l4xx_hal::prelude::*;
+use stm32l4xx_hal::rcc::{
+    ClockSecuritySystem, CrystalBypass, MsiFreq, PllConfig, PllDivider, PllSource,
+};
+use stm32l4xx_hal::stm32::{Peripherals, CRS, PWR, RCC};
 use usb_device::prelude::*;
 
 /// Enable CRS (Clock Recovery System)

@@ -778,7 +778,8 @@ impl CFGR {
 
         // MSI always starts on reset
         if self.msi.is_none() {
-            rcc.cr.modify(|_, w| w.msion().clear_bit().msipllen().clear_bit())
+            rcc.cr
+                .modify(|_, w| w.msion().clear_bit().msipllen().clear_bit())
         }
 
         //
