@@ -131,3 +131,7 @@ required-features = ["rt"]
 [[example]]
 name = "usb_serial"
 required-features = ["rt", "stm32l4x2", "stm32-usbd"]
+
+[[example]]
+name = "otg_fs_serial"
+required-features = ["rt", "stm32l4x6", "otg_fs"]
