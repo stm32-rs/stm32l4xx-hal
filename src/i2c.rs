@@ -478,8 +478,16 @@ use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 #[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6"))]
 use crate::gpio::gpioc::{PC0, PC1};
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x3", feature = "stm32l4x6"))]
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x6",
+))]
 use crate::gpio::gpiob::PB8;
+
+#[cfg(feature = "stm32l4x2")]
+use crate::gpio::gpiob::PB9;
 
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
 use crate::gpio::gpiob::{PB13, PB14, PB9};
@@ -490,7 +498,7 @@ pins!(I2C1, AF4,
 
 pins!(I2C2, AF4, SCL: [PB10], SDA: [PB11]);
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
 pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
 
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
