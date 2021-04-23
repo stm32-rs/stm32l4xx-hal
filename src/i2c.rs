@@ -3,10 +3,8 @@
 //! as of 2021-02-25.
 
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
-use crate::pac::{i2c1, I2C1, I2C2};
+use crate::pac::{i2c1, I2C1, I2C2, I2C3, I2C4};
 use crate::rcc::{Clocks, APB1R1};
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-use crate::stm32::I2C3;
 use crate::time::Hertz;
 use cast::{u16, u8};
 use core::ops::Deref;
@@ -121,7 +119,7 @@ impl State {
 }
 
 macro_rules! hal {
-    ($i2c_type: ident, $i2cX: ident, $i2cXen: ident, $i2cXrst: ident) => {
+    ($i2c_type: ident, $enr: ident, $rstr: ident, $i2cX: ident, $i2cXen: ident, $i2cXrst: ident) => {
         impl<SCL, SDA> I2c<$i2c_type, (SCL, SDA)> {
             pub fn $i2cX<F>(
                 i2c: $i2c_type,
@@ -135,20 +133,25 @@ macro_rules! hal {
                 SCL: SclPin<$i2c_type>,
                 SDA: SdaPin<$i2c_type>,
             {
-                apb1.enr().modify(|_, w| w.$i2cXen().set_bit());
-                apb1.rstr().modify(|_, w| w.$i2cXrst().set_bit());
-                apb1.rstr().modify(|_, w| w.$i2cXrst().clear_bit());
+                apb1.$enr().modify(|_, w| w.$i2cXen().set_bit());
+                apb1.$rstr().modify(|_, w| w.$i2cXrst().set_bit());
+                apb1.$rstr().modify(|_, w| w.$i2cXrst().clear_bit());
                 Self::new(i2c, pins, freq, clocks)
             }
         }
     };
 }
 
-hal!(I2C1, i2c1, i2c1en, i2c1rst);
-hal!(I2C2, i2c2, i2c2en, i2c2rst);
+hal!(I2C1, enr, rstr, i2c1, i2c1en, i2c1rst);
+hal!(I2C2, enr, rstr, i2c2, i2c2en, i2c2rst);
 
+#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6"))]
+hal!(I2C3, enr, rstr, i2c3, i2c3en, i2c3rst);
+
+// Warning: available on stm32l4x5 according to reference manual,
+// but stm32l475rc (only one available) does not have this peripheral listed,
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-hal!(I2C3, i2c3, i2c3en, i2c3rst);
+hal!(I2C4, enr2, rstr2, i2c4, i2c4en, i2c4rst);
 
 impl<SCL, SDA, I2C> I2c<I2C, (SCL, SDA)>
 where
@@ -472,8 +475,8 @@ where
     }
 }
 
-// All parts have I2C1 on alternate function 4 of
-// pins PA9/PB6 as SCL and PA10/PB7 as SDA, etc.
+/// **Warning**: A9 and A10 in AF4 don't have this function on stm32l471qe,
+/// but do on stm32l431cb and stm32l451cc
 mod i2c_pins_default {
     use super::{I2C1, I2C2};
     use crate::gpio::gpioa::{PA10, PA9};
@@ -489,23 +492,20 @@ mod i2c_pins_default {
 
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
 mod i2c_pins_pb8_pb9 {
-    use super::I2C1;
-    use crate::gpio::gpiob::{PB8, PB9};
+    use super::{I2C1, I2C2};
+    use crate::gpio::gpiob::{PB13, PB14, PB8, PB9};
     use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 
     pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
-}
-
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
-mod i2c_pins_pb13_pb14 {
-    use super::I2C2;
-    use crate::gpio::gpiob::{PB13, PB14};
-    use crate::gpio::{Alternate, OpenDrain, Output, AF4};
-
     pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);
 }
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
 mod i2c_pins_pbc0_pc1 {
     use super::I2C3;
     use crate::gpio::gpioc::{PC0, PC1};
@@ -514,7 +514,17 @@ mod i2c_pins_pbc0_pc1 {
     pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
 }
 
-#[cfg(feature = "stm32l4x3")]
+/// **Warning**: PA7 and PB4 don't have this function on stm32l486jg and stm32l476je,
+/// but do on stm32l496ae and stm32l4a6ag
+///
+/// **Warning**: PA7 and PB4 don't have this function on stm32l471qe and stm32l475rc,
+/// but do on stm32l431cb and stm32l451cc
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x6"
+))]
 mod i2c_pins_pa7_pb4 {
     use super::I2C3;
     use crate::gpio::gpioa::PA7;
@@ -523,4 +533,20 @@ mod i2c_pins_pa7_pb4 {
 
     // These pins aren't as nicely consistent
     pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
+}
+
+/// **Warning**: these pins don't have this function on stm32l486jg and stm32l476je,
+/// but do on stm32l496ae and stm32l4a6ag
+#[cfg(feature = "stm32l4x6")]
+mod i2c_pins_pd12_pd13_pf0_pf1_pf14_pf15 {
+    use super::{I2C2, I2C4};
+    use crate::gpio::gpiod::{PD12, PD13};
+    use crate::gpio::gpiof::{PF0, PF1, PF14, PF15};
+    use crate::gpio::{Alternate, OpenDrain, Output, AF4};
+
+    // SCL and SDA are "reversed", correct according to reference manual
+    pins!(I2C2, AF4, SCL: [PF1], SDA: [PF0]);
+
+    pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
+    pins!(I2C4, AF4, SCL: [PF14], SDA: [PF15]);
 }

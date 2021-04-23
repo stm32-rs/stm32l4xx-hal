@@ -255,6 +255,16 @@ impl APB1R1 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb1rstr1 }
     }
+
+    pub(crate) fn enr2(&mut self) -> &rcc::APB1ENR2 {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).apb1enr2 }
+    }
+
+    pub(crate) fn rstr2(&mut self) -> &rcc::APB1RSTR2 {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).apb1rstr2 }
+    }
 }
 
 /// Advanced Peripheral Bus 1 (APB1) register 2 registers
