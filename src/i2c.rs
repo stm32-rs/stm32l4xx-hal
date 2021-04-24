@@ -3,7 +3,10 @@
 //! as of 2021-02-25.
 
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
-use crate::pac::{i2c1, I2C1, I2C2, I2C3, I2C4};
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
+use crate::pac::I2C4;
+use crate::pac::{i2c1, I2C1, I2C2, I2C3};
+
 use crate::rcc::{Clocks, APB1R1};
 use crate::time::Hertz;
 use cast::{u16, u8};
@@ -144,13 +147,9 @@ macro_rules! hal {
 
 hal!(I2C1, enr, rstr, i2c1, i2c1en, i2c1rst);
 hal!(I2C2, enr, rstr, i2c2, i2c2en, i2c2rst);
-
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6"))]
 hal!(I2C3, enr, rstr, i2c3, i2c3en, i2c3rst);
 
-// Warning: available on stm32l4x5 according to reference manual,
-// but stm32l475rc (only one available) does not have this peripheral listed,
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
 hal!(I2C4, enr2, rstr2, i2c4, i2c4en, i2c4rst);
 
 impl<SCL, SDA, I2C> I2c<I2C, (SCL, SDA)>
@@ -475,78 +474,109 @@ where
     }
 }
 
-/// **Warning**: A9 and A10 in AF4 don't have this function on stm32l471qe,
-/// but do on stm32l431cb and stm32l451cc
-mod i2c_pins_default {
-    use super::{I2C1, I2C2};
-    use crate::gpio::gpioa::{PA10, PA9};
-    use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
-    use crate::gpio::{Alternate, OpenDrain, Output, AF4};
+#[cfg(feature = "stm32l4x1")]
+mod stm32l4x1_pins {
+    use super::{I2C1, I2C2, I2C3, I2C4};
+    use crate::gpio::*;
+    use gpioa::{PA10, PA7, PA9};
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
 
-    pins!(I2C1, AF4,
-        SCL: [PA9, PB6],
-        SDA: [PA10, PB7]);
+    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
 
-    pins!(I2C2, AF4, SCL: [PB10], SDA: [PB11]);
+    // Not on STM32L471xx
+    pins!(I2C1, AF4, SCL: [PA9], SDA: [PA10]);
+
+    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
+
+    pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+
+    // Not on STM32L471xx
+    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
+
+    // Both only on STM32L451XX
+    pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
+    pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
 }
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
-mod i2c_pins_pb8_pb9 {
-    use super::{I2C1, I2C2};
-    use crate::gpio::gpiob::{PB13, PB14, PB8, PB9};
-    use crate::gpio::{Alternate, OpenDrain, Output, AF4};
+#[cfg(feature = "stm32l4x2")]
+mod stm32l4x2_pins {
+    use super::{I2C1, I2C2, I2C3, I2C4};
+    use crate::gpio::*;
+    use gpioa::{PA10, PA7, PA9};
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
 
-    pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
-    pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);
+    pins!(I2C1, AF4, SCL: [PA9, PB6], SDA: [PA10, PB7]);
+
+    // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
+    pins!(I2C2, AF4, SCL: [PB8, PB10, PB13], SDA: [PB9, PB11, PB14]);
+
+    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
+
+    // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
+    pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+
+    // All three only on STM32l452XX and STM32l462XX
+    pins!(I2C4, AF2, SCL: [PC0], SDA: [PC1]);
+    pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
+    pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
 }
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
-mod i2c_pins_pbc0_pc1 {
-    use super::I2C3;
-    use crate::gpio::gpioc::{PC0, PC1};
-    use crate::gpio::{Alternate, OpenDrain, Output, AF4};
+#[cfg(feature = "stm32l4x3")]
+mod stm32l4x3_pins {
+    use super::{I2C1, I2C2, I2C3};
+    use crate::gpio::*;
+    use gpioa::{PA10, PA7, PA9};
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
+
+    pins!(I2C1, AF4, SCL: [PA9, PB6, PB8], SDA: [PA10, PB7, PB9]);
+
+    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
+
+    pins!(I2C3, AF4, SCL: [PA7, PC0], SDA: [PB4, PC1]);
+}
+
+#[cfg(feature = "stm32l4x5")]
+mod stm32l4x5_pins {
+    use super::{I2C1, I2C2, I2C3};
+    use crate::gpio::*;
+    use gpiob::{PB10, PB11, PB13, PB14, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
+
+    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
+
+    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
 
     pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
 }
 
-/// **Warning**: PA7 and PB4 don't have this function on stm32l486jg and stm32l476je,
-/// but do on stm32l496ae and stm32l4a6ag
-///
-/// **Warning**: PA7 and PB4 don't have this function on stm32l471qe and stm32l475rc,
-/// but do on stm32l431cb and stm32l451cc
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x6"
-))]
-mod i2c_pins_pa7_pb4 {
-    use super::I2C3;
-    use crate::gpio::gpioa::PA7;
-    use crate::gpio::gpiob::PB4;
-    use crate::gpio::{Alternate, OpenDrain, Output, AF4};
-
-    // These pins aren't as nicely consistent
-    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
-}
-
-/// **Warning**: these pins don't have this function on stm32l486jg and stm32l476je,
-/// but do on stm32l496ae and stm32l4a6ag
 #[cfg(feature = "stm32l4x6")]
-mod i2c_pins_pd12_pd13_pf0_pf1_pf14_pf15 {
-    use super::{I2C2, I2C4};
-    use crate::gpio::gpiod::{PD12, PD13};
-    use crate::gpio::gpiof::{PF0, PF1, PF14, PF15};
-    use crate::gpio::{Alternate, OpenDrain, Output, AF4};
+mod stm32l4x6_pins {
+    use super::{I2C1, I2C2, I2C3, I2C4};
+    use crate::gpio::*;
+    use gpioa::PA7;
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
+    use gpiod::{PD12, PD13};
+    use gpiof::{PF0, PF1, PF14, PF15};
+    use gpiog::{PG13, PG14, PG7, PG8};
 
-    // SCL and SDA are "reversed", correct according to reference manual
-    pins!(I2C2, AF4, SCL: [PF1], SDA: [PF0]);
+    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
 
-    pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
-    pins!(I2C4, AF4, SCL: [PF14], SDA: [PF15]);
+    pins!(I2C2, AF4, SCL: [PB10, PB13, PF1], SDA: [PB11, PB14, PF0]);
+
+    pins!(I2C3, AF4, SCL: [PC0, PG7, PG14], SDA: [PC1, PG8, PG13]);
+
+    // Both not on STM32L486XX and STM32L476XX
+    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
+    pins!(I2C4, AF4, SCL: [PD12, PF14], SDA: [PD13, PF15]);
+
+    // These are present on STM32L496XX and STM32L4A6xG, but the
+    // PAC does not have gpioh, so we can't actually these pins
+    // Both not on STM32L486XX and STM32L476XX
+    // use gpioh::{PH4, PH5, PH7, PH8};
+    // pins!(I2C2, AF4, SCL: [PH4], SDA: [PH5]);
+    // pins!(I2C3, AF4, SCL: [PH7], SDA: [PH8]);
 }
