@@ -149,6 +149,10 @@ hal!(I2C1, enr, rstr, i2c1, i2c1en, i2c1rst);
 hal!(I2C2, enr, rstr, i2c2, i2c2en, i2c2rst);
 hal!(I2C3, enr, rstr, i2c3, i2c3en, i2c3rst);
 
+// This peripheral is not present on
+// STM32L471XX and STM32L431XX
+// STM32L432XX and STM32l442XX
+// STM32L486XX and STM32L476XX
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
 hal!(I2C4, enr2, rstr2, i2c4, i2c4en, i2c4rst);
 
@@ -484,17 +488,17 @@ mod stm32l4x1_pins {
 
     pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
 
-    // Not on STM32L471xx
+    // Not on STM32L471XX
     pins!(I2C1, AF4, SCL: [PA9], SDA: [PA10]);
 
     pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
 
     pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
 
-    // Not on STM32L471xx
+    // Not on STM32L471XX
     pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
 
-    // Both only on STM32L451XX
+    // Not on STM32L471XX and STM32L431XX
     pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
     pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
 }
@@ -517,7 +521,8 @@ mod stm32l4x2_pins {
     // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
     pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
 
-    // All three only on STM32l452XX and STM32l462XX
+    // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
+    // Not present on STM32L412XX and STM32L422XX
     pins!(I2C4, AF2, SCL: [PC0], SDA: [PC1]);
     pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
     pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
