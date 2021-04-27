@@ -575,6 +575,63 @@ macro_rules! hal {
 
                     Ok(())
                 }
+
+                /// Checks to see if the USART peripheral has detected an idle line and clears
+                /// the flag
+                pub fn is_idle(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.idle().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.idlecf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+
+                /// Checks to see if the USART peripheral has detected an receiver timeout and
+                /// clears the flag
+                pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.rtof().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.rtocf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                /// Checks to see if the USART peripheral has detected an character match and
+                /// clears the flag
+                pub fn check_character_match(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.cmf().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.cmcf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+
+            impl crate::dma::CharacterMatch for Rx<pac::$USARTX> {
+                /// Checks to see if the USART peripheral has detected an character match and
+                /// clears the flag
+                fn check_character_match(&mut self, clear: bool) -> bool {
+                    self.check_character_match(clear)
+                }
             }
 
             impl Tx<pac::$USARTX> {
@@ -665,7 +722,7 @@ macro_rules! hal {
             impl $rxdma {
                 /// Create a frame reader that can either react on the Character match interrupt or
                 /// Transfer Complete from the DMA.
-                pub fn frame_read<BUFFER, const N: usize>(
+                pub fn frame_reader<BUFFER, const N: usize>(
                     mut self,
                     buffer: BUFFER,
                 ) -> FrameReader<BUFFER, Self, N>
@@ -711,54 +768,6 @@ macro_rules! hal {
                     self.channel.start();
 
                     FrameReader::new(buffer, self, usart.cr2.read().add().bits())
-                }
-
-                /// Checks to see if the USART peripheral has detected an idle line and clears
-                /// the flag
-                pub fn is_idle(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.idle().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.idlecf().set_bit() );
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-
-                /// Checks to see if the USART peripheral has detected an character match and
-                /// clears the flag
-                pub fn is_character_match(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.cmf().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.cmcf().set_bit() );
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-
-                /// Checks to see if the USART peripheral has detected an receiver timeout and
-                /// clears the flag
-                pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.rtof().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.rtocf().set_bit() );
-                        }
-                        true
-                    } else {
-                        false
-                    }
                 }
             }
 

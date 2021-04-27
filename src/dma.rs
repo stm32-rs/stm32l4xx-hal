@@ -32,6 +32,12 @@ pub enum Half {
     Second,
 }
 
+pub trait CharacterMatch {
+    /// Checks to see if the peripheral has detected a character match and
+    /// clears the flag
+    fn check_character_match(&mut self, clear: bool) -> bool;
+}
+
 /// Frame reader "worker", access and handling of frame reads is made through this structure.
 pub struct FrameReader<BUFFER, PAYLOAD, const N: usize>
 where
@@ -56,6 +62,17 @@ where
             payload,
             matching_character,
         }
+    }
+}
+
+impl<BUFFER, PAYLOAD, CHANNEL, const N: usize> FrameReader<BUFFER, RxDma<PAYLOAD, CHANNEL>, N>
+where
+    PAYLOAD: CharacterMatch,
+{
+    /// Checks to see if the peripheral has detected a character match and
+    /// clears the flag
+    pub fn check_character_match(&mut self, clear: bool) -> bool {
+        self.payload.payload.check_character_match(clear)
     }
 }
 
@@ -377,7 +394,7 @@ macro_rules! dma {
                 use core::ptr;
                 use stable_deref_trait::StableDeref;
 
-                use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W, R, RxDma, TxDma, TransferPayload};
+                use crate::dma::{CircBuffer, FrameReader, CharacterMatch, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W, R, RxDma, TxDma, TransferPayload};
                 use crate::rcc::AHB1;
 
                 #[allow(clippy::manual_non_exhaustive)]
