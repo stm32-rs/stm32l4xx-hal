@@ -91,7 +91,7 @@ const APP: () = {
         let fr = if let Some(dma_buf) = SerialDMAPool::alloc() {
             // Set up the first reader frame
             let dma_buf = dma_buf.init(DMAFrame::new());
-            serial_rx.with_dma(dma_ch6).frame_read(dma_buf)
+            serial_rx.with_dma(dma_ch6).frame_reader(dma_buf)
         } else {
             unreachable!()
         };
@@ -100,7 +100,6 @@ const APP: () = {
         let fs: FrameSender<Box<SerialDMAPool>, _, 8> = serial_tx.with_dma(dma_ch7).frame_sender();
 
         init::LateResources {
-            rx: serial_rx,
             frame_reader: fr,
             frame_sender: fs,
         }
@@ -112,7 +111,7 @@ const APP: () = {
     #[task(binds = USART2, resources = [rx, frame_reader, frame_sender], priority = 3)]
     fn serial_isr(cx: serial_isr::Context) {
         // Check for character match
-        if cx.resources.rx.is_character_match(true) {
+        if cx.resources.frame_reader.check_character_match(true) {
             if let Some(dma_buf) = SerialDMAPool::alloc() {
                 let dma_buf = dma_buf.init(DMAFrame::new());
                 let buf = cx.resources.frame_reader.character_match_interrupt(dma_buf);
