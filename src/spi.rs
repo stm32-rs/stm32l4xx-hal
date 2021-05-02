@@ -1,4 +1,9 @@
 //! Serial Peripheral Interface (SPI) bus
+//!
+//! The PACs and SVDs are not set up granularity enough to handle all peripheral configurations.
+//! SPI2 is enabled for stm32l4x2 feature at a HAL level even though some variants do and some
+//! don't have it (L432xx and L442xx don't, L452xx does). Users of this MCU variant that
+//! don't have it shouldn't attempt to use it. Relevant info is on user-manual level.
 
 use core::ptr;
 
@@ -261,6 +266,7 @@ macro_rules! hal {
 
 #[cfg(any(
     feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
@@ -331,6 +337,7 @@ pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 
 #[cfg(any(
     feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
@@ -339,6 +346,7 @@ use crate::stm32::SPI2;
 
 #[cfg(any(
     feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
@@ -349,6 +357,7 @@ hal! {
 
 #[cfg(any(
     feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
