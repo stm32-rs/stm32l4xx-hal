@@ -2,12 +2,12 @@
 //! [stm32h7xx-hal](https://github.com/stm32-rs/stm32h7xx-hal) implementation,
 //! as of 2021-02-25.
 
-use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
-use crate::pac::{i2c1, I2C1, I2C2};
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
+use crate::pac::I2C4;
+use crate::pac::{i2c1, I2C1, I2C2, I2C3};
+
 use crate::rcc::{Clocks, APB1R1};
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-use crate::stm32::I2C3;
 use crate::time::Hertz;
 use cast::{u16, u8};
 use core::ops::Deref;
@@ -31,7 +31,7 @@ pub enum Error {
 }
 
 #[doc(hidden)]
-mod private {
+pub(self) mod private {
     pub trait Sealed {}
 }
 
@@ -44,12 +44,12 @@ pub trait SdaPin<I2C>: private::Sealed {}
 macro_rules! pins {
     ($spi:ident, $af:ident, SCL: [$($scl:ident),*], SDA: [$($sda:ident),*]) => {
         $(
-            impl private::Sealed for $scl<Alternate<$af, Output<OpenDrain>>> {}
-            impl SclPin<$spi> for $scl<Alternate<$af, Output<OpenDrain>>> {}
+            impl super::private::Sealed for $scl<Alternate<$af, Output<OpenDrain>>> {}
+            impl super::SclPin<$spi> for $scl<Alternate<$af, Output<OpenDrain>>> {}
         )*
         $(
-            impl private::Sealed for $sda<Alternate<$af, Output<OpenDrain>>> {}
-            impl SdaPin<$spi> for $sda<Alternate<$af, Output<OpenDrain>>> {}
+            impl super::private::Sealed for $sda<Alternate<$af, Output<OpenDrain>>> {}
+            impl super::SdaPin<$spi> for $sda<Alternate<$af, Output<OpenDrain>>> {}
         )*
     }
 }
@@ -60,6 +60,8 @@ pub struct I2c<I2C, PINS> {
     pins: PINS,
 }
 
+// TODO review why StartCondition and State structs exists. Last
+// update to them was november 2020
 /// Start conditions that govern repeated sequential transfer
 #[derive(Debug, Clone)]
 enum StartCondition {
@@ -119,48 +121,40 @@ impl State {
     }
 }
 
-impl<SCL, SDA> I2c<I2C1, (SCL, SDA)> {
-    pub fn i2c1<F>(i2c: I2C1, pins: (SCL, SDA), freq: F, clocks: Clocks, apb1: &mut APB1R1) -> Self
-    where
-        F: Into<Hertz>,
-        SCL: SclPin<I2C1>,
-        SDA: SdaPin<I2C1>,
-    {
-        apb1.enr().modify(|_, w| w.i2c1en().set_bit());
-        apb1.rstr().modify(|_, w| w.i2c1rst().set_bit());
-        apb1.rstr().modify(|_, w| w.i2c1rst().clear_bit());
-        Self::new(i2c, pins, freq, clocks)
-    }
+macro_rules! hal {
+    ($i2c_type: ident, $enr: ident, $rstr: ident, $i2cX: ident, $i2cXen: ident, $i2cXrst: ident) => {
+        impl<SCL, SDA> I2c<$i2c_type, (SCL, SDA)> {
+            pub fn $i2cX<F>(
+                i2c: $i2c_type,
+                pins: (SCL, SDA),
+                freq: F,
+                clocks: Clocks,
+                apb1: &mut APB1R1,
+            ) -> Self
+            where
+                F: Into<Hertz>,
+                SCL: SclPin<$i2c_type>,
+                SDA: SdaPin<$i2c_type>,
+            {
+                apb1.$enr().modify(|_, w| w.$i2cXen().set_bit());
+                apb1.$rstr().modify(|_, w| w.$i2cXrst().set_bit());
+                apb1.$rstr().modify(|_, w| w.$i2cXrst().clear_bit());
+                Self::new(i2c, pins, freq, clocks)
+            }
+        }
+    };
 }
 
-impl<SCL, SDA> I2c<I2C2, (SCL, SDA)> {
-    pub fn i2c2<F>(i2c: I2C2, pins: (SCL, SDA), freq: F, clocks: Clocks, apb1: &mut APB1R1) -> Self
-    where
-        F: Into<Hertz>,
-        SCL: SclPin<I2C2>,
-        SDA: SdaPin<I2C2>,
-    {
-        apb1.enr().modify(|_, w| w.i2c2en().set_bit());
-        apb1.rstr().modify(|_, w| w.i2c2rst().set_bit());
-        apb1.rstr().modify(|_, w| w.i2c2rst().clear_bit());
-        Self::new(i2c, pins, freq, clocks)
-    }
-}
+hal!(I2C1, enr, rstr, i2c1, i2c1en, i2c1rst);
+hal!(I2C2, enr, rstr, i2c2, i2c2en, i2c2rst);
+hal!(I2C3, enr, rstr, i2c3, i2c3en, i2c3rst);
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-impl<SCL, SDA> I2c<I2C3, (SCL, SDA)> {
-    pub fn i2c3<F>(i2c: I2C3, pins: (SCL, SDA), freq: F, clocks: Clocks, apb1: &mut APB1R1) -> Self
-    where
-        F: Into<Hertz>,
-        SCL: SclPin<I2C3>,
-        SDA: SdaPin<I2C3>,
-    {
-        apb1.enr().modify(|_, w| w.i2c3en().set_bit());
-        apb1.rstr().modify(|_, w| w.i2c3rst().set_bit());
-        apb1.rstr().modify(|_, w| w.i2c3rst().clear_bit());
-        Self::new(i2c, pins, freq, clocks)
-    }
-}
+// This peripheral is not present on
+// STM32L471XX and STM32L431XX
+// STM32L432XX and STM32l442XX
+// STM32L486XX and STM32L476XX
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
+hal!(I2C4, enr2, rstr2, i2c4, i2c4en, i2c4rst);
 
 impl<SCL, SDA, I2C> I2c<I2C, (SCL, SDA)>
 where
@@ -225,14 +219,26 @@ where
             (presc, scll, sclh, sdadel, scldel)
         };
 
-        let presc = u8(presc).unwrap();
+        macro_rules! u8_or_panic {
+            ($value: expr, $message: literal) => {
+                match u8($value) {
+                    Ok(value) => value,
+                    Err(_) => panic!($message),
+                }
+            };
+        }
+
+        let presc = u8_or_panic!(presc, "I2C pres");
         assert!(presc < 16);
-        let scldel = u8(scldel).unwrap();
+
+        let scldel = u8_or_panic!(scldel, "I2C scldel");
         assert!(scldel < 16);
-        let sdadel = u8(sdadel).unwrap();
+
+        let sdadel = u8_or_panic!(sdadel, "I2C sdadel");
         assert!(sdadel < 16);
-        let sclh = u8(sclh).unwrap();
-        let scll = u8(scll).unwrap();
+
+        let sclh = u8_or_panic!(sclh, "I2C sclh");
+        let scll = u8_or_panic!(scll, "I2C scll");
 
         // Configure for "fast mode" (400 KHz)
         i2c.timingr.write(|w| {
@@ -472,35 +478,110 @@ where
     }
 }
 
-use crate::gpio::gpioa::{PA10, PA9};
-use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
+#[cfg(feature = "stm32l4x1")]
+mod stm32l4x1_pins {
+    use super::{I2C1, I2C2, I2C3, I2C4};
+    use crate::gpio::*;
+    use gpioa::{PA10, PA7, PA9};
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
 
-#[cfg(any(feature = "stm32l4x3", feature = "stm32l4x5", feature = "stm32l4x6"))]
-use crate::gpio::gpioc::{PC0, PC1};
+    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x3", feature = "stm32l4x6"))]
-use crate::gpio::gpiob::PB8;
+    // Not on STM32L471XX
+    pins!(I2C1, AF4, SCL: [PA9], SDA: [PA10]);
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
-use crate::gpio::gpiob::{PB13, PB14, PB9};
+    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
 
-pins!(I2C1, AF4,
-    SCL: [PA9, PB6],
-    SDA: [PA10, PB7]);
+    pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
 
-pins!(I2C2, AF4, SCL: [PB10], SDA: [PB11]);
+    // Not on STM32L471XX
+    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
-pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
+    // Not on STM32L471XX and STM32L431XX
+    pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
+    pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
+}
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
-pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);
+#[cfg(feature = "stm32l4x2")]
+mod stm32l4x2_pins {
+    use super::{I2C1, I2C2, I2C3, I2C4};
+    use crate::gpio::*;
+    use gpioa::{PA10, PA7, PA9};
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+    pins!(I2C1, AF4, SCL: [PA9, PB6], SDA: [PA10, PB7]);
+
+    // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
+    pins!(I2C2, AF4, SCL: [PB8, PB10, PB13], SDA: [PB9, PB11, PB14]);
+
+    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
+
+    // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
+    pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+
+    // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
+    // Not present on STM32L412XX and STM32L422XX
+    pins!(I2C4, AF2, SCL: [PC0], SDA: [PC1]);
+    pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
+    pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
+}
 
 #[cfg(feature = "stm32l4x3")]
-pins!(I2C1, AF4, SCL: [PB8], SDA: []);
+mod stm32l4x3_pins {
+    use super::{I2C1, I2C2, I2C3};
+    use crate::gpio::*;
+    use gpioa::{PA10, PA7, PA9};
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
 
-#[cfg(feature = "stm32l4x3")]
-pins!(I2C2, AF4, SCL: [PC0], SDA: [PC1]);
+    pins!(I2C1, AF4, SCL: [PA9, PB6, PB8], SDA: [PA10, PB7, PB9]);
+
+    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
+
+    pins!(I2C3, AF4, SCL: [PA7, PC0], SDA: [PB4, PC1]);
+}
+
+#[cfg(feature = "stm32l4x5")]
+mod stm32l4x5_pins {
+    use super::{I2C1, I2C2, I2C3};
+    use crate::gpio::*;
+    use gpiob::{PB10, PB11, PB13, PB14, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
+
+    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
+
+    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
+
+    pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+}
+
+#[cfg(feature = "stm32l4x6")]
+mod stm32l4x6_pins {
+    use super::{I2C1, I2C2, I2C3, I2C4};
+    use crate::gpio::*;
+    use gpioa::PA7;
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1};
+    use gpiod::{PD12, PD13};
+    use gpiof::{PF0, PF1, PF14, PF15};
+    use gpiog::{PG13, PG14, PG7, PG8};
+
+    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
+
+    pins!(I2C2, AF4, SCL: [PB10, PB13, PF1], SDA: [PB11, PB14, PF0]);
+
+    pins!(I2C3, AF4, SCL: [PC0, PG7, PG14], SDA: [PC1, PG8, PG13]);
+
+    // Both not on STM32L486XX and STM32L476XX
+    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
+    pins!(I2C4, AF4, SCL: [PD12, PF14], SDA: [PD13, PF15]);
+
+    // These are present on STM32L496XX and STM32L4A6xG, but the
+    // PAC does not have gpioh, so we can't actually these pins
+    // Both not on STM32L486XX and STM32L476XX
+    // use gpioh::{PH4, PH5, PH7, PH8};
+    // pins!(I2C2, AF4, SCL: [PH4], SDA: [PH5]);
+    // pins!(I2C3, AF4, SCL: [PH7], SDA: [PH8]);
+}

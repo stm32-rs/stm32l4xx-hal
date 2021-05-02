@@ -135,3 +135,8 @@ required-features = ["rt", "stm32l4x2", "stm32-usbd"]
 [[example]]
 name = "otg_fs_serial"
 required-features = ["rt", "stm32l4x6", "otg_fs"]
+
+[[example]]
+name = "i2c_write"
+required-features = ["stm32l4x1"]
+

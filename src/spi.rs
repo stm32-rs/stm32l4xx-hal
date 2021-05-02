@@ -1,4 +1,9 @@
 //! Serial Peripheral Interface (SPI) bus
+//!
+//! The PACs and SVDs are not set up granularity enough to handle all peripheral configurations.
+//! SPI2 is enabled for stm32l4x2 feature at a HAL level even though some variants do and some
+//! don't have it (L432xx and L442xx don't, L452xx does). Users of this MCU variant that
+//! don't have it shouldn't attempt to use it. Relevant info is on user-manual level.
 
 use core::ptr;
 
@@ -56,7 +61,7 @@ pub struct Spi<SPI, PINS> {
 }
 
 macro_rules! hal {
-    ($($SPIX:ident: ($spiX:ident, $APBX:ident, $spiXen:ident, $spiXrst:ident, $pclkX:ident),)+) => {
+    ($($SPIX:ident: ($spiX:ident, $spiX_slave:ident, $APBX:ident, $spiXen:ident, $spiXrst:ident, $pclkX:ident),)+) => {
         $(
             impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
@@ -124,6 +129,59 @@ macro_rules! hal {
                     });
 
                     Spi { spi, pins }
+                }
+
+                pub fn $spiX_slave(spi: $SPIX, pins: (SCK, MISO, MOSI), mode: Mode, apb2: &mut $APBX,) -> Self
+                where
+                    SCK: SckPin<$SPIX>,
+                    MISO: MisoPin<$SPIX>,
+                    MOSI: MosiPin<$SPIX>,
+                {
+                    // enable or reset $SPIX
+                    apb2.enr().modify(|_, w| w.$spiXen().set_bit());
+                    apb2.rstr().modify(|_, w| w.$spiXrst().set_bit());
+                    apb2.rstr().modify(|_, w| w.$spiXrst().clear_bit());
+
+                    // CPOL: polarity
+                    // CPHA: phase
+                    // BIDIMODE: 2 line unidirectional (full duplex)
+                    // LSBFIRST: MSB first
+                    // CRCEN: hardware CRC calculation disabled
+                    // MSTR: master mode
+                    // SSM: disable software slave management (NSS pin not free for other uses)
+                    // SPE: SPI disabled
+                    spi.cr1.write(|w| {
+                        w.cpol()
+                            .bit(mode.polarity == Polarity::IdleHigh)
+                            .cpha()
+                            .bit(mode.phase == Phase::CaptureOnSecondTransition)
+                            .bidimode()
+                            .clear_bit()
+                            .lsbfirst()
+                            .clear_bit()
+                            .crcen()
+                            .clear_bit()
+                            .ssm()
+                            .clear_bit()
+                            .mstr()
+                            .clear_bit()
+                    });
+
+                    // DS: 8-bit data size
+                    // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
+                    //        8-bit
+                    spi.cr2
+                        .write(|w| unsafe { w.ds().bits(0b111).frxth().set_bit() });
+
+                    // SPE: SPI enabled
+                    spi.cr1.write(|w| w.spe().set_bit());
+
+                    Spi { spi, pins }
+                }
+
+                pub fn clear_overrun(&mut self) {
+                    self.spi.dr.read().dr();
+                    self.spi.sr.read().ovr();
                 }
 
                 /// Change the baud rate of the SPI
@@ -208,6 +266,7 @@ macro_rules! hal {
 
 #[cfg(any(
     feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
@@ -226,7 +285,7 @@ use crate::stm32::SPI1;
     feature = "stm32l4x6"
 ))]
 hal! {
-    SPI1: (spi1, APB2, spi1en, spi1rst, pclk2),
+    SPI1: (spi1, spi1_slave, APB2, spi1en, spi1rst, pclk2),
 }
 
 #[cfg(any(
@@ -259,7 +318,7 @@ use crate::{gpio::AF6, stm32::SPI3};
     feature = "stm32l4x6",
 ))]
 hal! {
-    SPI3: (spi3, APB1R1, spi3en, spi3rst, pclk1),
+    SPI3: (spi3, spi3_slave, APB1R1, spi3en, spi3rst, pclk1),
 }
 
 #[cfg(any(
@@ -278,6 +337,7 @@ pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 
 #[cfg(any(
     feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
@@ -286,16 +346,18 @@ use crate::stm32::SPI2;
 
 #[cfg(any(
     feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
 hal! {
-    SPI2: (spi2, APB1R1, spi2en, spi2rst, pclk1),
+    SPI2: (spi2, spi2_slave, APB1R1, spi2en, spi2rst, pclk1),
 }
 
 #[cfg(any(
     feature = "stm32l4x1",
+    feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
