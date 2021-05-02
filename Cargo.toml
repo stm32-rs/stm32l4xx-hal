@@ -50,6 +50,11 @@ version = "0.5.0"
 features = ["ram_access_2x16"]
 optional = true
 
+[dependencies.synopsys-usb-otg]
+version = "0.2.4"
+features = ["cortex-m", "fs"]
+optional = true
+
 [package.metadata.docs.rs]
 features = ["rt", "stm32l4x2", "stm32-usbd"]
 
@@ -61,6 +66,7 @@ stm32l4x3 = ["stm32l4/stm32l4x3"]
 stm32l4x5 = ["stm32l4/stm32l4x5"]
 stm32l4x6 = ["stm32l4/stm32l4x6"]
 unproven = ["embedded-hal/unproven"]
+otg_fs = ["synopsys-usb-otg"]
 
 [dev-dependencies]
 panic-halt = "0.2.0"
@@ -127,5 +133,10 @@ name = "usb_serial"
 required-features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [[example]]
+name = "otg_fs_serial"
+required-features = ["rt", "stm32l4x6", "otg_fs"]
+
+[[example]]
 name = "i2c_write"
 required-features = ["stm32l4x1"]
+
