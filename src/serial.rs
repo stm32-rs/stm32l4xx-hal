@@ -14,7 +14,7 @@ use crate::hal::serial::{self, Write};
 use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
 use crate::gpio::{self, Alternate, AlternateOD, Floating, Input};
 use crate::pac;
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, APB1R1, APB1R2, APB2};
 use crate::time::{Bps, U32Ext};
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
@@ -187,6 +187,13 @@ pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
+macro_rules! potentially_uncompilable {
+    (true, $expr:expr) => { $expr };
+    (false, $expr:expr) => {};
+    (true, $expr_true:expr, $expr_false:expr) => { $expr_true };
+    (false, $expr_true:expr, $expr_false:expr) => { $expr_false };
+}
+
 macro_rules! hal {
     ($(
         $(#[$meta:meta])*
@@ -197,7 +204,8 @@ macro_rules! hal {
             $usartXrst:ident,
             $pclkX:ident,
             tx: ($dmacst:ident, $tx_chan:path),
-            rx: ($dmacsr:ident, $rx_chan:path)
+            rx: ($dmacsr:ident, $rx_chan:path),
+            $is_full_uart:ident,
         ),
     )+) => {
         $(
@@ -246,7 +254,7 @@ macro_rules! hal {
                             let lower = (uartdiv & 0xf) >> 1;
                             let brr = (uartdiv & !0xf) | lower;
 
-                            usart.cr1.modify(|_, w| w.over8().set_bit());
+                            potentially_uncompilable!($is_full_uart, { usart.cr1.modify(|_, w| w.over8().set_bit()); });
                             usart.brr.write(|w| unsafe { w.bits(brr) });
                         }
                         Oversampling::Over16 => {
@@ -257,9 +265,11 @@ macro_rules! hal {
                         }
                     }
 
-                    if let Some(val) = config.receiver_timeout {
-                        usart.rtor.modify(|_, w| w.rto().bits(val));
-                    }
+                    potentially_uncompilable!($is_full_uart, {
+                        if let Some(val) = config.receiver_timeout {
+                            usart.rtor.modify(|_, w| w.rto().bits(val));
+                        }
+                    });
 
                     // enable DMA transfers
                     usart.cr3.modify(|_, w| w.dmat().set_bit().dmar().set_bit());
@@ -278,9 +288,11 @@ macro_rules! hal {
 
                     // Enable One bit sampling method
                     usart.cr3.modify(|_, w| {
-                        if config.onebit_sampling {
-                            w.onebit().set_bit();
-                        }
+                        potentially_uncompilable!($is_full_uart, {
+                            if config.onebit_sampling {
+                                w.onebit().set_bit();
+                            }
+                        });
 
                         if config.disable_overrun {
                             w.ovrdis().set_bit();
@@ -326,9 +338,11 @@ macro_rules! hal {
                             w.add().bits(c);
                         }
 
-                        if config.receiver_timeout.is_some() {
-                            w.rtoen().set_bit();
-                        }
+                        potentially_uncompilable!($is_full_uart, {
+                            if config.receiver_timeout.is_some() {
+                                w.rtoen().set_bit();
+                            }
+                        });
 
                         w
                     });
@@ -360,7 +374,7 @@ macro_rules! hal {
                             self.usart.cr1.modify(|_, w| w.cmie().set_bit())
                         },
                         Event::ReceiverTimeout => {
-                            self.usart.cr1.modify(|_, w| w.rtoie().set_bit())
+                            potentially_uncompilable!($is_full_uart, { self.usart.cr1.modify(|_, w| w.rtoie().set_bit()) });
                         },
                     }
                 }
@@ -391,7 +405,7 @@ macro_rules! hal {
                             self.usart.cr1.modify(|_, w| w.cmie().clear_bit())
                         },
                         Event::ReceiverTimeout => {
-                            self.usart.cr1.modify(|_, w| w.rtoie().clear_bit())
+                            potentially_uncompilable!($is_full_uart, { self.usart.cr1.modify(|_, w| w.rtoie().clear_bit()) });
                         },
                     }
                 }
@@ -635,14 +649,16 @@ macro_rules! hal {
                     let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
                     let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
-                    if isr.rtof().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.rtocf().set_bit() );
+                    potentially_uncompilable!($is_full_uart, {
+                        if isr.rtof().bit_is_set() {
+                            if clear {
+                                icr.write(|w| w.rtocf().set_bit() );
+                            }
+                            true
+                        } else {
+                            false
                         }
-                        true
-                    } else {
-                        false
-                    }
+                    }, { false })
                 }
 
                 /// Check for, and return, any errors
@@ -722,8 +738,8 @@ macro_rules! hal {
 }
 
 hal! {
-    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
-    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
+    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5), true,),
+    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6), true,),
 }
 
 #[cfg(any(
@@ -733,17 +749,22 @@ hal! {
     feature = "stm32l4x6",
 ))]
 hal! {
-    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
+    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3), true,),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (c3s, dma2::C3), rx: (c5s, dma2::C5)),
+    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (c3s, dma2::C3), rx: (c5s, dma2::C5), true,),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (c1s, dma2::C1), rx: (c2s, dma2::C2)),
+    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (c1s, dma2::C1), rx: (c2s, dma2::C2), true,),
+}
+
+#[cfg(feature = "stm32l4x6")]
+hal! {
+    LPUART1: (lpuart1, APB1R2, lpuart1en, lpuart1rst, pclk1, tx: (c6s, dma2::C6), rx: (c7s, dma2::C7), false,),
 }
 
 impl<USART, PINS> fmt::Write for Serial<USART, PINS>
@@ -903,6 +924,18 @@ impl_pin_traits! {
             RX: PD2;
             RTS_DE: PB4;
             CTS: PB5;
+        }
+    }
+}
+
+#[cfg(feature = "stm32l4x6")]
+impl_pin_traits! {
+    LPUART1: {
+        AF8: {
+            TX: PB11;
+            RX: PB10;
+            RTS_DE: ;
+            CTS: ;
         }
     }
 }
