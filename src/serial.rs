@@ -245,25 +245,34 @@ macro_rules! hal {
                     usart.cr2.reset();
                     usart.cr3.reset();
 
-                    // Configure baud rate
-                    match config.oversampling {
-                        Oversampling::Over8 => {
-                            let uartdiv = 2 * clocks.$pclkX().0 / config.baudrate.0;
-                            assert!(uartdiv >= 16, "impossible baud rate");
+                    potentially_uncompilable!($is_full_uart, {
+                        // Configure baud rate
+                        match config.oversampling {
+                            Oversampling::Over8 => {
+                                let uartdiv = 2 * clocks.$pclkX().0 / config.baudrate.0;
+                                assert!(uartdiv >= 16, "impossible baud rate");
 
-                            let lower = (uartdiv & 0xf) >> 1;
-                            let brr = (uartdiv & !0xf) | lower;
+                                let lower = (uartdiv & 0xf) >> 1;
+                                let brr = (uartdiv & !0xf) | lower;
 
-                            potentially_uncompilable!($is_full_uart, { usart.cr1.modify(|_, w| w.over8().set_bit()); });
-                            usart.brr.write(|w| unsafe { w.bits(brr) });
+                                usart.cr1.modify(|_, w| w.over8().set_bit());
+                                usart.brr.write(|w| unsafe { w.bits(brr) });
+                            }
+                            Oversampling::Over16 => {
+                                let brr = clocks.$pclkX().0 / config.baudrate.0;
+                                assert!(brr >= 16, "impossible baud rate");
+
+                                usart.brr.write(|w| unsafe { w.bits(brr) });
+                            }
                         }
-                        Oversampling::Over16 => {
-                            let brr = clocks.$pclkX().0 / config.baudrate.0;
-                            assert!(brr >= 16, "impossible baud rate");
-
-                            usart.brr.write(|w| unsafe { w.bits(brr) });
-                        }
-                    }
+                    },
+                    {
+                        let fck = clocks.$pclkX().0;
+                        assert!((fck >= 3 * config.baudrate.0) && (fck <= 4096 * config.baudrate.0), "impossible baud rate");
+                        let brr = 256u64 * (fck as u64) / config.baudrate.0 as u64;
+                        let brr = brr as u32;
+                        usart.brr.write(|w| unsafe { w.bits(brr) });
+                    });
 
                     potentially_uncompilable!($is_full_uart, {
                         if let Some(val) = config.receiver_timeout {
