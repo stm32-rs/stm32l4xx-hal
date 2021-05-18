@@ -224,6 +224,7 @@ impl ADC {
 
         self.set_sample_time(old_sample_time);
 
+        // Safety: DIV by 0 is possible if vref_samp is 0
         self.calibrated_vdda = (VDDA_CALIB_MV * u32::from(vref_cal)) / u32::from(vref_samp);
     }
 
@@ -387,6 +388,7 @@ impl ADC {
     }
 
     pub fn start_conversion(&mut self) {
+        self.enable();
         self.clear_end_flags();
         self.adc.cr.modify(|_, w| w.adstart().set_bit());
     }
@@ -410,20 +412,30 @@ impl ADC {
     }
 
     pub fn enable(&mut self) {
-        // Make sure bits are off
-        while self.adc.cr.read().addis().bit_is_set() {}
+        if !self.is_enabled() {
+            // Make sure bits are off
+            while self.adc.cr.read().addis().bit_is_set() {}
 
-        // Clear ADRDY by setting it (See Reference Manual section 1.16.1)
-        self.adc.isr.write(|w| w.adrdy().set_bit());
-        self.adc.cr.write(|w| w.aden().set_bit());
-        while self.adc.isr.read().adrdy().bit_is_clear() {}
+            // Clear ADRDY by setting it (See Reference Manual section 1.16.1)
+            self.adc.isr.write(|w| w.adrdy().set_bit());
+            self.adc.cr.modify(|_, w| w.aden().set_bit());
+            while self.adc.isr.read().adrdy().bit_is_clear() {}
 
-        // Configure ADC
-        self.adc.cfgr.write(|w| {
-            // This is sound, as all `Resolution` values are valid for this
-            // field.
-            unsafe { w.res().bits(self.resolution as u8) }
-        });
+            // Configure ADC
+            self.adc.cfgr.write(|w| {
+                // This is sound, as all `Resolution` values are valid for this
+                // field.
+                unsafe { w.res().bits(self.resolution as u8) }
+            });
+        }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.adc.cr.read().aden().bit_is_set()
+    }
+
+    pub fn disable(&mut self) {
+        self.adc.cr.modify(|_, w| w.addis().set_bit());
     }
 }
 
@@ -434,57 +446,24 @@ where
     type Error = Infallible;
 
     fn read(&mut self, channel: &mut C) -> nb::Result<u16, Self::Error> {
-        // Make sure bits are off
-        while self.adc.cr.read().addis().bit_is_set() {}
+        self.configure_sequence(channel, Sequence::One, self.sample_time);
 
-        // Enable ADC
-        self.adc.isr.write(|w| w.adrdy().set_bit());
-        self.adc.cr.modify(|_, w| w.aden().set_bit());
-        while self.adc.isr.read().adrdy().bit_is_clear() {}
-
-        // Configure ADC
-        self.adc.cfgr.write(|w| {
-            // This is sound, as all `Resolution` values are valid for this
-            // field.
-            unsafe { w.res().bits(self.resolution as u8) }
-        });
-
-        // Configure channel
-        channel.set_sample_time(&self.adc, self.sample_time);
-
-        // Select channel
-        self.adc.sqr1.write(|w| {
-            // This is sound, as all `Channel` implementations set valid values.
-            unsafe {
-                w.sq1().bits(C::channel());
-            }
-
-            w
-        });
-
-        // Start conversion
-        self.adc
-            .isr
-            .modify(|_, w| w.eos().set_bit().eoc().set_bit());
-        self.adc.cr.modify(|_, w| w.adstart().set_bit());
-        while self.adc.isr.read().eos().bit_is_clear() {}
+        self.start_conversion();
+        while !self.has_completed_sequence() {}
 
         // Read ADC value first time and discard it, as per errata sheet.
         // The errata states that if we do conversions slower than 1 kHz, the
         // first read ADC value can be corrupted, so we discard it and measure again.
-        let _ = unsafe { ptr::read_volatile(&self.adc.dr.read().bits()) };
+        let _ = self.get_data();
 
-        self.adc
-            .isr
-            .modify(|_, w| w.eos().set_bit().eoc().set_bit());
-        self.adc.cr.modify(|_, w| w.adstart().set_bit());
-        while self.adc.isr.read().eos().bit_is_clear() {}
+        self.start_conversion();
+        while !self.has_completed_sequence() {}
 
         // Read ADC value
-        let val = self.adc.dr.read().bits() as u16;
+        let val = self.get_data();
 
         // Disable ADC
-        self.adc.cr.modify(|_, w| w.addis().set_bit());
+        self.disable();
 
         Ok(val)
     }
