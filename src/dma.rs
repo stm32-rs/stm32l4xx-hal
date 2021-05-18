@@ -518,7 +518,7 @@ macro_rules! dma {
                     impl $CX {
                         /// Associated peripheral `address`
                         ///
-                        /// `inc` indicates whether the address will be incremented after every byte transfer
+                        /// `inc` indicates whether the address will be incremented after every transfer
                         #[inline]
                         pub fn set_peripheral_address(&mut self, address: u32, inc: bool) {
                             self.cpar().write(|w|
@@ -529,7 +529,7 @@ macro_rules! dma {
 
                         /// `address` where from/to data will be read/write
                         ///
-                        /// `inc` indicates whether the address will be incremented after every byte transfer
+                        /// `inc` indicates whether the address will be incremented after every transfer
                         #[inline]
                         pub fn set_memory_address(&mut self, address: u32, inc: bool) {
                             self.cmar().write(|w|
@@ -538,7 +538,7 @@ macro_rules! dma {
                             self.ccr().modify(|_, w| w.minc().bit(inc) );
                         }
 
-                        /// Number of bytes to transfer
+                        /// The amount of transfers that makes up one transaction
                         #[inline]
                         pub fn set_transfer_length(&mut self, len: u16) {
                             self.cndtr().write(|w| w.ndt().bits(len));
@@ -766,8 +766,8 @@ macro_rules! dma {
                             // the next statement, which starts a new DMA transfer
                             atomic::compiler_fence(Ordering::SeqCst);
 
-                            let left_in_buffer = self.payload.channel.get_cndtr() as usize;
-                            let got_data_len = old_buf.max_len() - left_in_buffer; // How many bytes we got
+                            let left_in_buffer = self.channel.get_cndtr() as usize;
+                            let got_data_len = old_buf.max_len() - left_in_buffer; // How many transfers were completed = how many bytes are available
                             unsafe {
                                 old_buf.set_len(got_data_len);
                             }
@@ -842,7 +842,7 @@ macro_rules! dma {
                             //                          ,- half-buffer
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
                             //                       ^- pending=11
-                            let pending = self.payload.channel.get_cndtr() as usize; // available bytes in _whole_ buffer
+                            let pending = self.channel.get_cndtr() as usize; // available transfers (= bytes) in _whole_ buffer
                             let slice = buf.as_ref();
                             let capacity = slice.len(); // capacity of _half_ a buffer
                             //     <--- capacity=10 --->
