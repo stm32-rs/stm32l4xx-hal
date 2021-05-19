@@ -257,10 +257,10 @@ impl ADC {
     }
 
     // DMA channels:
-    //  ADC1: DMA2_3 with CxS 0000
-    //  ADC2: DMA2_4 with CxS 0000
-    //  ADC1: DMA1_1 with CxS 0000
-    //  ADC2: DMA1_2 with CxS 0000
+    //  ADC1: DMA2_3 with C2S 0000
+    //  ADC2: DMA2_4 with C2S 0000
+    //  ADC1: DMA1_1 with C1S 0000 (implemented)
+    //  ADC2: DMA1_2 with C1S 0000
 
     pub fn get_data(&self) -> u16 {
         // Sound, as bits 31:16 are reserved, read-only and 0 in ADC_DR
