@@ -1047,11 +1047,18 @@ impl<BUFFER, const N: usize> Transfer<W, BUFFER, dma1::C1, ADC>
 where
     BUFFER: Sized + StableDeref<Target = [u16; N]> + DerefMut + 'static,
 {
+    /// Initiate a new DMA transfer from an ADC.
+    ///
+    /// `dma_mode` indicates the desired mode for DMA.
+    ///
+    /// If `transfer_complete_interrupt` is true, the transfer
+    /// complete interrupt (= `DMA1_CH1`) will be enabled
     pub fn from_adc(
         mut adc: ADC,
         mut channel: dma1::C1,
         buffer: BUFFER,
         dma_mode: adc::DmaMode,
+        transfer_complete_interrupt: bool,
     ) -> Self {
         let (enable, circular) = match dma_mode {
             DmaMode::Disabled => (false, false),
@@ -1090,6 +1097,10 @@ where
                 .circ()
                 .bit(circular)
         });
+
+        if transfer_complete_interrupt {
+            channel.listen(Event::TransferComplete);
+        }
 
         atomic::compiler_fence(Ordering::Release);
 
