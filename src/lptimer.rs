@@ -134,23 +134,6 @@ macro_rules! hal {
                 self.lptim.cr.modify(|_, w| w.cntstrt().set_bit());
             }
 
-            /// Set auto reload register
-            /// has to be used _after_ enabling of lptim
-            #[inline(always)]
-            fn set_arr(&mut self, arr_value: u16) {
-                // clear autoreload register OK interrupt flag
-                self.lptim.icr.write(|w| w.arrokcf().set_bit());
-
-                // Write autoreload value
-                // This operation is sound as arr_value is a u16, and there are 16 writeable bits
-                self.lptim
-                    .arr
-                    .write(|w| unsafe { w.bits(arr_value as u32) });
-
-                // wait for autoreload write ok interrupt to be signalled (RM0394 Rev 4, sec. 30.7.1, Bit 4)
-                while self.lptim.isr.read().arrok().bit_is_clear() {}
-            }
-
             /// Consume the LPTIM and produce a LowPowerTimer that encapsulates
             /// said LPTIM.
             ///
@@ -219,7 +202,7 @@ macro_rules! hal {
                 instance.enable();
 
                 instance.start_continuous_mode();
-                instance.set_arr(arr_value);
+                instance.set_autoreload(arr_value);
                 instance.set_compare_match(compare_value);
                 instance
             }
@@ -282,6 +265,23 @@ macro_rules! hal {
 
                 // wait for compare register update ok interrupt to be signalled (RM0394 Rev 4, sec. 30.7.1, Bit 4)
                 while self.lptim.isr.read().cmpok().bit_is_clear() {}
+            }
+
+            /// Set auto reload register
+            /// has to be used _after_ enabling of lptim
+            #[inline(always)]
+            pub fn set_autoreload(&mut self, arr_value: u16) {
+                // clear autoreload register OK interrupt flag
+                self.lptim.icr.write(|w| w.arrokcf().set_bit());
+
+                // Write autoreload value
+                // This operation is sound as arr_value is a u16, and there are 16 writeable bits
+                self.lptim
+                    .arr
+                    .write(|w| unsafe { w.bits(arr_value as u32) });
+
+                // wait for autoreload write ok interrupt to be signalled (RM0394 Rev 4, sec. 30.7.1, Bit 4)
+                while self.lptim.isr.read().arrok().bit_is_clear() {}
             }
 
             /// Get the current counter value for this LowPowerTimer
