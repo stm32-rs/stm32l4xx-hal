@@ -138,7 +138,7 @@ macro_rules! hal {
             /// has to be used _after_ enabling of lptim
             #[inline(always)]
             fn set_arr(&mut self, arr_value: u16) {
-                // clear autoreload register OK interrupf flag
+                // clear autoreload register OK interrupt flag
                 self.lptim.icr.write(|w| w.arrokcf().set_bit());
 
                 // Write autoreload value
@@ -273,9 +273,15 @@ macro_rules! hal {
             /// Set the compare match field for this LowPowerTimer
             #[inline]
             pub fn set_compare_match(&mut self, value: u16) {
+                // clear compare register update ok flag
+                self.lptim.icr.write(|w| w.cmpokcf().set_bit());
+
                 // This operation is sound as compare_value is a u16, and there are 16 writeable bits
                 // Additionally, the LPTIM peripheral will always be in the enabled state when this code is called
                 self.lptim.cmp.write(|w| unsafe { w.bits(value as u32) });
+
+                // wait for compare register update ok interrupt to be signalled (RM0394 Rev 4, sec. 30.7.1, Bit 4)
+                while self.lptim.isr.read().cmpok().bit_is_clear() {}
             }
 
             /// Get the current counter value for this LowPowerTimer
