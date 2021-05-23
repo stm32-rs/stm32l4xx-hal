@@ -36,7 +36,6 @@ pool!(
 #[app(device = stm32l4xx_hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
-        rx: serial::Rx<hal::stm32::USART2>,
         frame_reader: FrameReader<Box<SerialDMAPool>, RxDma<Rx<USART2>, dma::dma1::C6>, 8>,
         frame_sender: FrameSender<Box<SerialDMAPool>, TxDma<Tx<USART2>, dma::dma1::C7>, 8>,
     }
@@ -108,7 +107,7 @@ const APP: () = {
     /// This task handles the character match interrupt at required by the `FrameReader`
     ///
     /// It will echo the buffer back to the serial.
-    #[task(binds = USART2, resources = [rx, frame_reader, frame_sender], priority = 3)]
+    #[task(binds = USART2, resources = [frame_reader, frame_sender], priority = 3)]
     fn serial_isr(cx: serial_isr::Context) {
         // Check for character match
         if cx.resources.frame_reader.check_character_match(true) {
@@ -125,7 +124,7 @@ const APP: () = {
     /// This task handles the RX transfer complete interrupt at required by the `FrameReader`
     ///
     /// In this case we are discarding if a frame gets full as no character match was received
-    #[task(binds = DMA1_CH6, resources = [rx, frame_reader], priority = 3)]
+    #[task(binds = DMA1_CH6, resources = [frame_reader], priority = 3)]
     fn serial_rx_dma_isr(cx: serial_rx_dma_isr::Context) {
         if let Some(dma_buf) = SerialDMAPool::alloc() {
             let dma_buf = dma_buf.init(DMAFrame::new());
