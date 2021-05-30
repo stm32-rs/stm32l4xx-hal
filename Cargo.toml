@@ -121,6 +121,10 @@ name = "rtic_frame_serial_dma"
 required-features = ["rt", "stm32l4x2"]
 
 [[example]]
+name = "spi_dma_rxtx"
+required-features = ["rt", "stm32l4x2"]
+
+[[example]]
 name = "serial_echo_rtic"
 required-features = ["rt", "stm32l4x3"]
 
