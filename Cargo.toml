@@ -101,6 +101,10 @@ name = "adc"
 required-features = ["rt", "stm32l4x3"]
 
 [[example]]
+name = "can-loopback"
+required-features = ["rt", "stm32l4x1"]
+
+[[example]]
 name = "irq_button"
 required-features = ["rt"]
 
