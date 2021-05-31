@@ -36,7 +36,7 @@ const APP: () = {
             let rx = gpioa.pa11.into_af9(&mut gpioa.moder, &mut gpioa.afrh);
             let tx = gpioa.pa12.into_af9(&mut gpioa.moder, &mut gpioa.afrh);
 
-            let can = Can::new(dp.CAN1, (tx, rx));
+            let can = Can::new(&mut rcc.apb1r1, dp.CAN1, (tx, rx));
 
             bxcan::Can::new(can)
         };

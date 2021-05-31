@@ -3,6 +3,7 @@
 //! Based on STM32F4xx HAL.
 
 use crate::pac::CAN1;
+use crate::rcc::APB1R1;
 
 mod sealed {
     pub trait Sealed {}
@@ -57,55 +58,50 @@ mod pb13_pb12_af10 {
 /// Enable/disable peripheral
 pub trait Enable: sealed::Sealed {
     /// Enables this peripheral by setting the associated enable bit in an RCC enable register
-    fn enable();
+    fn enable(apb: &mut APB1R1);
 }
 
 impl crate::can::sealed::Sealed for crate::pac::CAN1 {}
 
 impl crate::can::Enable for crate::pac::CAN1 {
     #[inline(always)]
-    fn enable() {
-        unsafe {
-            // NOTE(unsafe) this reference will only be used for atomic writes with no side effects.
-            let rcc = &(*crate::pac::RCC::ptr());
-            // Enable peripheral clock
-            rcc.apb1enr1.modify(|_, w| w.can1en().set_bit());
-            rcc.apb1rstr1.modify(|_, w| w.can1rst().set_bit());
-            rcc.apb1rstr1.modify(|_, w| w.can1rst().clear_bit());
-        };
+    fn enable(apb: &mut APB1R1) {
+        // Enable peripheral clock
+        apb.enr().modify(|_, w| w.can1en().set_bit());
+        apb.rstr().modify(|_, w| w.can1rst().set_bit());
+        apb.rstr().modify(|_, w| w.can1rst().clear_bit());
     }
 }
 
 /// Interface to the CAN peripheral.
-pub struct Can<Instance> {
-    _peripheral: Instance,
+pub struct Can<Instance, Pins> {
+    can: Instance,
+    pins: Pins,
 }
 
-impl<Instance> Can<Instance>
+impl<Instance, P> Can<Instance, P>
 where
     Instance: Enable,
+    P: Pins<Instance = Instance>,
 {
     /// Creates a CAN interface.
-    pub fn new<P>(can: Instance, _pins: P) -> Can<Instance>
-    where
-        P: Pins<Instance = Instance>,
-    {
-        Instance::enable();
-        Can { _peripheral: can }
+    pub fn new(apb: &mut APB1R1, can: Instance, pins: P) -> Can<Instance, P> {
+        Instance::enable(apb);
+        Can { can, pins }
     }
 
-    pub fn new_unchecked(can: Instance) -> Can<Instance> {
-        Instance::enable();
-        Can { _peripheral: can }
+    // Split the peripheral back into its components.
+    pub fn split(self) -> (Instance, P) {
+        (self.can, self.pins)
     }
 }
 
-unsafe impl bxcan::Instance for Can<CAN1> {
+unsafe impl<Pins> bxcan::Instance for Can<CAN1, Pins> {
     const REGISTERS: *mut bxcan::RegisterBlock = CAN1::ptr() as *mut _;
 }
 
-unsafe impl bxcan::FilterOwner for Can<CAN1> {
+unsafe impl<Pins> bxcan::FilterOwner for Can<CAN1, Pins> {
     const NUM_FILTER_BANKS: u8 = 14;
 }
 
-unsafe impl bxcan::MasterInstance for Can<CAN1> {}
+unsafe impl<Pins> bxcan::MasterInstance for Can<CAN1, Pins> {}
