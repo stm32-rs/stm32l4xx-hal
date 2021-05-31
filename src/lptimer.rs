@@ -263,7 +263,9 @@ macro_rules! hal {
                 // Additionally, the LPTIM peripheral will always be in the enabled state when this code is called
                 self.lptim.cmp.write(|w| unsafe { w.bits(value as u32) });
 
-                // wait for compare register update ok interrupt to be signalled (RM0394 Rev 4, sec. 30.7.1, Bit 4)
+                // wait for compare register update ok interrupt to be signalled
+                // (see RM0394 Rev 4, sec 30.4.10 for further explanation and
+                // sec. 30.7.1, Bit 4 for register field description)
                 while self.lptim.isr.read().cmpok().bit_is_clear() {}
             }
 
@@ -280,7 +282,9 @@ macro_rules! hal {
                     .arr
                     .write(|w| unsafe { w.bits(arr_value as u32) });
 
-                // wait for autoreload write ok interrupt to be signalled (RM0394 Rev 4, sec. 30.7.1, Bit 4)
+                // wait for autoreload write ok interrupt to be signalled
+                // (see RM0394 Rev 4, sec 30.4.10 for further explanation and
+                // sec. 30.7.1, Bit 4 for register field description)
                 while self.lptim.isr.read().arrok().bit_is_clear() {}
             }
 
