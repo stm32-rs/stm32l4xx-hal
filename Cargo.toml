@@ -139,3 +139,6 @@ required-features = ["rt", "stm32l4x6", "otg_fs"]
 name = "i2c_write"
 required-features = ["stm32l4x1"]
 
+[[example]]
+name = "lptim_rtic"
+required-features = ["rt", "stm32l4x2"]
