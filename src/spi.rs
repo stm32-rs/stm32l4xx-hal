@@ -400,22 +400,147 @@ macro_rules! spi_dma {
         }
 
         impl<PINS> Spi<$SPIX, PINS> {
-            pub fn with_rx_dma(self, channel: $RX_CH) -> SpiRxDma<$SPIX, PINS, $RX_CH> {
+            pub fn with_rx_dma(self, mut channel: $RX_CH) -> SpiRxDma<$SPIX, PINS, $RX_CH> {
                 let payload = SpiPayload { spi: self };
+
+                // Perform one-time setup actions to keep the work minimal when using the driver.
+
+                channel.set_peripheral_address(
+                    unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                channel.cselr().modify(|_, w| w.$RX_CHX().$RX_MAPX());
+                channel.ccr().modify(|_, w| {
+                    w
+                        // memory to memory mode disabled
+                        .mem2mem()
+                        .clear_bit()
+                        // medium channel priority level
+                        .pl()
+                        .medium()
+                        // 8-bit memory size
+                        .msize()
+                        .bits8()
+                        // 8-bit peripheral size
+                        .psize()
+                        .bits8()
+                        // circular mode disabled
+                        .circ()
+                        .clear_bit()
+                        // write to memory
+                        .dir()
+                        .clear_bit()
+                });
+
                 SpiRxDma { payload, channel }
             }
 
-            pub fn with_tx_dma(self, channel: $TX_CH) -> SpiTxDma<$SPIX, PINS, $TX_CH> {
+            pub fn with_tx_dma(self, mut channel: $TX_CH) -> SpiTxDma<$SPIX, PINS, $TX_CH> {
                 let payload = SpiPayload { spi: self };
+
+                // Perform one-time setup actions to keep the work minimal when using the driver.
+
+                channel.set_peripheral_address(
+                    unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                channel.cselr().modify(|_, w| w.$TX_CHX().$TX_MAPX());
+                channel.ccr().modify(|_, w| {
+                    w
+                        // memory to memory mode disabled
+                        .mem2mem()
+                        .clear_bit()
+                        // medium channel priority level
+                        .pl()
+                        .medium()
+                        // 8-bit memory size
+                        .msize()
+                        .bits8()
+                        // 8-bit peripheral size
+                        .psize()
+                        .bits8()
+                        // circular mode disabled
+                        .circ()
+                        .clear_bit()
+                        // write to peripheral
+                        .dir()
+                        .set_bit()
+                });
+
                 SpiTxDma { payload, channel }
             }
 
             pub fn with_rxtx_dma(
                 self,
-                rx_channel: $RX_CH,
-                tx_channel: $TX_CH,
+                mut rx_channel: $RX_CH,
+                mut tx_channel: $TX_CH,
             ) -> SpiRxTxDma<$SPIX, PINS, $RX_CH, $TX_CH> {
                 let payload = SpiPayload { spi: self };
+
+                // Perform one-time setup actions to keep the work minimal when using the driver.
+
+                //
+                // Setup RX channel
+                //
+                rx_channel.set_peripheral_address(
+                    unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                rx_channel.cselr().modify(|_, w| w.$RX_CHX().$RX_MAPX());
+
+                rx_channel.ccr().modify(|_, w| {
+                    w
+                        // memory to memory mode disabled
+                        .mem2mem()
+                        .clear_bit()
+                        // medium channel priority level
+                        .pl()
+                        .medium()
+                        // 8-bit memory size
+                        .msize()
+                        .bits8()
+                        // 8-bit peripheral size
+                        .psize()
+                        .bits8()
+                        // circular mode disabled
+                        .circ()
+                        .clear_bit()
+                        // write to memory
+                        .dir()
+                        .clear_bit()
+                });
+
+                //
+                // Setup TX channel
+                //
+                tx_channel.set_peripheral_address(
+                    unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
+                    false,
+                );
+                tx_channel.cselr().modify(|_, w| w.$TX_CHX().$TX_MAPX());
+
+                tx_channel.ccr().modify(|_, w| {
+                    w
+                        // memory to memory mode disabled
+                        .mem2mem()
+                        .clear_bit()
+                        // medium channel priority level
+                        .pl()
+                        .medium()
+                        // 8-bit memory size
+                        .msize()
+                        .bits8()
+                        // 8-bit peripheral size
+                        .psize()
+                        .bits8()
+                        // circular mode disabled
+                        .circ()
+                        .clear_bit()
+                        // write to peripheral
+                        .dir()
+                        .set_bit()
+                });
+
                 SpiRxTxDma {
                     payload,
                     rx_channel,
@@ -515,37 +640,12 @@ macro_rules! spi_dma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_write_buffer() };
-                self.channel.set_peripheral_address(
-                    unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+
+                // Setup RX channel
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len as u16);
 
-                self.channel.cselr().modify(|_, w| w.$RX_CHX().$RX_MAPX());
-
-                atomic::compiler_fence(Ordering::Release);
-                self.channel.ccr().modify(|_, w| {
-                    w
-                        // memory to memory mode disabled
-                        .mem2mem()
-                        .clear_bit()
-                        // medium channel priority level
-                        .pl()
-                        .medium()
-                        // 8-bit memory size
-                        .msize()
-                        .bits8()
-                        // 8-bit peripheral size
-                        .psize()
-                        .bits8()
-                        // circular mode disabled
-                        .circ()
-                        .clear_bit()
-                        // write to memory
-                        .dir()
-                        .clear_bit()
-                });
+                // Fences and start
                 atomic::compiler_fence(Ordering::Release);
                 self.start();
 
@@ -561,37 +661,12 @@ macro_rules! spi_dma {
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_read_buffer() };
-                self.channel.set_peripheral_address(
-                    unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
-                    false,
-                );
+
+                // Setup TX channel
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len as u16);
 
-                self.channel.cselr().modify(|_, w| w.$TX_CHX().$TX_MAPX());
-
-                atomic::compiler_fence(Ordering::Release);
-                self.channel.ccr().modify(|_, w| {
-                    w
-                        // memory to memory mode disabled
-                        .mem2mem()
-                        .clear_bit()
-                        // medium channel priority level
-                        .pl()
-                        .medium()
-                        // 8-bit memory size
-                        .msize()
-                        .bits8()
-                        // 8-bit peripheral size
-                        .psize()
-                        .bits8()
-                        // circular mode disabled
-                        .circ()
-                        .clear_bit()
-                        // write to peripheral
-                        .dir()
-                        .set_bit()
-                });
+                // Fences and start
                 atomic::compiler_fence(Ordering::Release);
                 self.start();
 
@@ -610,83 +685,15 @@ macro_rules! spi_dma {
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_write_buffer() };
 
-                //
                 // Setup RX channel
-                //
-                self.rx_channel.set_peripheral_address(
-                    unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
-                    false,
-                );
                 self.rx_channel.set_memory_address(ptr as u32, true);
                 self.rx_channel.set_transfer_length(len as u16);
 
-                self.rx_channel
-                    .cselr()
-                    .modify(|_, w| w.$RX_CHX().$RX_MAPX());
-
-                atomic::compiler_fence(Ordering::Release);
-                self.rx_channel.ccr().modify(|_, w| {
-                    w
-                        // memory to memory mode disabled
-                        .mem2mem()
-                        .clear_bit()
-                        // medium channel priority level
-                        .pl()
-                        .medium()
-                        // 8-bit memory size
-                        .msize()
-                        .bits8()
-                        // 8-bit peripheral size
-                        .psize()
-                        .bits8()
-                        // circular mode disabled
-                        .circ()
-                        .clear_bit()
-                        // write to memory
-                        .dir()
-                        .clear_bit()
-                });
-
-                //
                 // Setup TX channel
-                //
-                self.tx_channel.set_peripheral_address(
-                    unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
-                    false,
-                );
                 self.tx_channel.set_memory_address(ptr as u32, true);
                 self.tx_channel.set_transfer_length(len as u16);
 
-                self.tx_channel
-                    .cselr()
-                    .modify(|_, w| w.$TX_CHX().$TX_MAPX());
-
-                atomic::compiler_fence(Ordering::Release);
-                self.tx_channel.ccr().modify(|_, w| {
-                    w
-                        // memory to memory mode disabled
-                        .mem2mem()
-                        .clear_bit()
-                        // medium channel priority level
-                        .pl()
-                        .medium()
-                        // 8-bit memory size
-                        .msize()
-                        .bits8()
-                        // 8-bit peripheral size
-                        .psize()
-                        .bits8()
-                        // circular mode disabled
-                        .circ()
-                        .clear_bit()
-                        // write to peripheral
-                        .dir()
-                        .set_bit()
-                });
-
-                //
                 // Fences and start
-                //
                 atomic::compiler_fence(Ordering::Release);
                 self.start();
 
