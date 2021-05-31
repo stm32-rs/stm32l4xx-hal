@@ -12,8 +12,6 @@ use crate::time::Hertz;
 use cast::{u16, u8};
 use core::ops::Deref;
 
-const MAX_NBYTE_SIZE: usize = 255;
-
 /// I2C error
 #[non_exhaustive]
 #[derive(Debug)]
@@ -58,67 +56,6 @@ macro_rules! pins {
 pub struct I2c<I2C, PINS> {
     i2c: I2C,
     pins: PINS,
-}
-
-// TODO review why StartCondition and State structs exists. Last
-// update to them was november 2020
-/// Start conditions that govern repeated sequential transfer
-#[derive(Debug, Clone)]
-enum StartCondition {
-    /// Non-sequential transfer. Generate both start and stop.
-    FirstAndLast,
-    /// First transfer in a sequence. Generate start and reload for the next.
-    First,
-    /// In the middle of sequential transfer. No start/stop generation.
-    Middle,
-    /// Generate stop to terminate the sequence.
-    Last,
-}
-
-impl StartCondition {
-    /// Configures the I2C sequential transfer
-    fn config<'a>(&self, w: &'a mut i2c1::cr2::W) -> &'a mut i2c1::cr2::W {
-        use StartCondition::*;
-        match self {
-            FirstAndLast => w.start().start().autoend().automatic(),
-            First => w.start().start().reload().not_completed(),
-            Middle => w.start().no_start().reload().not_completed(),
-            Last => w.start().no_start().autoend().automatic(),
-        }
-    }
-}
-
-/// Yields start/stop direction from chunks of a payload
-#[derive(Debug, Default, Clone)]
-struct State {
-    total_length: usize,
-    current_length: Option<usize>,
-}
-
-impl State {
-    fn new(total_length: usize) -> Self {
-        Self {
-            total_length,
-            current_length: None,
-        }
-    }
-
-    fn start_condition(&mut self, chunk_len: usize) -> StartCondition {
-        use StartCondition::*;
-        let total_len = self.total_length;
-        match self.current_length.as_mut() {
-            None if chunk_len == total_len => FirstAndLast,
-            None => {
-                self.current_length.replace(chunk_len);
-                First
-            }
-            Some(len) if *len + chunk_len < total_len => {
-                *len += chunk_len;
-                Middle
-            }
-            Some(_) => Last,
-        }
-    }
 }
 
 macro_rules! hal {
