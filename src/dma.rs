@@ -374,6 +374,28 @@ where
     }
 }
 
+impl<MODE, BUFFER, PAYLOAD> Transfer<MODE, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
+    pub(crate) fn extract_inner_without_drop(self) -> (BUFFER, PAYLOAD) {
+        // `Transfer` needs to have a `Drop` implementation, because we accept
+        // managed buffers that can free their memory on drop. Because of that
+        // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
+        // and `mem::forget`.
+        //
+        // NOTE(unsafe) There is no panic branch between getting the resources
+        // and forgetting `self`.
+        unsafe {
+            // We cannot use mem::replace as we do not have valid objects to replace with
+            let buffer = ptr::read(&self.buffer);
+            let payload = ptr::read(&self.payload);
+            core::mem::forget(self);
+            (buffer, payload)
+        }
+    }
+}
+
 /// Read transfer
 pub struct R;
 
@@ -426,19 +448,10 @@ macro_rules! rx_tx_channel_mapping {
                 // before the previous statement, which marks the DMA transfer as done
                 atomic::compiler_fence(Ordering::SeqCst);
 
-                // `Transfer` needs to have a `Drop` implementation, because we accept
+                // `Transfer` has a `Drop` implementation because we accept
                 // managed buffers that can free their memory on drop. Because of that
-                // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
-                // and `mem::forget`.
-                //
-                // NOTE(unsafe) There is no panic branch between getting the resources
-                // and forgetting `self`.
-                unsafe {
-                    let buffer = ptr::read(&self.buffer);
-                    let payload = ptr::read(&self.payload);
-                    core::mem::forget(self);
-                    (buffer, payload)
-                }
+                // we can't move out of the `Transfer`'s fields directly.
+                self.extract_inner_without_drop()
             }
         }
 
@@ -937,19 +950,10 @@ macro_rules! dma {
                             // before the previous statement, which marks the DMA transfer as done
                             atomic::compiler_fence(Ordering::SeqCst);
 
-                            // `Transfer` needs to have a `Drop` implementation, because we accept
+                            // `Transfer` has a `Drop` implementation because we accept
                             // managed buffers that can free their memory on drop. Because of that
-                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
-                            // and `mem::forget`.
-                            //
-                            // NOTE(unsafe) There is no panic branch between getting the resources
-                            // and forgetting `self`.
-                            unsafe {
-                                let buffer = ptr::read(&self.buffer);
-                                let payload = ptr::read(&self.payload);
-                                core::mem::forget(self);
-                                (buffer, payload)
-                            }
+                            // we can't move out of the `Transfer`'s fields directly.
+                            self.extract_inner_without_drop()
                         }
                     }
 
@@ -975,19 +979,10 @@ macro_rules! dma {
                             // before the previous statement, which marks the DMA transfer as done
                             atomic::compiler_fence(Ordering::SeqCst);
 
-                            // `Transfer` needs to have a `Drop` implementation, because we accept
+                            // `Transfer` has a `Drop` implementation because we accept
                             // managed buffers that can free their memory on drop. Because of that
-                            // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
-                            // and `mem::forget`.
-                            //
-                            // NOTE(unsafe) There is no panic branch between getting the resources
-                            // and forgetting `self`.
-                            unsafe {
-                                let buffer = ptr::read(&self.buffer);
-                                let payload = ptr::read(&self.payload);
-                                core::mem::forget(self);
-                                (buffer, payload)
-                            }
+                            // we can't move out of the `Transfer`'s fields directly.
+                            self.extract_inner_without_drop()
                         }
                     }
 
