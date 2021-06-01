@@ -37,8 +37,6 @@ const APP: () = {
         rprintln!("  - Clock init");
         let clocks = rcc
             .cfgr
-            .lse(CrystalBypass::Enable, ClockSecuritySystem::Disable)
-            .hsi48(true) // For RNG
             .msi(MsiFreq::RANGE4M)
             .sysclk(80.mhz())
             .freeze(&mut flash.acr, &mut pwr);
