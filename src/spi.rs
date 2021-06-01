@@ -572,63 +572,128 @@ macro_rules! spi_dma {
 
         impl<PINS> dma::TransferPayload for SpiRxDma<$SPIX, PINS, $RX_CH> {
             fn start(&mut self) {
+                // Setup DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)".
+                // It is mandatory to follow these steps in order:
+                //
+                // 0. SPI disabled during setup.
+                // 1. Enable DMA Rx buffer in the RXDMAEN bit in the SPI_CR2 register, if DMA Rx is used.
+                // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
+                // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
+                // 4. Enable the SPI by setting the SPE bit.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 0.
                 self.payload
                     .spi
                     .spi
                     .cr2
-                    .modify(|_, w| w.rxdmaen().set_bit());
-                self.channel.start();
+                    .modify(|_, w| w.rxdmaen().set_bit()); // 1.
+                self.channel.start(); // 2.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().set_bit()); // 4.
             }
 
             fn stop(&mut self) {
-                self.channel.stop();
+                // Stop DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)".
+                // It is mandatory to follow these steps in order:
+                //
+                // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
+                // 2. Disable the SPI by following the SPI disable procedure.
+                // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
+                //    SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
+                self.channel.stop(); // 1.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 2.
                 self.payload
                     .spi
                     .spi
                     .cr2
-                    .modify(|_, w| w.rxdmaen().clear_bit());
+                    .modify(|_, w| w.rxdmaen().clear_bit()); // 3.
             }
         }
 
         impl<PINS> dma::TransferPayload for SpiTxDma<$SPIX, PINS, $TX_CH> {
             fn start(&mut self) {
+                // Setup DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)".
+                // It is mandatory to follow these steps in order:
+                //
+                // 0. SPI disabled during setup.
+                // 1. Enable DMA Rx buffer in the RXDMAEN bit in the SPI_CR2 register, if DMA Rx is used.
+                // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
+                // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
+                // 4. Enable the SPI by setting the SPE bit.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 0.
+                self.channel.start(); // 2.
                 self.payload
                     .spi
                     .spi
                     .cr2
-                    .modify(|_, w| w.txdmaen().set_bit());
-                self.channel.start();
+                    .modify(|_, w| w.txdmaen().set_bit()); // 3.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().set_bit()); // 4.
             }
 
             fn stop(&mut self) {
-                self.channel.stop();
+                // Stop DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)".
+                // It is mandatory to follow these steps in order:
+                //
+                // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
+                // 2. Disable the SPI by following the SPI disable procedure.
+                // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
+                //    SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
+                self.channel.stop(); // 1.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 2.
                 self.payload
                     .spi
                     .spi
                     .cr2
-                    .modify(|_, w| w.txdmaen().clear_bit());
+                    .modify(|_, w| w.txdmaen().clear_bit()); // 3.
             }
         }
 
         impl<PINS> dma::TransferPayload for SpiRxTxDma<$SPIX, PINS, $RX_CH, $TX_CH> {
             fn start(&mut self) {
+                // Setup DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)".
+                // It is mandatory to follow these steps in order:
+                //
+                // 0. SPI disabled during setup.
+                // 1. Enable DMA Rx buffer in the RXDMAEN bit in the SPI_CR2 register, if DMA Rx is used.
+                // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
+                // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
+                // 4. Enable the SPI by setting the SPE bit.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 0.
                 self.payload
                     .spi
                     .spi
                     .cr2
-                    .modify(|_, w| w.rxdmaen().set_bit().txdmaen().set_bit());
-                self.rx_channel.start();
-                self.tx_channel.start();
+                    .modify(|_, w| w.rxdmaen().set_bit()); // 1.
+                self.rx_channel.start(); // 2.
+                self.tx_channel.start(); // 2.
+                self.payload
+                    .spi
+                    .spi
+                    .cr2
+                    .modify(|_, w| w.txdmaen().set_bit()); // 3.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().set_bit()); // 4.
             }
 
             fn stop(&mut self) {
-                self.tx_channel.stop();
-                self.rx_channel.stop();
+                // Stop DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)".
+                // It is mandatory to follow these steps in order:
+                //
+                // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
+                // 2. Disable the SPI by following the SPI disable procedure.
+                // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
+                //    SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
+                self.tx_channel.stop(); // 1.
+                self.rx_channel.stop(); // 1.
+                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 2.
                 self.payload
                     .spi
                     .spi
                     .cr2
-                    .modify(|_, w| w.rxdmaen().clear_bit().txdmaen().clear_bit());
+                    .modify(|_, w| w.rxdmaen().clear_bit().txdmaen().clear_bit()); // 3.
             }
         }
 
@@ -637,11 +702,14 @@ macro_rules! spi_dma {
             B: StaticWriteBuffer<Word = u8>,
         {
             fn read(mut self, mut buffer: B) -> dma::Transfer<dma::W, B, Self> {
+                // Setup DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)"
+
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_write_buffer() };
 
-                // Setup RX channel
+                // Setup RX channel addresses and length
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len as u16);
 
@@ -658,11 +726,14 @@ macro_rules! spi_dma {
             B: StaticReadBuffer<Word = u8>,
         {
             fn write(mut self, buffer: B) -> dma::Transfer<dma::R, B, Self> {
+                // Setup DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)"
+
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_read_buffer() };
 
-                // Setup TX channel
+                // Setup TX channel addresses and length
                 self.channel.set_memory_address(ptr as u32, true);
                 self.channel.set_transfer_length(len as u16);
 
@@ -679,17 +750,20 @@ macro_rules! spi_dma {
             B: StaticWriteBuffer<Word = u8>,
         {
             fn transfer(mut self, mut buffer: B) -> dma::Transfer<dma::RW, B, Self> {
+                // Setup DMA channels in accordance with RM 40.4.9, subheading "Communication using
+                // DMA (direct memory addressing)"
+
                 // Transfer: we use the same buffer for RX and TX
 
                 // NOTE(unsafe) We own the buffer now and we won't call other `&mut` on it
                 // until the end of the transfer.
                 let (ptr, len) = unsafe { buffer.static_write_buffer() };
 
-                // Setup RX channel
+                // Setup RX channel addresses and length
                 self.rx_channel.set_memory_address(ptr as u32, true);
                 self.rx_channel.set_transfer_length(len as u16);
 
-                // Setup TX channel
+                // Setup TX channel addresses and length
                 self.tx_channel.set_memory_address(ptr as u32, true);
                 self.tx_channel.set_transfer_length(len as u16);
 
