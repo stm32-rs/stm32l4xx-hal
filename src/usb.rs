@@ -21,7 +21,11 @@ pub struct Peripheral {
 unsafe impl Sync for Peripheral {}
 
 unsafe impl UsbPeripheral for Peripheral {
+    #[cfg(not(feature = "stm32l4x3"))]
     const REGISTERS: *const () = USB::ptr() as *const ();
+    // Workaround due to a PAC issue: https://github.com/stm32-rs/stm32-rs/issues/565
+    #[cfg(feature = "stm32l4x3")]
+    const REGISTERS: *const () = 0x4000_6800 as *const ();
     const DP_PULL_UP_FEATURE: bool = true;
     const EP_MEMORY: *const () = 0x4000_6c00 as _;
     const EP_MEMORY_SIZE: usize = 1024;
