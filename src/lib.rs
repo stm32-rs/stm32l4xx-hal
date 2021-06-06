@@ -68,6 +68,8 @@ pub mod traits;
     feature = "stm32l4x6"
 ))]
 pub mod adc;
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x5",))]
+pub mod can;
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
