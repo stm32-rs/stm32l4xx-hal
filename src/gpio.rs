@@ -857,7 +857,7 @@ gpio!(GPIOE, gpioe, gpioc, gpioeen, gpioerst, PEx, 4, [
     PE15: (pe15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6", feature = "stm32l4r9"))]
 gpio!(GPIOF, gpiof, gpioc, gpiofen, gpiofrst, PFx, 5, [
     PF0: (pf0, 0, Input<Floating>, AFRL, exticr1),
     PF1: (pf1, 1, Input<Floating>, AFRL, exticr1),
@@ -877,7 +877,7 @@ gpio!(GPIOF, gpiof, gpioc, gpiofen, gpiofrst, PFx, 5, [
     PF15: (pf15, 15, Input<Floating>, AFRH, exticr4),
 ]);
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6", feature = "stm32l4r9"))]
 gpio!(GPIOG, gpiog, gpioc, gpiogen, gpiogrst, PGx, 6, [
     PG0: (pg0, 0, Input<Floating>, AFRL, exticr1),
     PG1: (pg1, 1, Input<Floating>, AFRL, exticr1),
