@@ -896,3 +896,43 @@ gpio!(GPIOG, gpiog, gpioc, gpiogen, gpiogrst, PGx, 6, [
     PG14: (pg14, 14, Input<Floating>, AFRH, exticr4),
     PG15: (pg15, 15, Input<Floating>, AFRH, exticr4),
 ]);
+
+#[cfg(any(feature = "stm32l4r9"))]
+gpio!(GPIOH, gpioh, gpioc, gpiohen, gpiohrst, PHx, 7, [
+    PH0: (ph0, 0, Input<Floating>, AFRL, exticr1),
+    PH1: (ph1, 1, Input<Floating>, AFRL, exticr1),
+    PH2: (ph2, 2, Input<Floating>, AFRL, exticr1),
+    PH3: (ph3, 3, Input<Floating>, AFRL, exticr1),
+    PH4: (ph4, 4, Input<Floating>, AFRL, exticr2),
+    PH5: (ph5, 5, Input<Floating>, AFRL, exticr2),
+    PH6: (ph6, 6, Input<Floating>, AFRL, exticr2),
+    PH7: (ph7, 7, Input<Floating>, AFRL, exticr2),
+    PH8: (ph8, 8, Input<Floating>, AFRH, exticr3),
+    PH9: (ph9, 9, Input<Floating>, AFRH, exticr3),
+    PH10: (ph10, 10, Input<Floating>, AFRH, exticr3),
+    PH11: (ph11, 11, Input<Floating>, AFRH, exticr3),
+    PH12: (ph12, 12, Input<Floating>, AFRH, exticr4),
+    PH13: (ph13, 13, Input<Floating>, AFRH, exticr4),
+    PH14: (ph14, 14, Input<Floating>, AFRH, exticr4),
+    PH15: (ph15, 15, Input<Floating>, AFRH, exticr4),
+]);
+
+#[cfg(any(feature = "stm32l4r9"))]
+gpio!(GPIOI, gpioi, gpioi, gpioien, gpioirst, PIx, 8, [
+    PI0: (pi0, 0, Input<Floating>, AFRL, exticr1),
+    PI1: (pi1, 1, Input<Floating>, AFRL, exticr1),
+    PI2: (pi2, 2, Input<Floating>, AFRL, exticr1),
+    PI3: (pi3, 3, Input<Floating>, AFRL, exticr1),
+    PI4: (pi4, 4, Input<Floating>, AFRL, exticr2),
+    PI5: (pi5, 5, Input<Floating>, AFRL, exticr2),
+    PI6: (pi6, 6, Input<Floating>, AFRL, exticr2),
+    PI7: (pi7, 7, Input<Floating>, AFRL, exticr2),
+    PI8: (pi8, 8, Input<Floating>, AFRH, exticr3),
+    PI9: (pi9, 9, Input<Floating>, AFRH, exticr3),
+    PI10: (pi10, 10, Input<Floating>, AFRH, exticr3),
+    PI11: (pi11, 11, Input<Floating>, AFRH, exticr3),
+    PI12: (pi12, 12, Input<Floating>, AFRH, exticr4),
+    PI13: (pi13, 13, Input<Floating>, AFRH, exticr4),
+    PI14: (pi14, 14, Input<Floating>, AFRH, exticr4),
+    PI15: (pi15, 15, Input<Floating>, AFRH, exticr4),
+]);
