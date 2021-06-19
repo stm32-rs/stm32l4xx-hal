@@ -52,12 +52,13 @@ optional = true
 features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [features]
+dma = []
 rt = ["stm32l4/rt"]
-stm32l4x1 = ["stm32l4/stm32l4x1"]
-stm32l4x2 = ["stm32l4/stm32l4x2"]
-stm32l4x3 = ["stm32l4/stm32l4x3"]
-stm32l4x5 = ["stm32l4/stm32l4x5"]
-stm32l4x6 = ["stm32l4/stm32l4x6"]
+stm32l4x1 = ["dma", "stm32l4/stm32l4x1"]
+stm32l4x2 = ["dma", "stm32l4/stm32l4x2"]
+stm32l4x3 = ["dma", "stm32l4/stm32l4x3"]
+stm32l4x5 = ["dma", "stm32l4/stm32l4x5"]
+stm32l4x6 = ["dma", "stm32l4/stm32l4x6"]
 stm32l4r9 = ["stm32l4/stm32l4r9"]
 unproven = ["embedded-hal/unproven"]
 

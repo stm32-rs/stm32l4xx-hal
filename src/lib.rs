@@ -190,7 +190,8 @@ pub mod rtc;
     feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
-    feature = "stm32l4x6"
+    feature = "stm32l4x6",
+    feature = "stm32l4r9"
 ))]
 pub mod serial;
 #[cfg(any(
