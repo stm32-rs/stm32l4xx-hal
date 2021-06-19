@@ -529,6 +529,9 @@ use crate::gpio::gpiob::PB8;
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6", feature = "stm32l4r9"))]
 use crate::gpio::gpiob::{PB13, PB14, PB9};
 
+#[cfg(feature = "stm32l4r9")]
+use crate::gpio::gpiog::PG13;
+
 pins!(I2C1, AF4,
     SCL: [PA9, PB6],
     SDA: [PA10, PB7]);
@@ -549,3 +552,9 @@ pins!(I2C1, AF4, SCL: [PB8], SDA: []);
 
 #[cfg(feature = "stm32l4x3")]
 pins!(I2C2, AF4, SCL: [PC0], SDA: [PC1]);
+
+#[cfg(feature = "stm32l4r9")]
+pins!(I2C1, AF4,
+    SCL: [],
+    SDA: [PG13]);
+
