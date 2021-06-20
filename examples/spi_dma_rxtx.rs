@@ -10,7 +10,7 @@ use stm32l4xx_hal::{
     gpio::{Speed, State as PinState},
     hal::spi::{Mode, Phase, Polarity},
     prelude::*,
-    rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
+    rcc::MsiFreq,
     spi::Spi,
 };
 
