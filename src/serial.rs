@@ -7,11 +7,15 @@ use core::marker::PhantomData;
 use core::ops::DerefMut;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
+use embedded_dma::StaticWriteBuffer;
 use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 
-use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
+use crate::dma::{
+    dma1, CircBuffer, DMAFrame, FrameReader, FrameSender, Receive, RxDma, TransferPayload,
+    Transmit, TxDma,
+};
 use crate::gpio::{self, Alternate, AlternateOD, Floating, Input};
 use crate::pac;
 use crate::rcc::{Clocks, APB1R1, APB2};
@@ -196,8 +200,8 @@ macro_rules! hal {
             $usartXen:ident,
             $usartXrst:ident,
             $pclkX:ident,
-            tx: ($dmacst:ident, $tx_chan:path),
-            rx: ($dmacsr:ident, $rx_chan:path)
+            tx: ($txdma:ident, $dmacst:ident, $dmatxch:path),
+            rx: ($rxdma:ident, $dmacsr:ident, $dmarxch:path)
         ),
     )+) => {
         $(
@@ -501,147 +505,42 @@ macro_rules! hal {
             impl embedded_hal::blocking::serial::write::Default<u8>
                 for Tx<pac::$USARTX> {}
 
+            pub type $rxdma = RxDma<Rx<pac::$USARTX>, $dmarxch>;
+            pub type $txdma = TxDma<Tx<pac::$USARTX>, $dmatxch>;
+
+            impl Receive for $rxdma {
+                type RxChannel = $dmarxch;
+                type TransmittedWord = u8;
+            }
+
+            impl Transmit for $txdma {
+                type TxChannel = $dmatxch;
+                type ReceivedWord = u8;
+            }
+
+            impl TransferPayload for $rxdma {
+                fn start(&mut self) {
+                    self.channel.start();
+                }
+                fn stop(&mut self) {
+                    self.channel.stop();
+                }
+            }
+
+            impl TransferPayload for $txdma {
+                fn start(&mut self) {
+                    self.channel.start();
+                }
+                fn stop(&mut self) {
+                    self.channel.stop();
+                }
+            }
+
             impl Rx<pac::$USARTX> {
-                pub fn circ_read<B, H>(
-                    &self,
-                    mut chan: $rx_chan,
-                    mut buffer: B,
-                ) -> CircBuffer<B, $rx_chan>
-                where
-                    B: StableDeref<Target = [H; 2]> + DerefMut + 'static,
-                    H: AsMut<[u8]>
-                {
-                    let buf = buffer[0].as_mut();
-                    chan.set_peripheral_address(unsafe{ &(*pac::$USARTX::ptr()).rdr as *const _ as u32 }, false);
-                    chan.set_memory_address(buf.as_ptr() as u32, true);
-                    chan.set_transfer_length((buf.len() * 2) as u16);
-
-                    // Tell DMA to request from serial
-                    chan.cselr().modify(|_, w| {
-                        w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
-                    });
-
-                    chan.ccr().modify(|_, w| unsafe {
-                        w.mem2mem()
-                            .clear_bit()
-                            // 00: Low, 01: Medium, 10: High, 11: Very high
-                            .pl()
-                            .bits(0b01)
-                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                            .msize()
-                            .bits(0b00)
-                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                            .psize()
-                            .bits(0b00)
-                            .circ()
-                            .set_bit()
-                            .dir()
-                            .clear_bit()
-                    });
-
-                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                    // the next statement, which starts the DMA transfer
-                    atomic::compiler_fence(Ordering::Release);
-
-                    chan.start();
-
-                    CircBuffer::new(buffer, chan)
-                }
-
-                /// Create a frame reader that can either react on the Character match interrupt or
-                /// Transfer Complete from the DMA.
-                pub fn frame_read<BUFFER, const N: usize>(
-                    &self,
-                    mut channel: $rx_chan,
-                    buffer: BUFFER,
-                ) -> FrameReader<BUFFER, $rx_chan, N>
-                    where
-                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-                {
-                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
-
-                    // Setup DMA transfer
-                    let buf = &*buffer;
-                    channel.set_peripheral_address(&usart.rdr as *const _ as u32, false);
-                    channel.set_memory_address(unsafe { buf.buffer_address_for_dma() } as u32, true);
-                    channel.set_transfer_length(buf.max_len() as u16);
-
-                    // Tell DMA to request from serial
-                    channel.cselr().modify(|_, w| {
-                        w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
-                    });
-
-                    channel.ccr().modify(|_, w| unsafe {
-                        w.mem2mem()
-                            .clear_bit()
-                            // 00: Low, 01: Medium, 10: High, 11: Very high
-                            .pl()
-                            .bits(0b01)
-                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                            .msize()
-                            .bits(0b00)
-                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                            .psize()
-                            .bits(0b00)
-                            // Peripheral -> Mem
-                            .dir()
-                            .clear_bit()
-                    });
-
-                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                    // the next statement, which starts the DMA transfer
-                    atomic::compiler_fence(Ordering::Release);
-
-                    channel.start();
-
-                    FrameReader::new(buffer, channel, usart.cr2.read().add().bits())
-                }
-
-                /// Checks to see if the USART peripheral has detected an idle line and clears
-                /// the flag
-                pub fn is_idle(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.idle().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.idlecf().set_bit() );
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-
-                /// Checks to see if the USART peripheral has detected an character match and
-                /// clears the flag
-                pub fn is_character_match(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.cmf().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.cmcf().set_bit() );
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-
-                /// Checks to see if the USART peripheral has detected an receiver timeout and
-                /// clears the flag
-                pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.rtof().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.rtocf().set_bit() );
-                        }
-                        true
-                    } else {
-                        false
+                pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
+                    RxDma {
+                        payload: self,
+                        channel,
                     }
                 }
 
@@ -676,28 +575,221 @@ macro_rules! hal {
 
                     Ok(())
                 }
+
+                /// Checks to see if the USART peripheral has detected an idle line and clears
+                /// the flag
+                pub fn is_idle(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.idle().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.idlecf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+
+                /// Checks to see if the USART peripheral has detected an receiver timeout and
+                /// clears the flag
+                pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.rtof().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.rtocf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                /// Checks to see if the USART peripheral has detected an character match and
+                /// clears the flag
+                pub fn check_character_match(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.cmf().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.cmcf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+
+            impl crate::dma::CharacterMatch for Rx<pac::$USARTX> {
+                /// Checks to see if the USART peripheral has detected an character match and
+                /// clears the flag
+                fn check_character_match(&mut self, clear: bool) -> bool {
+                    self.check_character_match(clear)
+                }
             }
 
             impl Tx<pac::$USARTX> {
+                pub fn with_dma(self, channel: $dmatxch) -> $txdma {
+                    TxDma {
+                        payload: self,
+                        channel,
+                    }
+                }
+            }
+
+            impl $rxdma {
+                pub fn split(mut self) -> (Rx<pac::$USARTX>, $dmarxch) {
+                    self.stop();
+                    let RxDma {payload, channel} = self;
+                    (
+                        payload,
+                        channel
+                    )
+                }
+            }
+
+            impl $txdma {
+                pub fn split(mut self) -> (Tx<pac::$USARTX>, $dmatxch) {
+                    self.stop();
+                    let TxDma {payload, channel} = self;
+                    (
+                        payload,
+                        channel,
+                    )
+                }
+            }
+
+            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
+            where
+                &'static mut [B; 2]: StaticWriteBuffer<Word = u8>,
+                B: 'static,
+                Self: core::marker::Sized,
+            {
+                fn circ_read(mut self, mut buffer: &'static mut [B; 2],
+                ) -> CircBuffer<B, Self>
+                {
+                    let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                    self.channel.set_peripheral_address(
+                        unsafe { &(*pac::$USARTX::ptr()).rdr as *const _ as u32 },
+                        false,
+                    );
+                    self.channel.set_memory_address(ptr as u32, true);
+                    self.channel.set_transfer_length(len as u16);
+
+                    // Tell DMA to request from serial
+                    self.channel.cselr().modify(|_, w| {
+                        w.$dmacsr().map2()
+                    });
+
+                    self.channel.ccr().modify(|_, w| {
+                        w
+                            // memory to memory mode disabled
+                            .mem2mem()
+                            .clear_bit()
+                            // medium channel priority level
+                            .pl()
+                            .medium()
+                            // 8-bit memory size
+                            .msize()
+                            .bits8()
+                            // 8-bit peripheral size
+                            .psize()
+                            .bits8()
+                            // circular mode disabled
+                            .circ()
+                            .set_bit()
+                            // write to memory
+                            .dir()
+                            .clear_bit()
+                    });
+
+                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                    // the next statement, which starts the DMA transfer
+                    atomic::compiler_fence(Ordering::Release);
+
+                    self.start();
+
+                    CircBuffer::new(buffer, self)
+                }
+            }
+
+            impl $rxdma {
+                /// Create a frame reader that can either react on the Character match interrupt or
+                /// Transfer Complete from the DMA.
+                pub fn frame_reader<BUFFER, const N: usize>(
+                    mut self,
+                    buffer: BUFFER,
+                ) -> FrameReader<BUFFER, Self, N>
+                    where
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
+                {
+                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
+
+                    // Setup DMA transfer
+                    let buf = &*buffer;
+                    self.channel.set_peripheral_address(&usart.rdr as *const _ as u32, false);
+                    self.channel.set_memory_address(unsafe { buf.buffer_address_for_dma() } as u32, true);
+                    self.channel.set_transfer_length(buf.max_len() as u16);
+
+                    // Tell DMA to request from serial
+                    self.channel.cselr().modify(|_, w| {
+                        w.$dmacsr().map2()
+                    });
+
+                    self.channel.ccr().modify(|_, w| {
+                        w
+                            // memory to memory mode disabled
+                            .mem2mem()
+                            .clear_bit()
+                            // medium channel priority level
+                            .pl()
+                            .medium()
+                            // 8-bit memory size
+                            .msize()
+                            .bits8()
+                            // 8-bit peripheral size
+                            .psize()
+                            .bits8()
+                            // Peripheral -> Mem
+                            .dir()
+                            .clear_bit()
+                    });
+
+                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                    // the next statement, which starts the DMA transfer
+                    atomic::compiler_fence(Ordering::Release);
+
+                    self.channel.start();
+
+                    FrameReader::new(buffer, self, usart.cr2.read().add().bits())
+                }
+            }
+
+            impl $txdma {
                 /// Creates a new DMA frame sender
                 pub fn frame_sender<BUFFER, const N: usize>(
-                    &self,
-                    mut channel: $tx_chan,
-                ) -> FrameSender<BUFFER, $tx_chan, N>
+                    mut self,
+                ) -> FrameSender<BUFFER, Self, N>
                     where
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                 {
                     let usart = unsafe{ &(*pac::$USARTX::ptr()) };
 
                     // Setup DMA
-                    channel.set_peripheral_address(&usart.tdr as *const _ as u32, false);
+                    self.channel.set_peripheral_address(&usart.tdr as *const _ as u32, false);
 
                     // Tell DMA to request from serial
-                    channel.cselr().modify(|_, w| {
-                        w.$dmacst().bits(0b0010) // TODO: Fix this, not valid for DMA2
+                    self.channel.cselr().modify(|_, w| {
+                        w.$dmacst().map2()
                     });
 
-                    channel.ccr().modify(|_, w| unsafe {
+                    self.channel.ccr().modify(|_, w| unsafe {
                         w.mem2mem()
                             .clear_bit()
                             // 00: Low, 01: Medium, 10: High, 11: Very high
@@ -714,7 +806,7 @@ macro_rules! hal {
                             .set_bit()
                     });
 
-                    FrameSender::new(channel)
+                    FrameSender::new(self)
                 }
             }
         )+
@@ -722,8 +814,8 @@ macro_rules! hal {
 }
 
 hal! {
-    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
-    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
+    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (TxDma1, c4s, dma1::C4), rx: (RxDma1, c5s, dma1::C5)),
+    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (TxDma2, c7s, dma1::C7), rx: (RxDma2, c6s, dma1::C6)),
 }
 
 #[cfg(any(
@@ -733,17 +825,17 @@ hal! {
     feature = "stm32l4x6",
 ))]
 hal! {
-    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
+    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (TxDma3, c2s, dma1::C2), rx: (RxDma3, c3s, dma1::C3)),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (c3s, dma2::C3), rx: (c5s, dma2::C5)),
+    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (TxDma4, c3s, dma2::C3), rx: (RxDma4, c5s, dma2::C5)),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (c1s, dma2::C1), rx: (c2s, dma2::C2)),
+    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (TxDma5, c1s, dma2::C1), rx: (RxDma5, c2s, dma2::C2)),
 }
 
 impl<USART, PINS> fmt::Write for Serial<USART, PINS>

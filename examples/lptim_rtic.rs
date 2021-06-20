@@ -71,7 +71,7 @@ const APP: () = {
     }
 
     #[task(binds = LPTIM1, resources = [lptim, led])]
-    fn timer_tick(mut ctx: timer_tick::Context) {
+    fn timer_tick(ctx: timer_tick::Context) {
         let timer_tick::Resources { lptim, led } = ctx.resources;
         if lptim.is_event_triggered(Event::AutoReloadMatch) {
             lptim.clear_event_flag(Event::AutoReloadMatch);
