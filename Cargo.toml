@@ -152,3 +152,7 @@ required-features = ["stm32l4x1"]
 [[example]]
 name = "lptim_rtic"
 required-features = ["rt", "stm32l4x2"]
+
+[[example]]
+name = "adc_dma"
+required-features = ["rt", "stm32l4x1"]
