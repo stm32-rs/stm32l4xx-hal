@@ -2,15 +2,13 @@
 
 #![allow(dead_code)]
 
+use core::fmt;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ops::DerefMut;
 use core::ptr;
 use core::slice;
-use core::{
-    fmt,
-    sync::atomic::{self, compiler_fence, Ordering},
-};
+use core::sync::atomic::{self, compiler_fence, Ordering};
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 
 use crate::{
@@ -771,7 +769,7 @@ macro_rules! dma {
                             // the next statement, which starts a new DMA transfer
                             atomic::compiler_fence(Ordering::SeqCst);
 
-                            let left_in_buffer = self.channel.get_cndtr() as usize;
+                            let left_in_buffer = self.payload.channel.get_cndtr() as usize;
                             let got_data_len = old_buf.max_len() - left_in_buffer; // How many transfers were completed = how many bytes are available
                             unsafe {
                                 old_buf.set_len(got_data_len);
@@ -847,7 +845,7 @@ macro_rules! dma {
                             //                          ,- half-buffer
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
                             //                       ^- pending=11
-                            let pending = self.channel.get_cndtr() as usize; // available transfers (= bytes) in _whole_ buffer
+                            let pending = self.payload.channel.get_cndtr() as usize; // available transfers (= bytes) in _whole_ buffer
                             let slice = buf.as_ref();
                             let capacity = slice.len(); // capacity of _half_ a buffer
                             //     <--- capacity=10 --->
@@ -1043,10 +1041,37 @@ macro_rules! dma {
     }
 }
 
-impl<BUFFER, const N: usize> Transfer<W, BUFFER, dma1::C1, ADC>
+impl TransferPayload for RxDma<ADC, dma1::C1> {
+    fn start(&mut self) {
+        self.channel.start();
+    }
+
+    fn stop(&mut self) {
+        self.channel.stop();
+    }
+}
+
+impl RxDma<ADC, dma1::C1> {
+    pub fn split(mut self) -> (ADC, dma1::C1) {
+        self.stop();
+        (self.payload, self.channel)
+    }
+}
+
+impl<BUFFER, const N: usize> Transfer<W, BUFFER, RxDma<ADC, dma1::C1>>
 where
     BUFFER: Sized + StableDeref<Target = [u16; N]> + DerefMut + 'static,
 {
+    pub fn from_adc_dma(
+        dma: RxDma<ADC, dma1::C1>,
+        buffer: BUFFER,
+        dma_mode: adc::DmaMode,
+        transfer_complete_interrupt: bool,
+    ) -> Self {
+        let (adc, channel) = dma.split();
+        Transfer::from_adc(adc, channel, buffer, dma_mode, transfer_complete_interrupt)
+    }
+
     /// Initiate a new DMA transfer from an ADC.
     ///
     /// `dma_mode` indicates the desired mode for DMA.
@@ -1109,8 +1134,10 @@ where
         Transfer {
             _mode: PhantomData {},
             buffer,
-            channel,
-            payload: adc,
+            payload: RxDma {
+                channel,
+                payload: adc,
+            },
         }
     }
 }
