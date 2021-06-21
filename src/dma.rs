@@ -7,11 +7,11 @@ use core::mem::MaybeUninit;
 use core::ops::DerefMut;
 use core::ptr;
 use core::slice;
-use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 use core::{
     fmt,
-    sync::atomic::{self, Ordering, compiler_fence},
+    sync::atomic::{self, compiler_fence, Ordering},
 };
+use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 
 use crate::{
     adc::{self, DmaMode, ADC},
