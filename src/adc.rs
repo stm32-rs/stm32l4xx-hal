@@ -1,8 +1,13 @@
 //! # Analog to Digital converter
 
-use core::convert::Infallible;
+use core::{
+    convert::Infallible,
+    ops::DerefMut,
+    sync::atomic::{self, Ordering},
+};
 
 use crate::{
+    dma::{dma1, Event as DMAEvent, RxDma, Transfer, TransferPayload, W},
     gpio::{self, Analog},
     hal::{
         adc::{Channel as EmbeddedHalChannel, OneShot},
@@ -14,6 +19,7 @@ use crate::{
 };
 
 use pac::{ADC1, ADC_COMMON};
+use stable_deref_trait::StableDeref;
 
 /// Vref internal signal, used for calibration
 pub struct Vref;
@@ -449,6 +455,108 @@ where
         self.disable();
 
         Ok(val)
+    }
+}
+
+impl TransferPayload for RxDma<ADC, dma1::C1> {
+    fn start(&mut self) {
+        self.channel.start();
+    }
+
+    fn stop(&mut self) {
+        self.channel.stop();
+    }
+}
+
+impl RxDma<ADC, dma1::C1> {
+    pub fn split(mut self) -> (ADC, dma1::C1) {
+        self.stop();
+        (self.payload, self.channel)
+    }
+}
+
+impl<BUFFER, const N: usize> Transfer<W, BUFFER, RxDma<ADC, dma1::C1>>
+where
+    BUFFER: Sized + StableDeref<Target = [u16; N]> + DerefMut + 'static,
+{
+    pub fn from_adc_dma(
+        dma: RxDma<ADC, dma1::C1>,
+        buffer: BUFFER,
+        dma_mode: DmaMode,
+        transfer_complete_interrupt: bool,
+    ) -> Self {
+        let (adc, channel) = dma.split();
+        Transfer::from_adc(adc, channel, buffer, dma_mode, transfer_complete_interrupt)
+    }
+
+    /// Initiate a new DMA transfer from an ADC.
+    ///
+    /// `dma_mode` indicates the desired mode for DMA.
+    ///
+    /// If `transfer_complete_interrupt` is true, the transfer
+    /// complete interrupt (= `DMA1_CH1`) will be enabled
+    pub fn from_adc(
+        mut adc: ADC,
+        mut channel: dma1::C1,
+        buffer: BUFFER,
+        dma_mode: DmaMode,
+        transfer_complete_interrupt: bool,
+    ) -> Self {
+        assert!(dma_mode != DmaMode::Disabled);
+
+        let (enable, circular) = match dma_mode {
+            DmaMode::Disabled => (false, false),
+            DmaMode::Oneshot => (true, false),
+        };
+
+        adc.adc
+            .cfgr
+            .modify(|_, w| w.dmaen().bit(enable).dmacfg().bit(circular));
+
+        channel.set_peripheral_address(&adc.adc.dr as *const _ as u32, false);
+
+        // SAFETY: since the length of BUFFER is known to be `N`, we are allowed
+        // to perform N transfers into said buffer
+        channel.set_memory_address(buffer.as_ptr() as u32, true);
+        channel.set_transfer_length(N as u16);
+
+        channel.cselr().modify(|_, w| w.c1s().bits(0b0000));
+
+        channel.ccr().modify(|_, w| unsafe {
+            w.mem2mem()
+                .clear_bit()
+                // 00: Low, 01: Medium, 10: High, 11: Very high
+                .pl()
+                .bits(0b01)
+                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                .msize()
+                .bits(0b01)
+                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                .psize()
+                .bits(0b01)
+                // Peripheral -> Mem
+                .dir()
+                .clear_bit()
+                .circ()
+                .bit(circular)
+        });
+
+        if transfer_complete_interrupt {
+            channel.listen(DMAEvent::TransferComplete);
+        }
+
+        atomic::compiler_fence(Ordering::Release);
+
+        channel.start();
+        adc.start_conversion();
+
+        Transfer::w(
+            buffer,
+            RxDma {
+                channel,
+                payload: adc,
+            },
+        )
     }
 }
 
