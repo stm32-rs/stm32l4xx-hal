@@ -6,8 +6,8 @@ use core::mem;
 use crate::hal;
 use crate::stm32::{TIM1, TIM15, TIM2};
 
-use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA2, PA3, PA8, PA9};
-use crate::gpio::gpiob::{PB11, PB14};
+use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA15, PA2, PA3, PA8, PA9};
+use crate::gpio::gpiob::{PB10, PB11, PB14, PB3};
 use crate::gpio::{Alternate, AlternateOD, Floating, Input, Output, PushPull, AF1, AF14};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
@@ -63,20 +63,41 @@ pins_to_channels_mapping! {
     // TIM2
     TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
     TIM2: (PA0, PA1, PA2, PB11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
+    TIM2: (PA15, PB3, PB10, PB11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
+
     TIM2: (PA1, PA2, PA3), (C2, C3, C4), (AF1, AF1, AF1);
     TIM2: (PA0, PA2, PA3), (C1, C3, C4), (AF1, AF1, AF1);
     TIM2: (PA0, PA1, PA3), (C1, C2, C4), (AF1, AF1, AF1);
     TIM2: (PA0, PA1, PA2), (C1, C2, C3), (AF1, AF1, AF1);
+
+    TIM2: (PB3, PB10, PB11), (C2, C3, C4), (AF1, AF1, AF1);
+    TIM2: (PA15, PB10, PB11), (C1, C3, C4), (AF1, AF1, AF1);
+    TIM2: (PA15, PB3, PB11), (C1, C2, C4), (AF1, AF1, AF1);
+    TIM2: (PA15, PB3, PB10), (C1, C2, C3), (AF1, AF1, AF1);
+
     TIM2: (PA2, PA3), (C3, C4), (AF1, AF1);
     TIM2: (PA1, PA3), (C2, C4), (AF1, AF1);
     TIM2: (PA1, PA2), (C2, C3), (AF1, AF1);
     TIM2: (PA0, PA3), (C1, C4), (AF1, AF1);
     TIM2: (PA0, PA2), (C1, C3), (AF1, AF1);
     TIM2: (PA0, PA1), (C1, C2), (AF1, AF1);
+
+    TIM2: (PB10, PB11), (C3, C4), (AF1, AF1);
+    TIM2: (PB3, PB11), (C2, C4), (AF1, AF1);
+    TIM2: (PB3, PB10), (C2, C3), (AF1, AF1);
+    TIM2: (PA15, PB11), (C1, C4), (AF1, AF1);
+    TIM2: (PA15, PB10), (C1, C3), (AF1, AF1);
+    TIM2: (PA15, PB3), (C1, C2), (AF1, AF1);
+
     TIM2: (PA0), (C1), (AF1);
     TIM2: (PA1), (C2), (AF1);
     TIM2: (PA2), (C3), (AF1);
     TIM2: (PA3), (C4), (AF1);
+
+    TIM2: (PA15), (C1), (AF1);
+    TIM2: (PB3), (C2), (AF1);
+    TIM2: (PB10), (C3), (AF1);
+    TIM2: (PB11), (C4), (AF1);
 
     // TIM15 - TODO: The uncommented lines are awaiting PAC updates to be valid.
     TIM15: (PB14), (C1), (AF14);
