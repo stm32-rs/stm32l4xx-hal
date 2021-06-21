@@ -37,7 +37,8 @@ pub struct ADC {
 pub enum DmaMode {
     Disabled = 0,
     Oneshot = 1,
-    Circular = 2,
+    // FIXME: Figure out how to get circular DMA to function properly (requires circbuffer?)
+    // Circular = 2,
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Copy)]

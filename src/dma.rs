@@ -1085,10 +1085,11 @@ where
         dma_mode: adc::DmaMode,
         transfer_complete_interrupt: bool,
     ) -> Self {
+        assert!(dma_mode != DmaMode::Disabled);
+
         let (enable, circular) = match dma_mode {
             DmaMode::Disabled => (false, false),
             DmaMode::Oneshot => (true, false),
-            DmaMode::Circular => (true, true),
         };
 
         adc.adc
