@@ -318,23 +318,23 @@ pub struct CircBuffer<BUFFER, PAYLOAD>
 where
     BUFFER: 'static,
 {
-    buffer: &'static mut [BUFFER; 2],
+    buffer: &'static mut BUFFER,
     payload: PAYLOAD,
-    readable_half: Half,
-    consumed_offset: usize,
+    read_index: usize,
+    write_previous: usize,
 }
 
 impl<BUFFER, PAYLOAD> CircBuffer<BUFFER, PAYLOAD>
 where
-    &'static mut [BUFFER; 2]: StaticWriteBuffer,
+    &'static mut BUFFER: StaticWriteBuffer,
     BUFFER: 'static,
 {
-    pub(crate) fn new(buf: &'static mut [BUFFER; 2], payload: PAYLOAD) -> Self {
+    pub(crate) fn new(buf: &'static mut BUFFER, payload: PAYLOAD) -> Self {
         CircBuffer {
             buffer: buf,
             payload,
-            readable_half: Half::Second,
-            consumed_offset: 0,
+            read_index: 0,
+            write_previous: 0,
         }
     }
 }
@@ -861,101 +861,117 @@ macro_rules! dma {
                     where
                         RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
-
-                        /// Return the partial contents of the buffer half being written
-                        pub fn partial_peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
-                            where
-                            F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
-                            B: AsRef<[T]>,
-                        {
-                            // this inverts expectation and returns the half being _written_
-                            let buf = match self.readable_half {
-                                Half::First => &self.buffer[1],
-                                Half::Second => &self.buffer[0],
-                            };
-                            //                          ,- half-buffer
-                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
-                            //                       ^- pending=11
-                            let pending = self.payload.channel.get_cndtr() as usize; // available transfers (= bytes) in _whole_ buffer
-                            let slice = buf.as_ref();
-                            let capacity = slice.len(); // capacity of _half_ a buffer
-                            //     <--- capacity=10 --->
-                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
-                            let pending = if pending > capacity {
-                                pending - capacity
-                            } else {
-                                pending
-                            };
-                            //                          ,- half-buffer
-                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
-                            //                       ^- pending=1
-                            let end = capacity - pending;
-                            //    [ x x x x y y y y y z | z z z z z z z z z z ]
-                            //                       ^- end=9
-                            //             ^- consumed_offset=4
-                            //             [y y y y y] <-- slice
-                            let slice = &buf.as_ref()[self.consumed_offset..end];
-                            match f(slice, self.readable_half) {
-                                Ok((l, r)) => { self.consumed_offset += l; Ok(r) },
-                                Err(_) => Err(Error::BufferError),
+                        /// Determines if the write index passed the given `mark` when it moved
+                        /// from `previous` to `current` with wrapping behaviour at `wrap`.
+                        /// When `current` reaches `mark` (`current == mark`), this method already
+                        /// returns `true`.
+                        fn passed_mark(&self, mut previous: usize, mut current: usize, mark: usize, wrap: usize) -> bool {
+                            // We have three indexes mark (m), previous (p) and current (c) so
+                            // there are fac(3)=6 possibilities how those can be ordered. For both
+                            // cases (passed, !passed), there are three wrapped variations each:
+                            // !passed: 1. m <= p <= c, 2. c < m <= p, 3. p <= c < m
+                            //  passed: 1. m <= c <  p, 2. p < m <= c, 3. c <  p < m
+                            // By enforcing p >= m and c >= m (reverting the wrap), we only have to
+                            // check the first case.
+                            if previous < mark {
+                                previous += wrap;
                             }
+                            if current < mark {
+                                current += wrap;
+                            }
+                            current < previous && current >= mark
                         }
 
-                        /// Peeks into the readable half of the buffer
-                        /// Returns the result of the closure
-                        pub fn peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
+                        /// Reads and removes the available contents of the dma buffer into `buf`.
+                        /// Returns `Err(Error::Overrun)` if an overrun is detected but there is no
+                        /// guarantee that every overrun can be detected.
+                        /// On success, returns the number of words written to `buf`.
+                        pub fn read<T>(&mut self, buf: &mut [T]) -> Result<usize, Error>
                             where
-                            F: FnOnce(&[T], Half) -> R,
                             B: AsRef<[T]>,
+                            T: Copy,
                         {
-                            let half_being_read = self.readable_half()?;
-                            let buf = match half_being_read {
-                                Half::First => &self.buffer[0],
-                                Half::Second => &self.buffer[1],
-                            };
-                            let slice = &buf.as_ref()[self.consumed_offset..];
-                            self.consumed_offset = 0;
-                            Ok(f(slice, half_being_read))
-                        }
-
-                        /// Returns the `Half` of the buffer that can be read
-                        pub fn readable_half(&mut self) -> Result<Half, Error> {
+                            // We do our best to figure out when an overrun occurred but without
+                            // risking false positives.
+                            //
+                            // One possibility to detect an overrun is by examining the read- and
+                            // write-indexes: If the write-index passes the read-index, that is an
+                            // overrun condition because an unread value is overwritten. This check
+                            // can fail if the write-index passed the read-index but due to
+                            // wrapping, this can not be detected. For example, this can happen if
+                            // `capacity` many words were written since the last read which looks
+                            // like no word has been written.
+                            //
+                            // Another possibility to detect overruns is by checking the
+                            // TransferComplete and HalfTransferComplete flags. For example, the
+                            // TransferComplete flag is set when the write-index wraps around so
+                            // whenever we encounter this flag the new write-index should be
+                            // smaller than the previous one. If it is not, more than `capacity`
+                            // many words must have been written which definitely must be an
+                            // overrun. Another possibility to formulate this condition is to check
+                            // wheter the write-index passed index 0. A similar condition can be
+                            // formulated for the HalfTransferComplete flag, i.e. check whether the
+                            // write-index passed index capacity/2.
+                            //
+                            // Unfortunately, even both checks together can not guarantee that we
+                            // detect all overruns.
+                            // Example:
+                            // read = 2, write = 3, 2*capacity-2 words written => write = 1.
+                            let capacity = self.buffer.as_ref().len();
+                            // We read the flags before reading the current write-index because if
+                            // another word is written between those two accesses, this ordering
+                            // prevents a false positive overrun error.
                             let isr = self.payload.channel.isr();
-                            let first_half_is_done = isr.$htifX().bit_is_set();
-                            let second_half_is_done = isr.$tcifX().bit_is_set();
-
-                            if first_half_is_done && second_half_is_done {
-                                return Err(Error::Overrun);
+                            let half_complete_flag = isr.$htifX().bit_is_set();
+                            if half_complete_flag {
+                                self.payload.channel.ifcr().write(|w| w.$chtifX().set_bit());
                             }
-
-                            let last_read_half = self.readable_half;
-
-                            Ok(match last_read_half {
-                                Half::First => {
-                                    if second_half_is_done {
-                                        self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
-
-                                        self.readable_half = Half::Second;
-                                        Half::Second
-                                    } else {
-                                        last_read_half
-                                    }
+                            let transfer_complete_flag = isr.$tcifX().bit_is_set();
+                            if transfer_complete_flag {
+                                self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            }
+                            let write_current = capacity - self.payload.channel.get_cndtr() as usize;
+                            // Copy the data before examining the overrun conditions. If the
+                            // overrun happens shortly after the flags and write-index were read,
+                            // we can not detect it anyways. So we can only hope that we have
+                            // already read the word(s) that will be overwritten.
+                            let available = if write_current >= self.read_index {
+                                write_current - self.read_index
+                            } else {
+                                capacity + write_current - self.read_index
+                            };
+                            let read_len = core::cmp::min(available, buf.len());
+                            if self.read_index + read_len <= capacity {
+                                // non-wrapping read
+                                buf[..read_len].copy_from_slice(&self.buffer.as_ref()[self.read_index..self.read_index+read_len]);
+                            } else {
+                                // wrapping read
+                                let first_read_len = capacity - self.read_index;
+                                let second_read_len = read_len - first_read_len;
+                                buf[..first_read_len].copy_from_slice(&self.buffer.as_ref()[self.read_index..]);
+                                buf[first_read_len..read_len].copy_from_slice(&self.buffer.as_ref()[..second_read_len]);
+                            }
+                            // For checking the overrun conditions, it is important that we use the
+                            // old read_index so do not increment it yet but check overrun
+                            // conditions first.
+                            // TODO When is the half-complete flag written exactly? Especially for
+                            // odd buffer capacities.
+                            let overrun = self.passed_mark(self.write_previous, write_current, self.read_index, capacity) || (transfer_complete_flag && !self.passed_mark(self.write_previous, write_current, 0, capacity)) || (half_complete_flag && !self.passed_mark(self.write_previous, write_current, capacity/2, capacity));
+                            self.write_previous = write_current;
+                            if overrun {
+                                self.read_index = write_current;
+                                Err(Error::Overrun)
+                            } else {
+                                self.read_index += read_len;
+                                if self.read_index >= capacity {
+                                    self.read_index -= capacity;
                                 }
-                                Half::Second => {
-                                    if first_half_is_done {
-                                        self.payload.channel.ifcr().write(|w| w.$chtifX().set_bit());
-
-                                        self.readable_half = Half::First;
-                                        Half::First
-                                    } else {
-                                        last_read_half
-                                    }
-                                }
-                            })
+                                Ok(read_len)
+                            }
                         }
 
                         /// Stops the transfer and returns the underlying buffer and RxDma
-                        pub fn stop(mut self) -> (&'static mut [B; 2], RxDma<PAYLOAD, $CX>) {
+                        pub fn stop(mut self) -> (&'static mut B, RxDma<PAYLOAD, $CX>) {
                             self.payload.stop();
 
                             (self.buffer, self.payload)
@@ -1243,11 +1259,11 @@ pub trait ReceiveTransmit {
 /// Trait for circular DMA readings from peripheral to memory.
 pub trait CircReadDma<B, RS>: Receive
 where
-    &'static mut [B; 2]: StaticWriteBuffer<Word = RS>,
+    &'static mut B: StaticWriteBuffer<Word = RS>,
     B: 'static,
     Self: core::marker::Sized,
 {
-    fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self>;
+    fn circ_read(self, buffer: &'static mut B) -> CircBuffer<B, Self>;
 }
 
 /// Trait for DMA readings from peripheral to memory.

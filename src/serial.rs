@@ -679,11 +679,11 @@ macro_rules! hal {
 
             impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
             where
-                &'static mut [B; 2]: StaticWriteBuffer<Word = u8>,
+                &'static mut B: StaticWriteBuffer<Word = u8>,
                 B: 'static,
                 Self: core::marker::Sized,
             {
-                fn circ_read(mut self, mut buffer: &'static mut [B; 2],
+                fn circ_read(mut self, mut buffer: &'static mut B,
                 ) -> CircBuffer<B, Self>
                 {
                     let (ptr, len) = unsafe { buffer.static_write_buffer() };
