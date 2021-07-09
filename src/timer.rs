@@ -264,7 +264,7 @@ impl Monotonic for ExtendedTimer<TIM15> {
         // how many ticks are left.
         let val = match instant.checked_duration_since(&now) {
             None => Timer::<TIM15>::count().wrapping_add(1), // In the past
-            Some(x) if *x.integer() <= 0xffff => *instant.duration_since_epoch().integer() as u16, // Will not overflow
+            Some(x) if x.integer() <= 0xffff => instant.duration_since_epoch().integer() as u16, // Will not overflow
             Some(_x) => Timer::<TIM15>::count().wrapping_add(0xffff), // Will overflow
         };
 
@@ -309,7 +309,7 @@ impl Monotonic for Timer<TIM2> {
     fn set_compare(&mut self, instant: &Instant<Self>) {
         self.tim
             .ccr1
-            .write(|w| w.ccr().bits(*instant.duration_since_epoch().integer()));
+            .write(|w| w.ccr().bits(instant.duration_since_epoch().integer()));
     }
 
     fn clear_compare_flag(&mut self) {
