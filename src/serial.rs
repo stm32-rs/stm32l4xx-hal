@@ -2,20 +2,27 @@
 //!
 //! This module support both polling and interrupt based accesses to the serial peripherals.
 
+#[cfg(feature = "dma")]
+use as_slice::AsMutSlice;
 use core::fmt;
 use core::marker::PhantomData;
+#[cfg(feature = "dma")]
+use core::mem::MaybeUninit;
+#[cfg(feature = "dma")]
 use core::ops::DerefMut;
 use core::ptr;
+#[cfg(feature = "dma")]
 use core::sync::atomic::{self, Ordering};
+#[cfg(feature = "dma")]
+use generic_array::ArrayLength;
+#[cfg(feature = "dma")]
 use embedded_dma::StaticWriteBuffer;
 use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 
-use crate::dma::{
-    dma1, CircBuffer, DMAFrame, FrameReader, FrameSender, Receive, RxDma, TransferPayload,
-    Transmit, TxDma,
-};
+#[cfg(feature = "dma")]
+use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
 use crate::gpio::{self, Alternate, AlternateOD, Floating, Input};
 use crate::pac;
 use crate::rcc::{Clocks, APB1R1, APB2};
@@ -240,6 +247,8 @@ macro_rules! hal {
                     usart.cr1.reset();
                     usart.cr2.reset();
                     usart.cr3.reset();
+
+                    usart.cr1.modify(|_, w| w.fifoen().set_bit());
 
                     // Configure baud rate
                     match config.oversampling {
@@ -505,6 +514,21 @@ macro_rules! hal {
             impl embedded_hal::blocking::serial::write::Default<u8>
                 for Tx<pac::$USARTX> {}
 
+            impl Rx<pac::$USARTX> {
+                #[cfg(feature = "dma")]
+                pub fn circ_read<B, H>(
+                    &self,
+                    mut chan: $rx_chan,
+                    mut buffer: B,
+                ) -> CircBuffer<B, $rx_chan>
+                where
+                    B: StableDeref<Target = [H; 2]> + DerefMut + 'static,
+                    H: AsMutSlice<Element = u8>
+                {
+                    let buf = buffer[0].as_mut_slice();
+                    chan.set_peripheral_address(unsafe{ &(*pac::$USARTX::ptr()).rdr as *const _ as u32 }, false);
+                    chan.set_memory_address(buf.as_ptr() as u32, true);
+                    chan.set_transfer_length((buf.len() * 2) as u16);
             pub type $rxdma = RxDma<Rx<pac::$USARTX>, $dmarxch>;
             pub type $txdma = TxDma<Tx<pac::$USARTX>, $dmatxch>;
 
@@ -527,6 +551,30 @@ macro_rules! hal {
                 }
             }
 
+                /// Create a frame reader that can either react on the Character match interrupt or
+                /// Transfer Complete from the DMA.
+                #[cfg(feature = "dma")]
+                pub fn frame_read<BUFFER, N>(
+                    &self,
+                    mut channel: $rx_chan,
+                    buffer: BUFFER,
+                ) -> FrameReader<BUFFER, $rx_chan, N>
+                    where
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
+                        N: ArrayLength<MaybeUninit<u8>>,
+                {
+                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
+
+                    // Setup DMA transfer
+                    let buf = &*buffer;
+                    channel.set_peripheral_address(&usart.rdr as *const _ as u32, false);
+                    channel.set_memory_address(unsafe { buf.buffer_address_for_dma() } as u32, true);
+                    channel.set_transfer_length(buf.max_len() as u16);
+
+                    // Tell DMA to request from serial
+                    channel.cselr().modify(|_, w| {
+                        w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
+                    });
             impl TransferPayload for $txdma {
                 fn start(&mut self) {
                     self.channel.start();
@@ -654,6 +702,8 @@ macro_rules! hal {
                 }
             }
 
+            #[cfg(feature = "dma")]
+            impl Tx<pac::$USARTX> {
             impl $txdma {
                 pub fn split(mut self) -> (Tx<pac::$USARTX>, $dmatxch) {
                     self.stop();
@@ -823,6 +873,7 @@ hal! {
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
+    feature = "stm32l4r9"
 ))]
 hal! {
     USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (TxDma3, c2s, dma1::C2), rx: (RxDma3, c3s, dma1::C3)),
@@ -967,13 +1018,14 @@ impl_pin_traits! {
     feature = "stm32l4x3",
     feature = "stm32l4x5",
     feature = "stm32l4x6",
+    feature = "stm32l4r9"
 ))]
 impl_pin_traits! {
     USART3: {
         AF7: {
             TX: PB10, PC4, PC10, PD8;
             RX: PB11, PC5, PC11, PD9;
-            RTS_DE: PB1, PB14, PD2, PD12;
+            RTS_DE: PB1, PB14, PD2, PD12, PA15;
             CTS: PA6, PB13, PD11;
         }
     }

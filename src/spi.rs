@@ -286,7 +286,8 @@ use crate::stm32::SPI1;
     feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
-    feature = "stm32l4x6"
+    feature = "stm32l4x6",
+    feature = "stm32l4r9",
 ))]
 hal! {
     SPI1: (spi1, spi1_slave, APB2, spi1en, spi1rst, pclk2),
@@ -297,7 +298,8 @@ hal! {
     feature = "stm32l4x2",
     feature = "stm32l4x3",
     feature = "stm32l4x5",
-    feature = "stm32l4x6"
+    feature = "stm32l4x6",
+    feature = "stm32l4r9",
 ))]
 pins!(SPI1, AF5,
     SCK: [PA5, PB3, PE13],

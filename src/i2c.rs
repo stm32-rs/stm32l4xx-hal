@@ -425,6 +425,18 @@ mod stm32l4x1_pins {
 
     pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
 
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x3", feature = "stm32l4x6", feature = "stm32l4r9"))]
+use crate::gpio::gpiob::PB8;
+
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6", feature = "stm32l4r9"))]
+use crate::gpio::gpiob::{PB13, PB14, PB9};
+
+#[cfg(feature = "stm32l4r9")]
+use crate::gpio::gpiog::PG13;
+
+pins!(I2C1, AF4,
+    SCL: [PA9, PB6],
+    SDA: [PA10, PB7]);
     // Not on STM32L471XX
     pins!(I2C1, AF4, SCL: [PA9], SDA: [PA10]);
 
@@ -435,11 +447,12 @@ mod stm32l4x1_pins {
     // Not on STM32L471XX
     pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
 
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6", feature = "stm32l4r9"))]
+pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
     // Not on STM32L471XX and STM32L431XX
     pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
     pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
 }
-
 #[cfg(feature = "stm32l4x2")]
 mod stm32l4x2_pins {
     use super::{I2C1, I2C2, I2C3, I2C4};
@@ -467,6 +480,13 @@ mod stm32l4x2_pins {
 }
 
 #[cfg(feature = "stm32l4x3")]
+pins!(I2C2, AF4, SCL: [PC0], SDA: [PC1]);
+
+#[cfg(feature = "stm32l4r9")]
+pins!(I2C1, AF4,
+    SCL: [],
+    SDA: [PG13]);
+
 mod stm32l4x3_pins {
     use super::{I2C1, I2C2, I2C3};
     use crate::gpio::*;
