@@ -4,6 +4,7 @@ use core::cmp;
 
 use crate::rcc::{Clocks, AHB2};
 use crate::stm32::RNG;
+pub use rand_core::RngCore;
 
 /// Extension trait to activate the RNG
 pub trait RngExt {
@@ -88,6 +89,24 @@ impl Rng {
     // RNG_DR
     pub fn possibly_invalid_random_data(&self) -> u32 {
         self.rng.dr.read().rndata().bits()
+    }
+}
+
+impl RngCore for Rng {
+    fn next_u32(&mut self) -> u32 {
+        self.get_random_data()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        rand_core::impls::next_u64_via_u32(self)
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        rand_core::impls::fill_bytes_via_next(self, dest)
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
+        Ok(self.fill_bytes(dest))
     }
 }
 

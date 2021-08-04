@@ -20,6 +20,7 @@ extern crate stm32l4xx_hal as hal;
 
 use crate::cortex_m::asm;
 use crate::hal::delay::Delay;
+use crate::hal::dma::CircReadDma;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
@@ -71,7 +72,7 @@ fn main() -> ! {
 
     let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
 
-    let mut circ_buffer = rx.circ_read(channels.5, buf);
+    let mut circ_buffer = rx.with_dma(channels.5).circ_read(buf);
 
     // wait for 3 seconds, enter data on serial
     timer.delay_ms(1000_u32);

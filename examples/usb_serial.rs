@@ -44,9 +44,7 @@ fn main() -> ! {
     let _clocks = rcc
         .cfgr
         .hsi48(true)
-        .sysclk(48.mhz())
-        .pclk1(24.mhz())
-        .pclk2(24.mhz())
+        .sysclk(80.mhz())
         .freeze(&mut flash.acr, &mut pwr);
 
     enable_crs();
@@ -59,7 +57,7 @@ fn main() -> ! {
     let mut led = gpiob
         .pb3
         .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-    led.set_low(); // Turn off
+    led.set_low().ok(); // Turn off
 
     let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);
 
@@ -88,7 +86,7 @@ fn main() -> ! {
 
         match serial.read(&mut buf) {
             Ok(count) if count > 0 => {
-                led.set_high(); // Turn on
+                led.set_high().ok(); // Turn on
 
                 // Echo back in upper case
                 for c in buf[0..count].iter_mut() {
@@ -110,6 +108,6 @@ fn main() -> ! {
             _ => {}
         }
 
-        led.set_low(); // Turn off
+        led.set_low().ok(); // Turn off
     }
 }

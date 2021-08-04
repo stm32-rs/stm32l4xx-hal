@@ -255,6 +255,18 @@ impl APB1R1 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb1rstr1 }
     }
+
+    #[cfg(not(any(feature = "stm32l4x3", feature = "stm32l4x5")))]
+    pub(crate) fn enr2(&mut self) -> &rcc::APB1ENR2 {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).apb1enr2 }
+    }
+
+    #[cfg(not(any(feature = "stm32l4x3", feature = "stm32l4x5")))]
+    pub(crate) fn rstr2(&mut self) -> &rcc::APB1RSTR2 {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*RCC::ptr()).apb1rstr2 }
+    }
 }
 
 /// Advanced Peripheral Bus 1 (APB1) register 2 registers
@@ -684,12 +696,16 @@ impl CFGR {
         // adjust flash wait states
         unsafe {
             acr.acr().write(|w| {
-                w.latency().bits(if sysclk <= 24_000_000 {
+                w.latency().bits(if hclk <= 16_000_000 {
                     0b000
-                } else if sysclk <= 48_000_000 {
+                } else if hclk <= 32_000_000 {
                     0b001
-                } else {
+                } else if hclk <= 48_000_000 {
                     0b010
+                } else if hclk <= 64_000_000 {
+                    0b011
+                } else {
+                    0b100
                 })
             })
         }
@@ -922,9 +938,14 @@ impl Clocks {
         self.msi
     }
 
-    /// Returns status of HSI48
+    /// Returns status of the LSI
     pub fn lsi(&self) -> bool {
         self.lsi
+    }
+
+    // Return the status of the LSE
+    pub fn lse(&self) -> bool {
+        self.lse
     }
 
     /// Returns the frequency of the APB1
@@ -935,6 +956,11 @@ impl Clocks {
     /// Returns the frequency of the APB2
     pub fn pclk2(&self) -> Hertz {
         self.pclk2
+    }
+
+    /// Get which source is being used for PLL
+    pub fn pll_source(&self) -> Option<PllSource> {
+        self.pll_source
     }
 
     // TODO remove `allow`

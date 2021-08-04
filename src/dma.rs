@@ -5,14 +5,13 @@
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
-use core::ops::{Deref, DerefMut};
+use core::ops::DerefMut;
 use core::ptr;
 use core::slice;
+use core::sync::atomic::{compiler_fence, Ordering};
+use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
 
 use crate::rcc::AHB1;
-use as_slice::AsSlice;
-pub use generic_array::typenum::{self, consts};
-use generic_array::{ArrayLength, GenericArray};
 use stable_deref_trait::StableDeref;
 
 #[non_exhaustive]
@@ -33,59 +32,69 @@ pub enum Half {
     Second,
 }
 
-/// Frame reader "worker", access and handling of frame reads is made through this structure.
-pub struct FrameReader<BUFFER, CHANNEL, N>
-where
-    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-    N: ArrayLength<MaybeUninit<u8>>,
-{
-    buffer: BUFFER,
-    channel: CHANNEL,
-    matching_character: u8,
-    _marker: core::marker::PhantomData<N>, // Needed to make the compiler happy
+pub trait CharacterMatch {
+    /// Checks to see if the peripheral has detected a character match and
+    /// clears the flag
+    fn check_character_match(&mut self, clear: bool) -> bool;
 }
 
-impl<BUFFER, CHANNEL, N> FrameReader<BUFFER, CHANNEL, N>
+/// Frame reader "worker", access and handling of frame reads is made through this structure.
+pub struct FrameReader<BUFFER, PAYLOAD, const N: usize>
 where
     BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-    N: ArrayLength<MaybeUninit<u8>>,
+{
+    buffer: BUFFER,
+    payload: PAYLOAD,
+    matching_character: u8,
+}
+
+impl<BUFFER, PAYLOAD, const N: usize> FrameReader<BUFFER, PAYLOAD, N>
+where
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
 {
     pub(crate) fn new(
         buffer: BUFFER,
-        channel: CHANNEL,
+        payload: PAYLOAD,
         matching_character: u8,
-    ) -> FrameReader<BUFFER, CHANNEL, N> {
+    ) -> FrameReader<BUFFER, PAYLOAD, N> {
         Self {
             buffer,
-            channel,
+            payload,
             matching_character,
-            _marker: core::marker::PhantomData,
         }
+    }
+}
+
+impl<BUFFER, PAYLOAD, CHANNEL, const N: usize> FrameReader<BUFFER, RxDma<PAYLOAD, CHANNEL>, N>
+where
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
+    PAYLOAD: CharacterMatch,
+{
+    /// Checks to see if the peripheral has detected a character match and
+    /// clears the flag
+    pub fn check_character_match(&mut self, clear: bool) -> bool {
+        self.payload.payload.check_character_match(clear)
     }
 }
 
 /// Frame sender "worker", access and handling of frame transmissions is made through this
 /// structure.
-pub struct FrameSender<BUFFER, CHANNEL, N>
+pub struct FrameSender<BUFFER, PAYLOAD, const N: usize>
 where
     BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-    N: ArrayLength<MaybeUninit<u8>>,
 {
     buffer: Option<BUFFER>,
-    channel: CHANNEL,
-    _marker: core::marker::PhantomData<N>,
+    payload: PAYLOAD,
 }
 
-impl<BUFFER, CHANNEL, N> FrameSender<BUFFER, CHANNEL, N>
+impl<BUFFER, PAYLOAD, const N: usize> FrameSender<BUFFER, PAYLOAD, N>
 where
     BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-    N: ArrayLength<MaybeUninit<u8>>,
 {
-    pub(crate) fn new(channel: CHANNEL) -> FrameSender<BUFFER, CHANNEL, N> {
+    pub(crate) fn new(payload: PAYLOAD) -> FrameSender<BUFFER, PAYLOAD, N> {
         Self {
             buffer: None,
-            channel,
-            _marker: core::marker::PhantomData,
+            payload,
         }
     }
 }
@@ -96,27 +105,18 @@ where
 /// used with, for example, [`heapless::pool`] to create a pool of serial frames.
 ///
 /// [`heapless::pool`]: https://docs.rs/heapless/0.5.3/heapless/pool/index.html
-pub struct DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+pub struct DMAFrame<const N: usize> {
     len: u16,
-    buf: GenericArray<MaybeUninit<u8>, N>,
+    buf: [MaybeUninit<u8>; N],
 }
 
-impl<N> fmt::Debug for DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+impl<const N: usize> fmt::Debug for DMAFrame<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.read())
     }
 }
 
-impl<N> fmt::Write for DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+impl<const N: usize> fmt::Write for DMAFrame<N> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let free = self.free();
 
@@ -129,29 +129,21 @@ where
     }
 }
 
-impl<N> Default for DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+impl<const N: usize> Default for DMAFrame<N> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<N> DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
+impl<const N: usize> DMAFrame<N> {
+    const INIT: MaybeUninit<u8> = MaybeUninit::uninit();
     /// Creates a new node for the Serial DMA
     #[inline]
-    pub fn new() -> Self {
-        // Create an uninitialized array of `MaybeUninit<u8>`. The `assume_init` is
-        // safe because the type we are claiming to have initialized here is a
-        // bunch of `MaybeUninit`s, which do not require initialization.
-        #[allow(clippy::uninit_assumed_init)]
+    pub const fn new() -> Self {
+        // Create an uninitialized array of `MaybeUninit<u8>`.
         Self {
             len: 0,
-            buf: unsafe { MaybeUninit::uninit().assume_init() },
+            buf: [Self::INIT; N],
         }
     }
 
@@ -162,7 +154,7 @@ where
     pub fn write(&mut self) -> &mut [u8] {
         // Initialize remaining memory with a safe value
         for elem in &mut self.buf[self.len as usize..] {
-            *elem = MaybeUninit::zeroed();
+            *elem = MaybeUninit::new(0);
         }
 
         self.len = self.max_len() as u16;
@@ -183,7 +175,7 @@ where
     /// Gives an uninitialized `&mut [MaybeUninit<u8>]` slice to write into, the `set_len` method
     /// must then be used to set the actual number of bytes written.
     #[inline]
-    pub fn write_uninit(&mut self) -> &mut [MaybeUninit<u8>] {
+    pub fn write_uninit(&mut self) -> &mut [MaybeUninit<u8>; N] {
         &mut self.buf
     }
 
@@ -256,7 +248,7 @@ where
     /// Get the max length of the frame
     #[inline]
     pub fn max_len(&self) -> usize {
-        N::to_usize()
+        N
     }
 
     /// Checks if the frame is empty
@@ -281,35 +273,32 @@ where
     }
 }
 
-impl<N> AsSlice for DMAFrame<N>
-where
-    N: ArrayLength<MaybeUninit<u8>>,
-{
-    type Element = u8;
-
-    fn as_slice(&self) -> &[Self::Element] {
+impl<const N: usize> AsRef<[u8]> for DMAFrame<N> {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
         self.read()
     }
 }
 
-pub struct CircBuffer<BUFFER, CHANNEL>
+pub struct CircBuffer<BUFFER, PAYLOAD>
 where
     BUFFER: 'static,
 {
-    buffer: BUFFER,
-    channel: CHANNEL,
+    buffer: &'static mut [BUFFER; 2],
+    payload: PAYLOAD,
     readable_half: Half,
     consumed_offset: usize,
 }
 
-impl<BUFFER, CHANNEL> CircBuffer<BUFFER, CHANNEL> {
-    pub(crate) fn new<H>(buf: BUFFER, chan: CHANNEL) -> Self
-    where
-        BUFFER: StableDeref<Target = [H; 2]> + 'static,
-    {
+impl<BUFFER, PAYLOAD> CircBuffer<BUFFER, PAYLOAD>
+where
+    &'static mut [BUFFER; 2]: StaticWriteBuffer,
+    BUFFER: 'static,
+{
+    pub(crate) fn new(buf: &'static mut [BUFFER; 2], payload: PAYLOAD) -> Self {
         CircBuffer {
             buffer: buf,
-            channel: chan,
+            payload,
             readable_half: Half::Second,
             consumed_offset: 0,
         }
@@ -322,46 +311,88 @@ pub trait DmaExt {
     fn split(self, ahb: &mut AHB1) -> Self::Channels;
 }
 
-pub struct Transfer<MODE, BUFFER, CHANNEL, PAYLOAD> {
+pub trait TransferPayload {
+    fn start(&mut self);
+    fn stop(&mut self);
+}
+
+pub struct Transfer<MODE, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
     _mode: PhantomData<MODE>,
     buffer: BUFFER,
-    channel: CHANNEL,
     payload: PAYLOAD,
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> Transfer<R, BUFFER, CHANNEL, PAYLOAD>
+impl<BUFFER, PAYLOAD> Transfer<R, BUFFER, PAYLOAD>
 where
-    BUFFER: StableDeref + 'static,
+    PAYLOAD: TransferPayload,
 {
-    pub(crate) fn r(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
+    pub(crate) fn r(buffer: BUFFER, payload: PAYLOAD) -> Self {
         Transfer {
             _mode: PhantomData,
             buffer,
-            channel,
             payload,
         }
     }
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> Transfer<W, BUFFER, CHANNEL, PAYLOAD>
+impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, PAYLOAD>
 where
-    BUFFER: StableDeref + 'static,
+    PAYLOAD: TransferPayload,
 {
-    pub(crate) fn w(buffer: BUFFER, channel: CHANNEL, payload: PAYLOAD) -> Self {
+    pub(crate) fn w(buffer: BUFFER, payload: PAYLOAD) -> Self {
         Transfer {
             _mode: PhantomData,
             buffer,
-            channel,
             payload,
         }
     }
 }
 
-impl<BUFFER, CHANNEL, PAYLOAD> Deref for Transfer<R, BUFFER, CHANNEL, PAYLOAD> {
-    type Target = BUFFER;
+impl<BUFFER, PAYLOAD> Transfer<RW, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
+    pub(crate) fn rw(buffer: BUFFER, payload: PAYLOAD) -> Self {
+        Transfer {
+            _mode: PhantomData,
+            buffer,
+            payload,
+        }
+    }
+}
 
-    fn deref(&self) -> &BUFFER {
-        &self.buffer
+impl<MODE, BUFFER, PAYLOAD> Drop for Transfer<MODE, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
+    fn drop(&mut self) {
+        self.payload.stop();
+        compiler_fence(Ordering::SeqCst);
+    }
+}
+
+impl<MODE, BUFFER, PAYLOAD> Transfer<MODE, BUFFER, PAYLOAD>
+where
+    PAYLOAD: TransferPayload,
+{
+    pub(crate) fn extract_inner_without_drop(self) -> (BUFFER, PAYLOAD) {
+        // `Transfer` needs to have a `Drop` implementation, because we accept
+        // managed buffers that can free their memory on drop. Because of that
+        // we can't move out of the `Transfer`'s fields, so we use `ptr::read`
+        // and `mem::forget`.
+        //
+        // NOTE(unsafe) There is no panic branch between getting the resources
+        // and forgetting `self`.
+        unsafe {
+            // We cannot use mem::replace as we do not have valid objects to replace with
+            let buffer = ptr::read(&self.buffer);
+            let payload = ptr::read(&self.payload);
+            core::mem::forget(self);
+            (buffer, payload)
+        }
     }
 }
 
@@ -370,6 +401,77 @@ pub struct R;
 
 /// Write transfer
 pub struct W;
+
+/// Read/Write transfer
+pub struct RW;
+
+macro_rules! for_all_pairs {
+    ($mac:ident: $($x:ident)*) => {
+        // Duplicate the list
+        for_all_pairs!(@inner $mac: $($x)*; $($x)*);
+    };
+
+    // The end of iteration: we exhausted the list
+    (@inner $mac:ident: ; $($x:ident)*) => {};
+
+    // The head/tail recursion: pick the first element of the first list
+    // and recursively do it for the tail.
+    (@inner $mac:ident: $head:ident $($tail:ident)*; $($x:ident)*) => {
+        $(
+            $mac!($head $x);
+        )*
+        for_all_pairs!(@inner $mac: $($tail)*; $($x)*);
+    };
+}
+
+macro_rules! rx_tx_channel_mapping {
+    ($CH_A:ident $CH_B:ident) => {
+        impl<BUFFER, PAYLOAD> Transfer<RW, BUFFER, RxTxDma<PAYLOAD, $CH_A, $CH_B>>
+        where
+            RxTxDma<PAYLOAD, $CH_A, $CH_B>: TransferPayload,
+        {
+            pub fn is_done(&self) -> bool {
+                !self.payload.rx_channel.in_progress() && !self.payload.tx_channel.in_progress()
+            }
+
+            pub fn wait(mut self) -> (BUFFER, RxTxDma<PAYLOAD, $CH_A, $CH_B>) {
+                // XXX should we check for transfer errors here?
+                // The manual says "A DMA transfer error can be generated by reading
+                // from or writing to a reserved address space". I think it's impossible
+                // to get to that state with our type safe API and *safe* Rust.
+                while !self.is_done() {}
+
+                self.payload.stop();
+
+                // TODO can we weaken this compiler barrier?
+                // NOTE(compiler_fence) operations on `buffer` should not be reordered
+                // before the previous statement, which marks the DMA transfer as done
+                atomic::compiler_fence(Ordering::SeqCst);
+
+                // `Transfer` has a `Drop` implementation because we accept
+                // managed buffers that can free their memory on drop. Because of that
+                // we can't move out of the `Transfer`'s fields directly.
+                self.extract_inner_without_drop()
+            }
+        }
+
+        impl<BUFFER, PAYLOAD> Transfer<RW, BUFFER, RxTxDma<PAYLOAD, $CH_A, $CH_B>>
+        where
+            RxTxDma<PAYLOAD, $CH_A, $CH_B>: TransferPayload,
+        {
+            pub fn peek<T>(&self) -> &[T]
+            where
+                BUFFER: AsRef<[T]>,
+            {
+                let pending = self.payload.rx_channel.get_cndtr() as usize;
+
+                let capacity = self.buffer.as_ref().len();
+
+                &self.buffer.as_ref()[..(capacity - pending)]
+            }
+        }
+    };
+}
 
 macro_rules! dma {
     ($($DMAX:ident: ($dmaX:ident, $dmaXen:ident, $dmaXrst:ident, {
@@ -394,27 +496,29 @@ macro_rules! dma {
         $(
             pub mod $dmaX {
                 use core::sync::atomic::{self, Ordering};
-                use as_slice::{AsSlice};
                 use crate::stm32::{$DMAX, dma1};
-                use core::mem::MaybeUninit;
-                use generic_array::ArrayLength;
                 use core::ops::DerefMut;
                 use core::ptr;
                 use stable_deref_trait::StableDeref;
 
-                use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W};
+                use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W, R, RW, RxDma, RxTxDma, TxDma, TransferPayload};
                 use crate::rcc::AHB1;
 
                 #[allow(clippy::manual_non_exhaustive)]
                 pub struct Channels((), $(pub $CX),+);
 
+                for_all_pairs!(rx_tx_channel_mapping: $($CX)+);
+
                 $(
+                    /// A singleton that represents a single DMAx channel (channel X in this case)
+                    ///
+                    /// This singleton has exclusive access to the registers of the DMAx channel X
                     pub struct $CX;
 
                     impl $CX {
                         /// Associated peripheral `address`
                         ///
-                        /// `inc` indicates whether the address will be incremented after every byte transfer
+                        /// `inc` indicates whether the address will be incremented after every transfer
                         #[inline]
                         pub fn set_peripheral_address(&mut self, address: u32, inc: bool) {
                             self.cpar().write(|w|
@@ -425,7 +529,7 @@ macro_rules! dma {
 
                         /// `address` where from/to data will be read/write
                         ///
-                        /// `inc` indicates whether the address will be incremented after every byte transfer
+                        /// `inc` indicates whether the address will be incremented after every transfer
                         #[inline]
                         pub fn set_memory_address(&mut self, address: u32, inc: bool) {
                             self.cmar().write(|w|
@@ -434,7 +538,7 @@ macro_rules! dma {
                             self.ccr().modify(|_, w| w.minc().bit(inc) );
                         }
 
-                        /// Number of bytes to transfer
+                        /// The amount of transfers that makes up one transaction
                         #[inline]
                         pub fn set_transfer_length(&mut self, len: u16) {
                             self.cndtr().write(|w| w.ndt().bits(len));
@@ -525,10 +629,10 @@ macro_rules! dma {
 
                     }
 
-                    impl<BUFFER, N> FrameSender<BUFFER, $CX, N>
+                    impl<BUFFER, PAYLOAD, const N: usize> FrameSender<BUFFER, TxDma<PAYLOAD, $CX>, N>
                     where
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-                        N: ArrayLength<MaybeUninit<u8>>,
+                        TxDma<PAYLOAD, $CX>: TransferPayload,
                     {
                         /// This method should be called in the transfer complete interrupt of the
                         /// DMA, will return the sent frame if the transfer was truly completed.
@@ -537,14 +641,14 @@ macro_rules! dma {
                         ) -> Option<BUFFER> {
 
                             // Clear ISR flag (Transfer Complete)
-                            if !self.channel.in_progress() {
-                                self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            if !self.payload.channel.in_progress() {
+                                self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
                             } else {
                                 // The old transfer is not complete
                                 return None;
                             }
 
-                            self.channel.stop();
+                            self.payload.channel.stop();
 
                             // NOTE(compiler_fence) operations on the DMA should not be reordered
                             // before the next statement, takes the buffer from the DMA transfer.
@@ -572,20 +676,20 @@ macro_rules! dma {
                             }
 
                             let new_buf = &*frame;
-                            self.channel.set_memory_address(new_buf.buffer_as_ptr() as u32, true);
-                            self.channel.set_transfer_length(new_buf.len() as u16);
+                            self.payload.channel.set_memory_address(new_buf.buffer_as_ptr() as u32, true);
+                            self.payload.channel.set_transfer_length(new_buf.len() as u16);
 
                             // If there has been an error, clear the error flag to let the next
                             // transaction start
-                            if self.channel.isr().$teifX().bit_is_set() {
-                                self.channel.ifcr().write(|w| w.$cteifX().set_bit());
+                            if self.payload.channel.isr().$teifX().bit_is_set() {
+                                self.payload.channel.ifcr().write(|w| w.$cteifX().set_bit());
                             }
 
                             // NOTE(compiler_fence) operations on `buffer` should not be reordered after
                             // the next statement, which starts the DMA transfer
                             atomic::compiler_fence(Ordering::Release);
 
-                            self.channel.start();
+                            self.payload.channel.start();
 
                             self.buffer = Some(frame);
 
@@ -593,10 +697,10 @@ macro_rules! dma {
                         }
                     }
 
-                    impl<BUFFER, N> FrameReader<BUFFER, $CX, N>
+                    impl<BUFFER, PAYLOAD, const N: usize> FrameReader<BUFFER, RxDma<PAYLOAD, $CX>, N>
                     where
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-                        N: ArrayLength<MaybeUninit<u8>>,
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
                     {
                         /// This function should be called from the transfer complete interrupt of
                         /// the corresponding DMA channel.
@@ -636,18 +740,18 @@ macro_rules! dma {
                             new_buf.clear();
 
                             // Clear ISR flag (Transfer Complete)
-                            if !self.channel.in_progress() {
-                                self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                            if !self.payload.channel.in_progress() {
+                                self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
                             } else if character_match_interrupt {
                                 // 1. If DMA not done and there was a character match interrupt,
                                 // let the DMA flush a little and then halt transfer.
                                 //
                                 // This is to alleviate the race condition between the character
                                 // match interrupt and the DMA memory transfer.
-                                let left_in_buffer = self.channel.get_cndtr() as usize;
+                                let left_in_buffer = self.payload.channel.get_cndtr() as usize;
 
                                 for _ in 0..5 {
-                                    let now_left = self.channel.get_cndtr() as usize;
+                                    let now_left = self.payload.channel.get_cndtr() as usize;
 
                                     if left_in_buffer - now_left >= 4 {
                                         // We have gotten 4 extra characters flushed
@@ -656,14 +760,14 @@ macro_rules! dma {
                                 }
                             }
 
-                            self.channel.stop();
+                            self.payload.channel.stop();
 
                             // NOTE(compiler_fence) operations on `buffer` should not be reordered after
                             // the next statement, which starts a new DMA transfer
                             atomic::compiler_fence(Ordering::SeqCst);
 
-                            let left_in_buffer = self.channel.get_cndtr() as usize;
-                            let got_data_len = old_buf.max_len() - left_in_buffer; // How many bytes we got
+                            let left_in_buffer = self.payload.channel.get_cndtr() as usize;
+                            let got_data_len = old_buf.max_len() - left_in_buffer; // How many transfers were completed = how many bytes are available
                             unsafe {
                                 old_buf.set_len(got_data_len);
                             }
@@ -704,29 +808,31 @@ macro_rules! dma {
                                 0
                             };
 
-                            self.channel.set_memory_address(unsafe { new_buf.buffer_as_ptr().add(diff) } as u32, true);
-                            self.channel.set_transfer_length((new_buf.max_len() - diff) as u16);
+                            self.payload.channel.set_memory_address(unsafe { new_buf.buffer_as_ptr().add(diff) } as u32, true);
+                            self.payload.channel.set_transfer_length((new_buf.max_len() - diff) as u16);
                             let received_buffer = core::mem::replace(&mut self.buffer, next_frame);
 
                             // NOTE(compiler_fence) operations on `buffer` should not be reordered after
                             // the next statement, which starts the DMA transfer
                             atomic::compiler_fence(Ordering::Release);
 
-                            self.channel.start();
+                            self.payload.channel.start();
 
                             // 4. Return full frame
                             received_buffer
                         }
                     }
 
-                    impl<B> CircBuffer<B, $CX> {
+                    impl<B, PAYLOAD> CircBuffer<B, RxDma<PAYLOAD, $CX>>
+                    where
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
 
                         /// Return the partial contents of the buffer half being written
-                        pub fn partial_peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
+                        pub fn partial_peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> Result<(usize, R), ()>,
-                            B: StableDeref<Target = [H; 2]> + 'static,
-                            H: AsSlice<Element=T>,
+                            B: AsRef<[T]>,
                         {
                             // this inverts expectation and returns the half being _written_
                             let buf = match self.readable_half {
@@ -736,8 +842,8 @@ macro_rules! dma {
                             //                          ,- half-buffer
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
                             //                       ^- pending=11
-                            let pending = self.channel.get_cndtr() as usize; // available bytes in _whole_ buffer
-                            let slice = buf.as_slice();
+                            let pending = self.payload.channel.get_cndtr() as usize; // available transfers (= bytes) in _whole_ buffer
+                            let slice = buf.as_ref();
                             let capacity = slice.len(); // capacity of _half_ a buffer
                             //     <--- capacity=10 --->
                             //    [ x x x x y y y y y z | z z z z z z z z z z ]
@@ -754,7 +860,7 @@ macro_rules! dma {
                             //                       ^- end=9
                             //             ^- consumed_offset=4
                             //             [y y y y y] <-- slice
-                            let slice = &buf.as_slice()[self.consumed_offset..end];
+                            let slice = &buf.as_ref()[self.consumed_offset..end];
                             match f(slice, self.readable_half) {
                                 Ok((l, r)) => { self.consumed_offset += l; Ok(r) },
                                 Err(_) => Err(Error::BufferError),
@@ -763,25 +869,24 @@ macro_rules! dma {
 
                         /// Peeks into the readable half of the buffer
                         /// Returns the result of the closure
-                        pub fn peek<R, F, H, T>(&mut self, f: F) -> Result<R, Error>
+                        pub fn peek<R, F, T>(&mut self, f: F) -> Result<R, Error>
                             where
                             F: FnOnce(&[T], Half) -> R,
-                            B: StableDeref<Target = [H; 2]> + 'static,
-                            H: AsSlice<Element=T>,
+                            B: AsRef<[T]>,
                         {
                             let half_being_read = self.readable_half()?;
                             let buf = match half_being_read {
                                 Half::First => &self.buffer[0],
                                 Half::Second => &self.buffer[1],
                             };
-                            let slice = &buf.as_slice()[self.consumed_offset..];
+                            let slice = &buf.as_ref()[self.consumed_offset..];
                             self.consumed_offset = 0;
                             Ok(f(slice, half_being_read))
                         }
 
                         /// Returns the `Half` of the buffer that can be read
                         pub fn readable_half(&mut self) -> Result<Half, Error> {
-                            let isr = self.channel.isr();
+                            let isr = self.payload.channel.isr();
                             let first_half_is_done = isr.$htifX().bit_is_set();
                             let second_half_is_done = isr.$tcifX().bit_is_set();
 
@@ -794,7 +899,7 @@ macro_rules! dma {
                             Ok(match last_read_half {
                                 Half::First => {
                                     if second_half_is_done {
-                                        self.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                                        self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
 
                                         self.readable_half = Half::Second;
                                         Half::Second
@@ -804,7 +909,7 @@ macro_rules! dma {
                                 }
                                 Half::Second => {
                                     if first_half_is_done {
-                                        self.channel.ifcr().write(|w| w.$chtifX().set_bit());
+                                        self.payload.channel.ifcr().write(|w| w.$chtifX().set_bit());
 
                                         self.readable_half = Half::First;
                                         Half::First
@@ -814,43 +919,102 @@ macro_rules! dma {
                                 }
                             })
                         }
+
+                        /// Stops the transfer and returns the underlying buffer and RxDma
+                        pub fn stop(mut self) -> (&'static mut [B; 2], RxDma<PAYLOAD, $CX>) {
+                            self.payload.stop();
+
+                            (self.buffer, self.payload)
+                        }
                     }
 
-                    impl<BUFFER, PAYLOAD, MODE> Transfer<MODE, BUFFER, $CX, PAYLOAD> {
+                    impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, RxDma<PAYLOAD, $CX>>
+                    where
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
                         pub fn is_done(&self) -> bool {
-                            self.channel.isr().$tcifX().bit_is_set()
+                            !self.payload.channel.in_progress()
                         }
 
-                        pub fn wait(mut self) -> (BUFFER, $CX, PAYLOAD) {
+                        pub fn wait(mut self) -> (BUFFER, RxDma<PAYLOAD, $CX>) {
                             // XXX should we check for transfer errors here?
                             // The manual says "A DMA transfer error can be generated by reading
                             // from or writing to a reserved address space". I think it's impossible
                             // to get to that state with our type safe API and *safe* Rust.
                             while !self.is_done() {}
 
-                            self.channel.ifcr().write(|w| w.$cgifX().set_bit());
-
-                            self.channel.ccr().modify(|_, w| w.en().clear_bit());
+                            self.payload.stop();
 
                             // TODO can we weaken this compiler barrier?
                             // NOTE(compiler_fence) operations on `buffer` should not be reordered
                             // before the previous statement, which marks the DMA transfer as done
                             atomic::compiler_fence(Ordering::SeqCst);
 
-                            (self.buffer, self.channel, self.payload)
+                            // `Transfer` has a `Drop` implementation because we accept
+                            // managed buffers that can free their memory on drop. Because of that
+                            // we can't move out of the `Transfer`'s fields directly.
+                            self.extract_inner_without_drop()
                         }
                     }
 
-                    impl<BUFFER, PAYLOAD> Transfer<W, &'static mut BUFFER, $CX, PAYLOAD> {
+                    impl<BUFFER, PAYLOAD> Transfer<R, BUFFER, TxDma<PAYLOAD, $CX>>
+                    where
+                        TxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
+                        pub fn is_done(&self) -> bool {
+                            !self.payload.channel.in_progress()
+                        }
+
+                        pub fn wait(mut self) -> (BUFFER, TxDma<PAYLOAD, $CX>) {
+                            // XXX should we check for transfer errors here?
+                            // The manual says "A DMA transfer error can be generated by reading
+                            // from or writing to a reserved address space". I think it's impossible
+                            // to get to that state with our type safe API and *safe* Rust.
+                            while !self.is_done() {}
+
+                            self.payload.stop();
+
+                            // TODO can we weaken this compiler barrier?
+                            // NOTE(compiler_fence) operations on `buffer` should not be reordered
+                            // before the previous statement, which marks the DMA transfer as done
+                            atomic::compiler_fence(Ordering::SeqCst);
+
+                            // `Transfer` has a `Drop` implementation because we accept
+                            // managed buffers that can free their memory on drop. Because of that
+                            // we can't move out of the `Transfer`'s fields directly.
+                            self.extract_inner_without_drop()
+                        }
+                    }
+
+                    impl<BUFFER, PAYLOAD> Transfer<W, BUFFER, RxDma<PAYLOAD, $CX>>
+                    where
+                        RxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
                         pub fn peek<T>(&self) -> &[T]
                         where
-                            BUFFER: AsSlice<Element=T>,
+                            BUFFER: AsRef<[T]>,
                         {
-                            let pending = self.channel.get_cndtr() as usize;
+                            let pending = self.payload.channel.get_cndtr() as usize;
 
-                            let capacity = self.buffer.as_slice().len();
+                            let capacity = self.buffer.as_ref().len();
 
-                            &self.buffer.as_slice()[..(capacity - pending)]
+                            &self.buffer.as_ref()[..(capacity - pending)]
+                        }
+                    }
+
+                    impl<BUFFER, PAYLOAD> Transfer<R, BUFFER, TxDma<PAYLOAD, $CX>>
+                    where
+                        TxDma<PAYLOAD, $CX>: TransferPayload,
+                    {
+                        pub fn peek<T>(&self) -> &[T]
+                        where
+                            BUFFER: AsRef<[T]>
+                        {
+                            let pending = self.payload.channel.get_cndtr() as usize;
+
+                            let capacity = self.buffer.as_ref().len();
+
+                            &self.buffer.as_ref()[..(capacity - pending)]
                         }
                     }
                 )+
@@ -1005,4 +1169,76 @@ dma! {
             teif7, cteif7
         ),
     }),
+}
+
+/// DMA Receiver
+pub struct RxDma<PAYLOAD, RXCH> {
+    pub(crate) payload: PAYLOAD,
+    pub channel: RXCH,
+}
+
+/// DMA Transmitter
+pub struct TxDma<PAYLOAD, TXCH> {
+    pub(crate) payload: PAYLOAD,
+    pub channel: TXCH,
+}
+
+/// DMA Receiver/Transmitter
+pub struct RxTxDma<PAYLOAD, RXCH, TXCH> {
+    pub(crate) payload: PAYLOAD,
+    pub rx_channel: RXCH,
+    pub tx_channel: TXCH,
+}
+
+pub trait Receive {
+    type RxChannel;
+    type TransmittedWord;
+}
+
+pub trait Transmit {
+    type TxChannel;
+    type ReceivedWord;
+}
+
+pub trait ReceiveTransmit {
+    type RxChannel;
+    type TxChannel;
+    type TransferedWord;
+}
+
+/// Trait for circular DMA readings from peripheral to memory.
+pub trait CircReadDma<B, RS>: Receive
+where
+    &'static mut [B; 2]: StaticWriteBuffer<Word = RS>,
+    B: 'static,
+    Self: core::marker::Sized,
+{
+    fn circ_read(self, buffer: &'static mut [B; 2]) -> CircBuffer<B, Self>;
+}
+
+/// Trait for DMA readings from peripheral to memory.
+pub trait ReadDma<B, RS>: Receive
+where
+    B: StaticWriteBuffer<Word = RS>,
+    Self: core::marker::Sized + TransferPayload,
+{
+    fn read(self, buffer: B) -> Transfer<W, B, Self>;
+}
+
+/// Trait for DMA writing from memory to peripheral.
+pub trait WriteDma<B, TS>: Transmit
+where
+    B: StaticReadBuffer<Word = TS>,
+    Self: core::marker::Sized + TransferPayload,
+{
+    fn write(self, buffer: B) -> Transfer<R, B, Self>;
+}
+
+/// Trait for DMA simultaneously writing and reading between memory and peripheral.
+pub trait TransferDma<B, TS>: ReceiveTransmit
+where
+    B: StaticWriteBuffer<Word = TS>,
+    Self: core::marker::Sized + TransferPayload,
+{
+    fn transfer(self, buffer: B) -> Transfer<RW, B, Self>;
 }
