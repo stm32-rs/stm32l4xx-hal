@@ -38,6 +38,18 @@ pub trait CharacterMatch {
     fn check_character_match(&mut self, clear: bool) -> bool;
 }
 
+pub trait ReceiverTimeout {
+    /// Check to see if the peripheral has detected a
+    /// receiver timeout and clears the flag
+    fn check_receiver_timeout(&mut self, clear: bool) -> bool;
+}
+
+pub trait OperationError<O, E> {
+    /// Check to see if the peripheral has detected some
+    /// sort of error while performing an operation
+    fn check_operation_error(&mut self) -> Result<O, E>;
+}
+
 /// Frame reader "worker", access and handling of frame reads is made through this structure.
 pub struct FrameReader<BUFFER, PAYLOAD, const N: usize>
 where
@@ -74,6 +86,28 @@ where
     /// clears the flag
     pub fn check_character_match(&mut self, clear: bool) -> bool {
         self.payload.payload.check_character_match(clear)
+    }
+}
+
+impl<BUFFER, PAYLOAD, CHANNEL, const N: usize> FrameReader<BUFFER, RxDma<PAYLOAD, CHANNEL>, N>
+where
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
+    PAYLOAD: ReceiverTimeout,
+{
+    pub fn check_receiver_timeout(&mut self, clear: bool) -> bool {
+        self.payload.payload.check_receiver_timeout(clear)
+    }
+}
+
+impl<BUFFER, PAYLOAD, CHANNEL, const N: usize> FrameReader<BUFFER, RxDma<PAYLOAD, CHANNEL>, N>
+where
+    BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
+{
+    pub fn check_operation_error<O, E>(&mut self) -> Result<O, E>
+    where
+        PAYLOAD: OperationError<O, E>,
+    {
+        self.payload.payload.check_operation_error()
     }
 }
 
