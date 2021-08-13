@@ -634,6 +634,18 @@ macro_rules! hal {
                 }
             }
 
+            impl crate::dma::ReceiverTimeout for Rx<pac::$USARTX> {
+                fn check_receiver_timeout(&mut self, clear: bool) -> bool {
+                    self.is_receiver_timeout(clear)
+                }
+            }
+
+            impl crate::dma::OperationError<(), Error> for Rx<pac::$USARTX>{
+                fn check_operation_error(&mut self) -> Result<(), Error> {
+                    self.check_for_error()
+                }
+            }
+
             impl Tx<pac::$USARTX> {
                 pub fn with_dma(self, channel: $dmatxch) -> $txdma {
                     TxDma {
