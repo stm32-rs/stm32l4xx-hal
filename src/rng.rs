@@ -4,7 +4,7 @@ use core::cmp;
 
 use crate::rcc::{Clocks, AHB2};
 use crate::stm32::RNG;
-pub use rand_core::RngCore;
+pub use rand_core::{CryptoRng, RngCore};
 
 /// Extension trait to activate the RNG
 pub trait RngExt {
@@ -109,6 +109,8 @@ impl RngCore for Rng {
         Ok(self.fill_bytes(dest))
     }
 }
+
+impl CryptoRng for Rng {}
 
 #[derive(Debug)]
 pub enum Error {}
