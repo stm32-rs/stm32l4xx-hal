@@ -18,7 +18,7 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use crate::hal::dma::{CircReadDma, Half};
+use crate::hal::dma::CircReadDma;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
@@ -65,23 +65,14 @@ fn main() -> ! {
 
     block!(tx.write(sent)).ok();
 
-    let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
+    let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
 
     let mut circ_buffer = rx.with_dma(channels.6).circ_read(buf);
 
-    for _ in 0..2 {
-        while circ_buffer.readable_half().unwrap() != Half::First {}
+    let mut rx_buf = [0; 8];
+    let rx_len = circ_buffer.read(&mut rx_buf).unwrap();
 
-        let _first_half = circ_buffer.peek(|_buf, half| half).unwrap();
-
-        // asm::bkpt();
-
-        while circ_buffer.readable_half().unwrap() != Half::Second {}
-
-        // asm::bkpt();
-
-        let _second_half = circ_buffer.peek(|_buf, half| half).unwrap();
-    }
+    let _received = &rx_buf[..rx_len];
 
     // let received = block!(rx.read()).unwrap();
 
