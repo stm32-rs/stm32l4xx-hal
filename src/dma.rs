@@ -26,12 +26,6 @@ pub enum Event {
     TransferComplete,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum Half {
-    First,
-    Second,
-}
-
 pub trait CharacterMatch {
     /// Checks to see if the peripheral has detected a character match and
     /// clears the flag
@@ -535,7 +529,7 @@ macro_rules! dma {
                 use core::ptr;
                 use stable_deref_trait::StableDeref;
 
-                use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Half, Transfer, W, R, RW, RxDma, RxTxDma, TxDma, TransferPayload};
+                use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Transfer, W, R, RW, RxDma, RxTxDma, TxDma, TransferPayload};
                 use crate::rcc::AHB1;
 
                 #[allow(clippy::manual_non_exhaustive)]
@@ -956,7 +950,10 @@ macro_rules! dma {
                             // conditions first.
                             // TODO When is the half-complete flag written exactly? Especially for
                             // odd buffer capacities.
-                            let overrun = self.passed_mark(self.write_previous, write_current, self.read_index, capacity) || (transfer_complete_flag && !self.passed_mark(self.write_previous, write_current, 0, capacity)) || (half_complete_flag && !self.passed_mark(self.write_previous, write_current, capacity/2, capacity));
+                            let overrun =
+                                self.passed_mark(self.write_previous, write_current, self.read_index, capacity)
+                                || (transfer_complete_flag && !self.passed_mark(self.write_previous, write_current, 0, capacity))
+                                || (half_complete_flag && !self.passed_mark(self.write_previous, write_current, capacity/2, capacity));
                             self.write_previous = write_current;
                             if overrun {
                                 self.read_index = write_current;
