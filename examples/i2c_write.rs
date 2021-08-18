@@ -14,6 +14,7 @@ extern crate stm32l4xx_hal as hal;
 
 use crate::hal::prelude::*;
 
+use crate::hal::i2c;
 use crate::hal::i2c::I2c;
 use crate::rt::entry;
 use crate::rt::ExceptionFrame;
@@ -50,7 +51,12 @@ fn main() -> ! {
     sda.internal_pull_up(&mut gpioa.pupdr, true);
     let sda = sda.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
 
-    let mut i2c = I2c::i2c1(dp.I2C1, (scl, sda), 100.khz(), clocks, &mut rcc.apb1r1);
+    let mut i2c = I2c::i2c1(
+        dp.I2C1,
+        (scl, sda),
+        i2c::Config::new(100.khz(), clocks),
+        &mut rcc.apb1r1,
+    );
 
     // i2c.write(0x3C, &[0xCC, 0xAA]).unwrap();
     let mut buffer = [0u8; 2];

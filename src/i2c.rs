@@ -58,56 +58,18 @@ pub struct I2c<I2C, PINS> {
     pins: PINS,
 }
 
-macro_rules! hal {
-    ($i2c_type: ident, $enr: ident, $rstr: ident, $i2cX: ident, $i2cXen: ident, $i2cXrst: ident) => {
-        impl<SCL, SDA> I2c<$i2c_type, (SCL, SDA)> {
-            pub fn $i2cX<F>(
-                i2c: $i2c_type,
-                pins: (SCL, SDA),
-                freq: F,
-                clocks: Clocks,
-                apb1: &mut APB1R1,
-            ) -> Self
-            where
-                F: Into<Hertz>,
-                SCL: SclPin<$i2c_type>,
-                SDA: SdaPin<$i2c_type>,
-            {
-                apb1.$enr().modify(|_, w| w.$i2cXen().set_bit());
-                apb1.$rstr().modify(|_, w| w.$i2cXrst().set_bit());
-                apb1.$rstr().modify(|_, w| w.$i2cXrst().clear_bit());
-                Self::new(i2c, pins, freq, clocks)
-            }
-        }
-    };
+pub struct Config {
+    presc: u8,
+    sclh: u8,
+    scll: u8,
+    scldel: u8,
+    sdadel: u8,
 }
 
-hal!(I2C1, enr, rstr, i2c1, i2c1en, i2c1rst);
-hal!(I2C2, enr, rstr, i2c2, i2c2en, i2c2rst);
-hal!(I2C3, enr, rstr, i2c3, i2c3en, i2c3rst);
-
-// This peripheral is not present on
-// STM32L471XX and STM32L431XX
-// STM32L432XX and STM32l442XX
-// STM32L486XX and STM32L476XX
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
-hal!(I2C4, enr2, rstr2, i2c4, i2c4en, i2c4rst);
-
-impl<SCL, SDA, I2C> I2c<I2C, (SCL, SDA)>
-where
-    I2C: Deref<Target = i2c1::RegisterBlock>,
-{
-    /// Configures the I2C peripheral to work in master mode
-    fn new<F>(i2c: I2C, pins: (SCL, SDA), freq: F, clocks: Clocks) -> Self
-    where
-        F: Into<Hertz>,
-        SCL: SclPin<I2C>,
-        SDA: SdaPin<I2C>,
-    {
+impl Config {
+    pub fn new<F: Into<Hertz>>(freq: F, clocks: Clocks) -> Self {
         let freq = freq.into().0;
         assert!(freq <= 1_000_000);
-        // Make sure the I2C unit is disabled so we can configure it
-        i2c.cr1.modify(|_, w| w.pe().clear_bit());
 
         // TODO review compliance with the timing requirements of I2C
         // t_I2CCLK = 1 / PCLK1
@@ -177,18 +139,84 @@ where
         let sclh = u8_or_panic!(sclh, "I2C sclh");
         let scll = u8_or_panic!(scll, "I2C scll");
 
+        Self {
+            presc,
+            sclh,
+            scll,
+            scldel,
+            sdadel,
+        }
+    }
+
+    /// For the layout of `timing_bits`, see RM0394 section 37.7.5.
+    pub fn with_timing(timing_bits: u32) -> Self {
+        Self {
+            presc: ((timing_bits >> 28) & 0xf) as u8,
+            scldel: ((timing_bits >> 20) & 0xf) as u8,
+            sdadel: ((timing_bits >> 16) & 0xf) as u8,
+            sclh: ((timing_bits >> 8) & 0xff) as u8,
+            scll: (timing_bits & 0xff) as u8,
+        }
+    }
+}
+
+macro_rules! hal {
+    ($i2c_type: ident, $enr: ident, $rstr: ident, $i2cX: ident, $i2cXen: ident, $i2cXrst: ident) => {
+        impl<SCL, SDA> I2c<$i2c_type, (SCL, SDA)> {
+            pub fn $i2cX(
+                i2c: $i2c_type,
+                pins: (SCL, SDA),
+                config: Config,
+                apb1: &mut APB1R1,
+            ) -> Self
+            where
+                SCL: SclPin<$i2c_type>,
+                SDA: SdaPin<$i2c_type>,
+            {
+                apb1.$enr().modify(|_, w| w.$i2cXen().set_bit());
+                apb1.$rstr().modify(|_, w| w.$i2cXrst().set_bit());
+                apb1.$rstr().modify(|_, w| w.$i2cXrst().clear_bit());
+                Self::new(i2c, pins, config)
+            }
+        }
+    };
+}
+
+hal!(I2C1, enr, rstr, i2c1, i2c1en, i2c1rst);
+hal!(I2C2, enr, rstr, i2c2, i2c2en, i2c2rst);
+hal!(I2C3, enr, rstr, i2c3, i2c3en, i2c3rst);
+
+// This peripheral is not present on
+// STM32L471XX and STM32L431XX
+// STM32L432XX and STM32l442XX
+// STM32L486XX and STM32L476XX
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
+hal!(I2C4, enr2, rstr2, i2c4, i2c4en, i2c4rst);
+
+impl<SCL, SDA, I2C> I2c<I2C, (SCL, SDA)>
+where
+    I2C: Deref<Target = i2c1::RegisterBlock>,
+{
+    /// Configures the I2C peripheral to work in master mode
+    fn new(i2c: I2C, pins: (SCL, SDA), config: Config) -> Self
+    where
+        SCL: SclPin<I2C>,
+        SDA: SdaPin<I2C>,
+    {
+        // Make sure the I2C unit is disabled so we can configure it
+        i2c.cr1.modify(|_, w| w.pe().clear_bit());
         // Configure for "fast mode" (400 KHz)
         i2c.timingr.write(|w| {
             w.presc()
-                .bits(presc)
+                .bits(config.presc)
                 .scll()
-                .bits(scll)
+                .bits(config.scll)
                 .sclh()
-                .bits(sclh)
+                .bits(config.sclh)
                 .sdadel()
-                .bits(sdadel)
+                .bits(config.sdadel)
                 .scldel()
-                .bits(scldel)
+                .bits(config.scldel)
         });
 
         // Enable the peripheral
