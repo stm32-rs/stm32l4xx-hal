@@ -948,12 +948,12 @@ macro_rules! dma {
                             // For checking the overrun conditions, it is important that we use the
                             // old read_index so do not increment it yet but check overrun
                             // conditions first.
-                            // TODO When is the half-complete flag written exactly? Especially for
-                            // odd buffer capacities.
+                            // For odd buffer sizes, the half-complete flag is set at
+                            // ceil(capacity/2).
                             let overrun =
                                 self.passed_mark(self.write_previous, write_current, self.read_index, capacity)
                                 || (transfer_complete_flag && !self.passed_mark(self.write_previous, write_current, 0, capacity))
-                                || (half_complete_flag && !self.passed_mark(self.write_previous, write_current, capacity/2, capacity));
+                                || (half_complete_flag && !self.passed_mark(self.write_previous, write_current, (capacity+1)/2, capacity));
                             self.write_previous = write_current;
                             if overrun {
                                 self.read_index = write_current;
