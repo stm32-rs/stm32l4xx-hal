@@ -300,6 +300,15 @@ macro_rules! hal {
             pub fn get_arr(&self) -> u16 {
                 self.lptim.arr.read().bits() as u16
             }
+
+            pub fn pause(&mut self) {
+                self.disable();
+            }
+
+            pub fn resume(&mut self) {
+                self.enable();
+                self.start_continuous_mode();
+            }
         }
     };
 }
