@@ -18,7 +18,7 @@ extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
 
-use crate::hal::dma::{CircReadDma, Half};
+use crate::hal::dma::CircReadDma;
 use crate::hal::prelude::*;
 use crate::hal::serial::{Config, Serial};
 use crate::rt::ExceptionFrame;
@@ -59,40 +59,85 @@ fn main() -> ! {
     );
     let (mut tx, rx) = serial.split();
 
-    let sent = b'X';
-
-    // The `block!` macro makes an operation block until it finishes
-    // NOTE the error type is `!`
-
-    block!(tx.write(sent)).ok();
-
-    let buf = singleton!(: [[u8; 8]; 2] = [[0; 8]; 2]).unwrap();
-
+    let buf = singleton!(: [u8; 9] = [0; 9]).unwrap();
     let mut circ_buffer = rx.with_dma(channels.5).circ_read(buf);
+    let mut rx_buf = [0; 9];
 
-    for _ in 0..2 {
-        while circ_buffer.readable_half().unwrap() != Half::First {}
+    // single byte send/receive
+    send(&mut tx, b"x");
+    let rx_len = circ_buffer.read(&mut rx_buf).unwrap();
+    assert_eq!(rx_len, 1);
+    assert_eq!(&rx_buf[..1], b"x");
 
-        let _first_half = circ_buffer.peek(|_buf, half| half).unwrap();
+    // multi byte send/receive
+    send(&mut tx, b"12345678");
+    let rx_len = circ_buffer.read(&mut rx_buf).unwrap();
+    assert_eq!(rx_len, 8);
+    assert_eq!(&rx_buf[..8], b"12345678");
 
-        // asm::bkpt();
-
-        while circ_buffer.readable_half().unwrap() != Half::Second {}
-
-        // asm::bkpt();
-
-        let _second_half = circ_buffer.peek(|_buf, half| half).unwrap();
+    // Checking three types of overflow detection
+    // 1. write pointer passes read pointer
+    send(&mut tx, b"12345678"); // write-pointer -> 8
+    let rx_len = circ_buffer.read(&mut rx_buf[..1]).unwrap(); // read-pointer -> 1
+    assert_eq!(rx_len, 1);
+    send(&mut tx, b"12"); // write-pointer -> 1 (catches up with read-pointer)
+    let rx_res = circ_buffer.read(&mut rx_buf[..1]);
+    if let Err(hal::dma::Error::Overrun) = rx_res {
+    } else {
+        panic!("An overrun should have been detected");
     }
 
-    // let received = block!(rx.read()).unwrap();
+    // 2. transfer complete flag set but it looks like the write-pointer did not pass 0
+    send(&mut tx, b"123456789"); // write-pointer stays 1, transfer complete flag set
+    send(&mut tx, b"1234"); // write-pointer -> 5
+    let rx_res = circ_buffer.read(&mut rx_buf[..]);
+    if let Err(hal::dma::Error::Overrun) = rx_res {
+    } else {
+        panic!("An overrun should have been detected");
+    }
 
-    // assert_eq!(received, sent);
+    // 3a. half complete flag set but it looks like the write-ptr did not pass ceil(capacity/2) = 5
+    send(&mut tx, b"123456789"); // write-pointer stays 5, all flags set
+    send(&mut tx, b"12345678"); // write-pointer -> 4
+    let rx_res = circ_buffer.read(&mut rx_buf[..]);
+    if let Err(hal::dma::Error::Overrun) = rx_res {
+    } else {
+        panic!("An overrun should have been detected");
+    }
+
+    // 3b. check that the half complete flag is not yet set at write-pointer = floor(capacity/2) = 4
+    send(&mut tx, b"1234"); // write-pointer -> 0
+    circ_buffer.read(&mut rx_buf[..]).unwrap(); // read something to prevent overrun
+    send(&mut tx, b"12345"); // write-pointer -> 4
+    circ_buffer
+        .read(&mut rx_buf[..])
+        .expect("No overrun should be detected here");
+
+    // Undetectable overrun
+    send(&mut tx, b"123456789");
+    send(&mut tx, b"abcdefgh"); // overrun but it looks like only 8 bytes have been written
+    let rx_len = circ_buffer.read(&mut rx_buf[..]).unwrap();
+    assert_eq!(rx_len, 8);
+    assert_eq!(&rx_buf[..8], b"abcdefgh");
 
     // if all goes well you should reach this breakpoint
     asm::bkpt();
 
     loop {
         continue;
+    }
+}
+
+fn send(tx: &mut impl embedded_hal::serial::Write<u8>, data: &[u8]) {
+    for byte in data {
+        if let Err(_) = block!(tx.write(*byte)) {
+            panic!("serial tx failed");
+        }
+    }
+
+    // waste some time so that the data will be received completely
+    for i in 0..10000 {
+        cortex_m::asm::nop();
     }
 }
 
