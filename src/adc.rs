@@ -243,6 +243,16 @@ impl ADC {
         self.sample_time = sample_time;
     }
 
+    /// Get the max value for the current resolution
+    pub fn get_max_value(&self) -> u16 {
+        match self.resolution {
+            Resolution::Bits12 => 4095,
+            Resolution::Bits10 => 1023,
+            Resolution::Bits8 => 255,
+            Resolution::Bits6 => 63,
+        }
+    }
+
     /// Release the ADC peripheral
     ///
     /// Drops `ADC` and returns the `(pac::ADC, pad::ADC_COMMON)` that is was wrapping, giving the
