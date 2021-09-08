@@ -77,10 +77,10 @@ impl Into<KiloHertz> for MegaHertz {
     }
 }
 
-impl From<u32> for Hertz {
-    fn from(ms: u32) -> Self {
-        if ms <= 1000 {
-            Hertz((1000 + ms / 2) / ms)
+impl From<MilliSeconds> for Hertz {
+    fn from(ms: MilliSeconds) -> Self {
+        if ms.0 <= 1000 {
+            Hertz((1000 + ms.0 / 2) / ms.0)
         } else {
             Hertz(1)
         }
