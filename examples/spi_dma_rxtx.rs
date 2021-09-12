@@ -46,15 +46,15 @@ const APP: () = {
         //
         let sck = gpiob
             .pb3
-            .into_af5(&mut gpiob.moder, &mut gpiob.afrl)
+            .into_af5_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl)
             .set_speed(Speed::High);
         let miso = gpiob
             .pb4
-            .into_af5(&mut gpiob.moder, &mut gpiob.afrl)
+            .into_af5_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl)
             .set_speed(Speed::High);
         let mosi = gpiob
             .pb5
-            .into_af5(&mut gpiob.moder, &mut gpiob.afrl)
+            .into_af5_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl)
             .set_speed(Speed::High);
         let mut dummy_cs = gpiob.pb6.into_push_pull_output_with_state(
             &mut gpiob.moder,

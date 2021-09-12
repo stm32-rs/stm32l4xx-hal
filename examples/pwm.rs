@@ -27,20 +27,16 @@ fn main() -> ! {
     // TIM2
     let c1 = gpioa
         .pa0
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
-        .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
+        .into_af1_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let c2 = gpioa
         .pa1
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
-        .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
+        .into_af1_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let c3 = gpioa
         .pa2
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
-        .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
+        .into_af1_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let c4 = gpioa
         .pa3
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
-        .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
+        .into_af1_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
     let mut pwm = p
         .TIM2

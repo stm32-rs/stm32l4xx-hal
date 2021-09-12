@@ -43,11 +43,15 @@ fn main() -> ! {
 
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
-    let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let tx = gpioa
+        .pa9
+        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+    // let tx = gpiob.pb6.into_af7_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
-    let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let rx = gpioa
+        .pa10
+        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+    // let rx = gpiob.pb7.into_af7_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart1(
@@ -136,7 +140,7 @@ fn send(tx: &mut impl embedded_hal::serial::Write<u8>, data: &[u8]) {
     }
 
     // waste some time so that the data will be received completely
-    for i in 0..10000 {
+    for _ in 0..10000 {
         cortex_m::asm::nop();
     }
 }

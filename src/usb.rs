@@ -9,13 +9,13 @@ use crate::stm32::{RCC, USB};
 use stm32_usbd::UsbPeripheral;
 
 use crate::gpio::gpioa::{PA11, PA12};
-use crate::gpio::{Alternate, Floating, Input, AF10};
+use crate::gpio::{Alternate, PushPull, AF10};
 pub use stm32_usbd::UsbBus;
 
 pub struct Peripheral {
     pub usb: USB,
-    pub pin_dm: PA11<Alternate<AF10, Input<Floating>>>,
-    pub pin_dp: PA12<Alternate<AF10, Input<Floating>>>,
+    pub pin_dm: PA11<Alternate<AF10, PushPull>>,
+    pub pin_dp: PA12<Alternate<AF10, PushPull>>,
 }
 
 unsafe impl Sync for Peripheral {}
@@ -28,7 +28,7 @@ unsafe impl UsbPeripheral for Peripheral {
     const EP_MEMORY_ACCESS_2X16: bool = true;
 
     fn enable() {
-        let rcc = unsafe { (&*RCC::ptr()) };
+        let rcc = unsafe { &*RCC::ptr() };
 
         cortex_m::interrupt::free(|_| {
             // Enable USB peripheral
