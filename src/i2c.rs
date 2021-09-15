@@ -7,6 +7,8 @@ use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::pac::I2C4;
 use crate::pac::{i2c1, I2C1, I2C2, I2C3};
 
+use crate::alternate_functions::{SclPin, SdaPin};
+use crate::gpio::AlternateOD;
 use crate::rcc::{Clocks, APB1R1};
 use crate::time::Hertz;
 use cast::{u16, u8};
@@ -26,30 +28,6 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
-}
-
-#[doc(hidden)]
-pub(self) mod private {
-    pub trait Sealed {}
-}
-
-/// SCL pin. This trait is sealed and cannot be implemented.
-pub trait SclPin<I2C>: private::Sealed {}
-
-/// SDA pin. This trait is sealed and cannot be implemented.
-pub trait SdaPin<I2C>: private::Sealed {}
-
-macro_rules! pins {
-    ($spi:ident, $af:ident, SCL: [$($scl:ident),*], SDA: [$($sda:ident),*]) => {
-        $(
-            impl super::private::Sealed for $scl<Alternate<$af, OpenDrain>> {}
-            impl super::SclPin<$spi> for $scl<Alternate<$af, OpenDrain>> {}
-        )*
-        $(
-            impl super::private::Sealed for $sda<Alternate<$af, OpenDrain>> {}
-            impl super::SdaPin<$spi> for $sda<Alternate<$af, OpenDrain>> {}
-        )*
-    }
 }
 
 /// I2C peripheral operating in master mode
@@ -170,8 +148,8 @@ macro_rules! hal {
                 apb1: &mut APB1R1,
             ) -> Self
             where
-                SCL: SclPin<$i2c_type>,
-                SDA: SdaPin<$i2c_type>,
+                SCL: SclPin<$i2c_type> + AlternateOD,
+                SDA: SdaPin<$i2c_type> + AlternateOD,
             {
                 apb1.$enr().modify(|_, w| w.$i2cXen().set_bit());
                 apb1.$rstr().modify(|_, w| w.$i2cXrst().set_bit());
@@ -200,8 +178,8 @@ where
     /// Configures the I2C peripheral to work in master mode
     fn new(i2c: I2C, pins: (SCL, SDA), config: Config) -> Self
     where
-        SCL: SclPin<I2C>,
-        SDA: SdaPin<I2C>,
+        SCL: SclPin<I2C> + AlternateOD,
+        SDA: SdaPin<I2C> + AlternateOD,
     {
         // Make sure the I2C unit is disabled so we can configure it
         i2c.cr1.modify(|_, w| w.pe().clear_bit());
@@ -443,6 +421,34 @@ where
     }
 }
 
+/*
+ * The old approach of handling AF requirements. This is just kept here so
+ * it can be moved to the alternate_functions module.
+ *
+#[doc(hidden)]
+pub(self) mod private {
+    pub trait Sealed {}
+}
+
+/// SCL pin. This trait is sealed and cannot be implemented.
+pub trait SclPin<I2C>: private::Sealed {}
+
+/// SDA pin. This trait is sealed and cannot be implemented.
+pub trait SdaPin<I2C>: private::Sealed {}
+
+macro_rules! pins {
+    ($spi:ident, $af:ident, SCL: [$($scl:ident),*], SDA: [$($sda:ident),*]) => {
+        $(
+            impl super::private::Sealed for $scl<Alternate<$af, OpenDrain>> {}
+            impl super::SclPin<$spi> for $scl<Alternate<$af, OpenDrain>> {}
+        )*
+        $(
+            impl super::private::Sealed for $sda<Alternate<$af, OpenDrain>> {}
+            impl super::SdaPin<$spi> for $sda<Alternate<$af, OpenDrain>> {}
+        )*
+    }
+}
+
 #[cfg(feature = "stm32l4x1")]
 mod stm32l4x1_pins {
     use super::{I2C1, I2C2, I2C3, I2C4};
@@ -551,3 +557,4 @@ mod stm32l4x6_pins {
     // pins!(I2C2, AF4, SCL: [PH4], SDA: [PH5]);
     // pins!(I2C3, AF4, SCL: [PH7], SDA: [PH8]);
 }
+*/

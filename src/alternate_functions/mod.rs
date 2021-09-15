@@ -12,9 +12,6 @@ pub trait SdaPin<I2C>: private::Sealed {}
 /// USART Marks pins as being as being TX pins for the given USART instance
 pub trait TxPin<Instance>: private::Sealed {}
 
-/// USART Marks pins as being TX Half Duplex pins for the given USART instance
-pub trait TxHalfDuplexPin<Instance>: private::Sealed {}
-
 /// USART Marks pins as being as being RX pins for the given USART instance
 pub trait RxPin<Instance>: private::Sealed {}
 
@@ -26,8 +23,8 @@ pub trait CtsPin<Instance>: private::Sealed {}
 
 #[allow(unused)]
 use super::gpio::{
-    Alternate, AF0, AF1, AF10, AF11, AF12, AF13, AF14, AF15, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, 
-    PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7, PA8, PA9, PA10, PA11, PA12, PA13, PA14, PA15,
+    Alternate, AF0, AF1, AF10, AF11, AF12, AF13, AF14, AF15, AF2, AF3, AF4, AF5, AF6, AF7, AF8,
+    AF9, PA0, PA1, PA10, PA11, PA12, PA13, PA14, PA15, PA2, PA3, PA4, PA5, PA6, PA7, PA8, PA9,
 };
 #[allow(unused)]
 use crate::pac::{I2C1, I2C2, I2C3, USART1, USART2, USART3};

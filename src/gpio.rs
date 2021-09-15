@@ -126,6 +126,21 @@ pub trait ExtiPin {
     fn check_interrupt(&mut self) -> bool;
 }
 
+/// Marker trait for Pins in alternate function mode in push pull configuration
+///
+/// This is used so that peripherals can indicate their requirements on the
+/// output type of a pin. For example, a USART would require its tx-pin to
+/// have this trait implemented, i.e. the tx-pin should be configured to work
+/// in push-pull output type.
+pub trait AlternatePP {}
+/// Marker trait for Pins in alternate function mode in open drain configuration
+///
+/// This is used so that peripherals can indicate their requirements on the
+/// output type of a pin. For example, an I2C peripheral would require its
+/// scl and sda pins to have this trait implemented, i.e. all I2C pins should
+/// be configured to work in open-drain output type.
+pub trait AlternateOD {}
+
 macro_rules! doc_comment {
     ($x:expr, $($tt:tt)*) => {
         #[doc = $x]
@@ -201,7 +216,7 @@ macro_rules! gpio {
             use crate::rcc::{AHB2, APB2};
             use super::{
 
-                Alternate,
+                Alternate, AlternatePP, AlternateOD,
                 AF0, AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
                 Floating, GpioExt, Input, OpenDrain, Output, Analog, Edge, ExtiPin,
                 PullDown, PullUp, PushPull, State, Speed,
@@ -766,6 +781,8 @@ macro_rules! gpio {
                         (AF15, 15, into_af15_pushpull, into_af15_opendrain);
                     }
                 }
+                impl<AF> AlternatePP for $PXi<Alternate<AF, PushPull>> {}
+                impl<AF> AlternateOD for $PXi<Alternate<AF, OpenDrain>> {}
             )+
         }
 
