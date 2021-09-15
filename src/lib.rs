@@ -247,3 +247,5 @@ pub mod usb;
     feature = "stm32l4x6"
 ))]
 pub mod watchdog;
+
+pub mod alternate_functions;
