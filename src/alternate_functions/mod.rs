@@ -21,13 +21,25 @@ pub trait RtsDePin<Instance>: private::Sealed {}
 /// USART Marks pins as being as being CTS pins for the given USART instance
 pub trait CtsPin<Instance>: private::Sealed {}
 
+/// PWM Marks a pin that can be used as pwm channel 1 for a given timer
+pub trait PwmCh1<TIM>: private::Sealed {}
+
+/// PWM Marks a pin that can be used as pwm channel 2 for a given timer
+pub trait PwmCh2<TIM>: private::Sealed {}
+
+/// PWM Marks a pin that can be used as pwm channel 3 for a given timer
+pub trait PwmCh3<TIM>: private::Sealed {}
+
+/// PWM Marks a pin that can be used as pwm channel 4 for a given timer
+pub trait PwmCh4<TIM>: private::Sealed {}
+
 #[allow(unused)]
 use super::gpio::{
     Alternate, AF0, AF1, AF10, AF11, AF12, AF13, AF14, AF15, AF2, AF3, AF4, AF5, AF6, AF7, AF8,
     AF9, PA0, PA1, PA10, PA11, PA12, PA13, PA14, PA15, PA2, PA3, PA4, PA5, PA6, PA7, PA8, PA9,
 };
 #[allow(unused)]
-use crate::pac::{I2C1, I2C2, I2C3, USART1, USART2, USART3};
+use crate::pac::{I2C1, I2C2, I2C3, USART1, USART2, USART3, TIM1, TIM2, TIM3, TIM15};
 
 macro_rules! afpin {
     ($pin:ident, $af:ty, $trait:ty) => {
@@ -190,21 +202,21 @@ macro_rules! af_table_af0af7 {
 }
 
 af_table_af0af7! {
-//      AF0 AF1 AF2      AF3          AF4        AF5      AF6          AF7
-[ PA0  | _ | _ | _ |      _      |     _      |   _    |   _    |  CtsPin<USART2>]
-[ PA1  | _ | _ | _ |      _      |     _      |   _    |   _    |RtsDePin<USART2>]
-[ PA2  | _ | _ | _ |      _      |     _      |   _    |   _    |  TxPin<USART2> ]
-[ PA3  | _ | _ | _ |      _      |     _      |   _    |   _    |  RxPin<USART2> ]
-[ PA4  | _ | _ | _ |      _      |     _      |   _    |   _    |       _        ]
-[ PA5  | _ | _ | _ |      _      |     _      |   _    |   _    |       _        ]
-[ PA6  | _ | _ | _ |      _      |     _      |   _    |   _    |  CtsPin<USART3>]
-[ PA7  | _ | _ | _ |      _      |SclPin<I2C3>|   _    |   _    |       _        ]
-[ PA8  | _ | _ | _ |      _      |     _      |   _    |   _    |       _        ]
-[ PA9  | _ | _ | _ |      _      |SclPin<I2C1>|   _    |   _    |  TxPin<USART1> ]
-[ PA10 | _ | _ | _ |      _      |SdaPin<I2C1>|   _    |   _    |  RxPin<USART1> ]
-[ PA11 | _ | _ | _ |      _      |     _      |   _    |   _    |  CtsPin<USART1>]
-[ PA12 | _ | _ | _ |      _      |     _      |   _    |   _    |RtsDePin<USART1>]
-[ PA13 | _ | _ | _ |      _      |     _      |   _    |   _    |       _        ]
-[ PA14 | _ | _ | _ |      _      |     _      |   _    |   _    |       _        ]
-[ PA15 | _ | _ | _ |RxPin<USART2>|     _      |   _    |   _    |RtsDePin<USART3>]
+//      AF0      AF1          AF2          AF3          AF4        AF5      AF6          AF7
+[ PA0  | _ |PwmCh1<TIM2>|      _     |      _      |     _      |   _    |   _    |  CtsPin<USART2>]
+[ PA1  | _ |PwmCh2<TIM2>|      _     |      _      |     _      |   _    |   _    |RtsDePin<USART2>]
+[ PA2  | _ |PwmCh3<TIM2>|      _     |      _      |     _      |   _    |   _    |  TxPin<USART2> ]
+[ PA3  | _ |PwmCh4<TIM2>|      _     |      _      |     _      |   _    |   _    |  RxPin<USART2> ]
+[ PA4  | _ |     _      |      _     |      _      |     _      |   _    |   _    |       _        ]
+[ PA5  | _ |PwmCh1<TIM2>|      _     |      _      |     _      |   _    |   _    |       _        ]
+[ PA6  | _ |     _      |PwmCh1<TIM3>|      _      |     _      |   _    |   _    |  CtsPin<USART3>]
+[ PA7  | _ |     _      |PwmCh2<TIM3>|      _      |SclPin<I2C3>|   _    |   _    |       _        ]
+[ PA8  | _ |PwmCh1<TIM1>|      _     |      _      |     _      |   _    |   _    |       _        ]
+[ PA9  | _ |PwmCh2<TIM1>|      _     |      _      |SclPin<I2C1>|   _    |   _    |  TxPin<USART1> ]
+[ PA10 | _ |PwmCh3<TIM1>|      _     |      _      |SdaPin<I2C1>|   _    |   _    |  RxPin<USART1> ]
+[ PA11 | _ |PwmCh4<TIM1>|      _     |      _      |     _      |   _    |   _    |  CtsPin<USART1>]
+[ PA12 | _ |     _      |      _     |      _      |     _      |   _    |   _    |RtsDePin<USART1>]
+[ PA13 | _ |     _      |      _     |      _      |     _      |   _    |   _    |       _        ]
+[ PA14 | _ |     _      |      _     |      _      |     _      |   _    |   _    |       _        ]
+[ PA15 | _ |PwmCh1<TIM2>|      _     |RxPin<USART2>|     _      |   _    |   _    |RtsDePin<USART3>]
 }

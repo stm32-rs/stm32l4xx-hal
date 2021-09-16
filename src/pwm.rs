@@ -6,12 +6,17 @@ use core::mem;
 use crate::hal;
 use crate::stm32::{TIM1, TIM15, TIM2};
 
-use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA15, PA2, PA3, PA8, PA9};
-use crate::gpio::gpiob::{PB10, PB11, PB14, PB3};
-use crate::gpio::{Alternate, AF1, AF14};
+use crate::gpio::AlternatePP;
+use crate::alternate_functions::{PwmCh1, PwmCh2, PwmCh3, PwmCh4};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
+/*
+ * Trying to implement Pins<TIM> for
+ * a) (C1, C2) where C1: PwmCh1, C2: PwmCh2 and
+ * b) (C1, C3) where C1: PwmCh1, C3: PwmCh3
+ * leads to: 'conflicting implementation for `(_, _)`'
+ *
 // NB: REMAP is not implemented!
 pub trait Pins<TIM> {
     // const REMAP: u8;
@@ -22,6 +27,93 @@ pub trait Pins<TIM> {
     type Channels;
 }
 
+macro_rules! impl_pins {
+    ($TIMX:ident, ($($CHANNEL:ident),+)) => {
+        $(const $CHANNEL: bool = true;)+
+        type Channels = ($(Pwm<$TIMX, $CHANNEL>),+);
+    }
+}
+
+impl<TIMx, CH1, CH2, CH3, CH4> Pins<TIMx> for (CH1, CH2, CH3, CH4) where CH1: PwmCh1<TIMx>, CH2: PwmCh2<TIMx>, CH3: PwmCh3<TIMx>, CH4: PwmCh4<TIMx> {
+        const C1: bool = true;
+        const C2: bool = true;
+        const C3: bool = true;
+        const C4: bool = true;
+        type Channels = (Pwm<TIMx, C1>, Pwm<TIMx, C2>, Pwm<TIMx, C3>, Pwm<TIMx, C4>);
+}
+impl<TIMx, CH2, CH3, CH4> Pins<TIMx> for (CH2, CH3, CH4) where CH2: PwmCh2<TIMx>, CH3: PwmCh3<TIMx>, CH4: PwmCh4<TIMx> {
+    impl_pins!(TIMx, (C2, C3, C4));
+}
+impl<TIMx, CH1, CH3, CH4> Pins<TIMx> for (CH1, CH3, CH4) where CH1: PwmCh1<TIMx>, CH3: PwmCh3<TIMx>, CH4: PwmCh4<TIMx> {
+    impl_pins!(TIMx, (C1, C3, C4));
+}
+impl<TIMx, CH1, CH2, CH4> Pins<TIMx> for (CH1, CH2, CH4) where CH2: PwmCh1<TIMx>, CH2: PwmCh3<TIMx>, CH4: PwmCh4<TIMx> {
+    impl_pins!(TIMx, (C1, C2, C4));
+}
+impl<TIMx, CH1, CH2, CH3> Pins<TIMx> for (CH1, CH2, CH3) where CH1: PwmCh1<TIMx>, CH2: PwmCh2<TIMx>, CH3: PwmCh3<TIMx> {
+    impl_pins!(TIMx, (C1, C2, C3));
+}
+impl<TIMx, CH1, CH2> Pins<TIMx> for (CH1, CH2) where CH1: PwmCh1<TIMx>, CH2: PwmCh2<TIMx> {
+    impl_pins!(TIMx, (C1, C2));
+}
+impl<TIMx, CH1, CH3> Pins<TIMx> for (CH1, CH3) where CH1: PwmCh1<TIMx>, CH3: PwmCh3<TIMx> {
+    impl_pins!(TIMx, (C1, C3));
+}
+impl<TIMx, CH1, CH4> Pins<TIMx> for (CH1, CH4) where CH1: PwmCh1<TIMx>, CH4: PwmCh4<TIMx> {
+    impl_pins!(TIMx, (C1, C4));
+}
+impl<TIMx, CH2, CH3> Pins<TIMx> for (CH2, CH3) where CH2: PwmCh2<TIMx>, CH3: PwmCh3<TIMx> {
+    impl_pins!(TIMx, (C2, C3));
+}
+impl<TIMx, CH2, CH4> Pins<TIMx> for (CH2, CH4) where CH2: PwmCh2<TIMx>, CH4: PwmCh4<TIMx> {
+    impl_pins!(TIMx, (C2, C4));
+}
+impl<TIMx, CH3, CH4> Pins<TIMx> for (CH3, CH4) where CH3: PwmCh3<TIMx>, CH4: PwmCh4<TIMx> {
+    impl_pins!(TIMx, (C3, C4));
+}
+*/
+
+/*
+ * This macro does not work
+ *
+macro_rules! pin_tuple {
+    ($TIMX:ident, ($($CHANNEL:ty),+), ($($TRAIT:ty),+)) => {
+        impl< $($CHANNEL),+ > Pins<$TIMX> for ($($CHANNEL),+)
+            where
+                $($CHANNEL: $TRAIT),+
+        {
+            $(const $CHANNEL: bool = true;)+
+            type Channels = ($(Pwm<$TIMX, $CHANNEL>),+);
+        }
+    }
+}
+ *
+ * so this macro does not work either
+ *
+macro_rules! pin_tuples {
+    ($TIMX:ident) => {
+        pin_tuple!($TIMX, (CH1, CH2, CH3, CH4), (PwmCh1<$TIMX>, PwmCh2<$TIMX>, PwmCh3<$TIMX>, PwmCh4<$TIMX>));
+        pin_tuple!($TIMX, (C2, C3, C4), (PwmCh2<$TIMX>, PwmCh3<$TIMX>, PwmCh4<$TIMX>));
+        pin_tuple!($TIMX, (C1, C3, C4), (PwmCh1<$TIMX>, PwmCh3<$TIMX>, PwmCh4<$TIMX>));
+        pin_tuple!($TIMX, (C1, C2, C4), (PwmCh1<$TIMX>, PwmCh2<$TIMX>, PwmCh4<$TIMX>));
+        pin_tuple!($TIMX, (C1, C2, C3), (PwmCh1<$TIMX>, PwmCh2<$TIMX>, PwmCh3<$TIMX>));
+        pin_tuple!($TIMX, (C1, C2), (PwmCh1<$TIMX>, PwmCh2<$TIMX>));
+        pin_tuple!($TIMX, (C1, C3), (PwmCh1<$TIMX>, PwmCh3<$TIMX>));
+        pin_tuple!($TIMX, (C1, C4), (PwmCh1<$TIMX>, PwmCh4<$TIMX>));
+        pin_tuple!($TIMX, (C2, C3), (PwmCh2<$TIMX>, PwmCh3<$TIMX>));
+        pin_tuple!($TIMX, (C2, C4), (PwmCh2<$TIMX>, PwmCh4<$TIMX>));
+        pin_tuple!($TIMX, (C3, C4), (PwmCh3<$TIMX>, PwmCh4<$TIMX>));
+        pin_tuple!($TIMX, (C1), (PwmCh1<$TIMX>));
+        pin_tuple!($TIMX, (C2), (PwmCh2<$TIMX>));
+        pin_tuple!($TIMX, (C3), (PwmCh3<$TIMX>));
+        pin_tuple!($TIMX, (C4), (PwmCh4<$TIMX>));
+    }
+}
+*/
+
+/*
+ * Old approach
+ *
 macro_rules! pins_to_channels_mapping {
     ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($AF:ident),+ ); )+ ) => {
         $(
@@ -102,51 +194,47 @@ pins_to_channels_mapping! {
     // TIM15: (PA2, PB15), (C1, C2), (AF14, AF14);
     // TIM15: (PA2, PA3), (C1, C2), (AF14, AF14);
 }
+*/
 
 pub trait PwmExt1: Sized {
-    fn pwm<PINS, T>(self, _: PINS, frequency: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    fn pwm<T>(self, pins: Pins<Self>, frequency: T, clocks: Clocks, apb: &mut APB2) -> PwmChannels<Self>
     where
-        PINS: Pins<Self>,
         T: Into<Hertz>;
 }
 
 pub trait PwmExt2: Sized {
-    fn pwm<PINS, T>(
+    fn pwm<T>(
         self,
-        _: PINS,
+        pins: Pins<Self>,
         frequency: T,
         clocks: Clocks,
         apb: &mut APB1R1,
-    ) -> PINS::Channels
+    ) -> PwmChannels<Self>
     where
-        PINS: Pins<Self>,
         T: Into<Hertz>;
 }
 
 impl PwmExt1 for TIM1 {
-    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    fn pwm<T>(self, pins: Pins<Self>, freq: T, clocks: Clocks, apb: &mut APB2) -> PwmChannels<Self>
     where
-        PINS: Pins<Self>,
         T: Into<Hertz>,
     {
-        tim1(self, _pins, freq.into(), clocks, apb)
+        tim1(self, pins, freq.into(), clocks, apb)
     }
 }
 
 impl PwmExt1 for TIM15 {
-    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    fn pwm<T>(self, pins: Pins<Self>, freq: T, clocks: Clocks, apb: &mut APB2) -> PwmChannels<Self>
     where
-        PINS: Pins<Self>,
         T: Into<Hertz>,
     {
-        tim15(self, _pins, freq.into(), clocks, apb)
+        tim15(self, pins, freq.into(), clocks, apb)
     }
 }
 
 impl PwmExt2 for TIM2 {
-    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB1R1) -> PINS::Channels
+    fn pwm<T>(self, pins: Pins<Self>, freq: T, clocks: Clocks, apb: &mut APB1R1) -> PwmChannels<Self>
     where
-        PINS: Pins<Self>,
         T: Into<Hertz>,
     {
         // TODO: check if this is really not needed (in the f1xx examples value
@@ -155,13 +243,86 @@ impl PwmExt2 for TIM2 {
         // mapr.mapr()
         //     .modify(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
 
-        tim2(self, _pins, freq.into(), clocks, apb)
+        tim2(self, pins, freq.into(), clocks, apb)
     }
 }
 
 pub struct Pwm<TIM, CHANNEL> {
     _channel: PhantomData<CHANNEL>,
     _tim: PhantomData<TIM>,
+}
+
+impl<TIM, CHANNEL> Pwm<TIM, CHANNEL> {
+    fn new() -> Self {
+        Pwm {
+            _channel: PhantomData,
+            _tim: PhantomData,
+        }
+    }
+}
+
+pub struct PwmChannels<TIM> {
+    pub channel1: Option<Pwm<TIM, C1>>,
+    pub channel2: Option<Pwm<TIM, C2>>,
+    pub channel3: Option<Pwm<TIM, C3>>,
+    pub channel4: Option<Pwm<TIM, C4>>,
+    _tim: PhantomData<TIM>,
+}
+
+impl<TIM> PwmChannels<TIM> {
+    fn new() -> Self {
+        PwmChannels {
+            channel1: None,
+            channel2: None,
+            channel3: None,
+            channel4: None,
+            _tim: PhantomData,
+        }
+    }
+}
+
+pub struct Pins<TIM> {
+    has_channel1: bool,
+    has_channel2: bool,
+    has_channel3: bool,
+    has_channel4: bool,
+    _tim: PhantomData<TIM>,
+}
+
+impl<TIM> Pins<TIM> {
+    pub fn new() -> Self {
+        Pins {
+            has_channel1: false,
+            has_channel2: false,
+            has_channel3: false,
+            has_channel4: false,
+            _tim: PhantomData,
+        }
+    }
+    pub fn channel1(self, _ch1_pin: impl PwmCh1<TIM> + AlternatePP) -> Self {
+        Pins {
+            has_channel1: true,
+            ..self
+        }
+    }
+    pub fn channel2(self, _ch2_pin: impl PwmCh2<TIM> + AlternatePP) -> Self {
+        Pins {
+            has_channel2: true,
+            ..self
+        }
+    }
+    pub fn channel3(self, _ch3_pin: impl PwmCh3<TIM> + AlternatePP) -> Self {
+        Pins {
+            has_channel3: true,
+            ..self
+        }
+    }
+    pub fn channel4(self, _ch4_pin: impl PwmCh4<TIM> + AlternatePP) -> Self {
+        Pins {
+            has_channel4: true,
+            ..self
+        }
+    }
 }
 
 pub struct C1;
@@ -172,34 +333,38 @@ pub struct C4;
 macro_rules! advanced_timer {
     ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
-            fn $timX<PINS>(
+            fn $timX(
                 tim: $TIMX,
-                _pins: PINS,
+                pins: Pins<$TIMX>,
                 freq: Hertz,
                 clocks: Clocks,
                 apb: &mut $apb,
-            ) -> PINS::Channels
-            where
-                PINS: Pins<$TIMX>,
+            ) -> PwmChannels<$TIMX>
             {
                 apb.enr().modify(|_, w| w.$timXen().set_bit());
                 apb.rstr().modify(|_, w| w.$timXrst().set_bit());
                 apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
-                if PINS::C1 {
+                let mut pwm_channels = PwmChannels::new();
+
+                if pins.has_channel1 {
                     tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
-                if PINS::C2 {
+                if pins.has_channel2 {
                     tim.ccmr1_output().modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
-                if PINS::C3 {
+                if pins.has_channel3 {
                     tim.ccmr2_output().modify(|_, w| unsafe { w.oc3pe().set_bit().oc3m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
-                if PINS::C4 {
+                if pins.has_channel4 {
                     tim.ccmr2_output().modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 let clk = clocks.pclk2().0;
@@ -225,7 +390,7 @@ macro_rules! advanced_timer {
                         .arpe().set_bit()
                 });
 
-                unsafe { mem::MaybeUninit::uninit().assume_init() }
+                pwm_channels
             }
 
             pwm_channels! {
@@ -234,7 +399,6 @@ macro_rules! advanced_timer {
                         (C3, $arr_width, cc3e, ccr3, ccr),
                         (C4, $arr_width, cc4e, ccr4, ccr),
             }
-
         )+
     }
 }
@@ -242,34 +406,38 @@ macro_rules! advanced_timer {
 macro_rules! standard_timer {
     ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
-            fn $timX<PINS>(
+            fn $timX(
                 tim: $TIMX,
-                _pins: PINS,
+                pins: Pins<$TIMX>,
                 freq: Hertz,
                 clocks: Clocks,
                 apb: &mut $apb,
-            ) -> PINS::Channels
-            where
-                PINS: Pins<$TIMX>,
+            ) -> PwmChannels<$TIMX>
             {
                 apb.enr().modify(|_, w| w.$timXen().set_bit());
                 apb.rstr().modify(|_, w| w.$timXrst().set_bit());
                 apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
-                if PINS::C1 {
+                let mut pwm_channels = PwmChannels::new();
+
+                if pins.has_channel1 {
                     tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
-                if PINS::C2 {
+                if pins.has_channel2 {
                     tim.ccmr1_output().modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
-                if PINS::C3 {
+                if pins.has_channel3 {
                     tim.ccmr2_output().modify(|_, w| unsafe { w.oc3pe().set_bit().oc3m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
-                if PINS::C4 {
+                if pins.has_channel4 {
                     tim.ccmr2_output().modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 let clk = clocks.pclk1().0;
@@ -291,7 +459,7 @@ macro_rules! standard_timer {
                         .arpe().set_bit()
                 });
 
-                unsafe { mem::MaybeUninit::uninit().assume_init() }
+                pwm_channels
             }
 
             pwm_channels! {
@@ -300,7 +468,6 @@ macro_rules! standard_timer {
                         (C3, $arr_width, cc3e, ccr3, ccr),
                         (C4, $arr_width, cc4e, ccr4, ccr),
             }
-
         )+
     }
 }
@@ -308,22 +475,23 @@ macro_rules! standard_timer {
 macro_rules! small_timer {
     ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
-            fn $timX<PINS>(
+            fn $timX(
                 tim: $TIMX,
-                _pins: PINS,
+                pins: Pins<$TIMX>,
                 freq: Hertz,
                 clocks: Clocks,
                 apb: &mut $apb,
-            ) -> PINS::Channels
-            where
-                PINS: Pins<$TIMX>,
+            ) -> PwmChannels<$TIMX>
             {
                 apb.enr().modify(|_, w| w.$timXen().set_bit());
                 apb.rstr().modify(|_, w| w.$timXrst().set_bit());
                 apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
 
-                if PINS::C1 {
+                let mut pwm_channels = PwmChannels::new();
+
+                if pins.has_channel1 {
                     tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                    pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 // TODO: The uncommented lines are awaiting PAC updates to be valid.
@@ -350,7 +518,7 @@ macro_rules! small_timer {
                         .arpe().set_bit()
                 });
 
-                unsafe { mem::MaybeUninit::uninit().assume_init() }
+                pwm_channels
             }
 
             pwm_channels! {
@@ -358,7 +526,6 @@ macro_rules! small_timer {
                 // TODO: The uncommented line is awaiting PAC updates to be valid.
                 //        (C2, $arr_width, cc2e, ccr2, ccr2),
             }
-
         )+
     }
 }
