@@ -49,11 +49,16 @@ pub trait NcsPin<QSPI>: private::Sealed {}
 /// TSC Marks a pin that can be used for the touch sensing controller
 pub trait TscPin<const GROUP: usize, const IO: usize>: private::Sealed {}
 
+/// CAN Marks a pin that can be used as a can tx pin
+pub trait CanTxPin<CAN>: private::Sealed {}
+/// CAN Marks a pin that can be used as a can rx pin
+pub trait CanRxPin<CAN>: private::Sealed {}
+
 // use gpio::Alternate, AF0..15, PA0..15, PB...
 use super::gpio::*;
 #[allow(unused)]
 use crate::pac::{
-    I2C1, I2C2, I2C3, QUADSPI, SPI1, TIM1, TIM15, TIM2, TIM3, USART1, USART2, USART3,
+    CAN1, I2C1, I2C2, I2C3, QUADSPI, SPI1, TIM1, TIM15, TIM2, TIM3, USART1, USART2, USART3,
 };
 
 macro_rules! afpin {
@@ -329,22 +334,22 @@ af_table_af0af7! {
 // stm32l452xx datasheet page 82, only qspi
 af_table_af8af15! {
 //      AF8
-[ PA0  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA1  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA2  | _ | _ |NcsPin<QUADSPI>| _ | _ | _ | _ | _ ]
-[ PA3  | _ | _ |ClkPin<QUADSPI>| _ | _ | _ | _ | _ ]
-[ PA4  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA5  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA6  | _ | _ |IO3Pin<QUADSPI>| _ | _ | _ | _ | _ ]
-[ PA7  | _ | _ |IO2Pin<QUADSPI>| _ | _ | _ | _ | _ ]
-[ PA8  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA9  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA10 | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA11 | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA12 | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA13 | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA14 | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PA15 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA0  | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA1  | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA2  | _ |       _      |NcsPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PA3  | _ |       _      |ClkPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PA4  | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA5  | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA6  | _ |       _      |IO3Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PA7  | _ |       _      |IO2Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PA8  | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA9  | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA10 | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA11 | _ |CanRxPin<CAN1>|       _       | _ | _ | _ | _ | _ ]
+[ PA12 | _ |CanTxPin<CAN1>|       _       | _ | _ | _ | _ | _ ]
+[ PA13 | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA14 | _ |       _      |       _       | _ | _ | _ | _ | _ ]
+[ PA15 | _ |       _      |       _       | _ | _ | _ | _ | _ ]
 }
 
 // stm32l452xx datasheet page 83, only qspi and tsc

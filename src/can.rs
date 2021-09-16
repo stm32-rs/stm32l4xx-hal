@@ -2,13 +2,12 @@
 //!
 //! Based on STM32F4xx HAL.
 
+use crate::alternate_functions::{CanRxPin, CanTxPin};
+use crate::gpio::AlternatePP;
 use crate::pac::CAN1;
 use crate::rcc::APB1R1;
 
-mod sealed {
-    pub trait Sealed {}
-}
-
+/* old approach, just kept so it can be moved later?
 /// A pair of (TX, RX) pins configured for CAN communication
 pub trait Pins: sealed::Sealed {
     /// The CAN peripheral that uses these pins
@@ -54,6 +53,11 @@ mod pb13_pb12_af10 {
     use crate::pac::CAN1;
     pins! { CAN1 => (PB13<AF10>, PB12<AF10>), }
 }
+*/
+
+mod sealed {
+    pub trait Sealed {}
+}
 
 /// Enable/disable peripheral
 pub trait Enable: sealed::Sealed {
@@ -74,34 +78,35 @@ impl crate::can::Enable for crate::pac::CAN1 {
 }
 
 /// Interface to the CAN peripheral.
-pub struct Can<Instance, Pins> {
-    can: Instance,
-    pins: Pins,
+pub struct Can<CAN, PINS> {
+    can: CAN,
+    pins: PINS,
 }
 
-impl<Instance, P> Can<Instance, P>
+impl<CAN, TX, RX> Can<CAN, (TX, RX)>
 where
-    Instance: Enable,
-    P: Pins<Instance = Instance>,
+    CAN: Enable,
+    TX: CanTxPin<CAN> + AlternatePP,
+    RX: CanRxPin<CAN> + AlternatePP,
 {
     /// Creates a CAN interface.
-    pub fn new(apb: &mut APB1R1, can: Instance, pins: P) -> Can<Instance, P> {
-        Instance::enable(apb);
+    pub fn new(apb: &mut APB1R1, can: CAN, pins: (TX, RX)) -> Can<CAN, (TX, RX)> {
+        CAN::enable(apb);
         Can { can, pins }
     }
 
     // Split the peripheral back into its components.
-    pub fn split(self) -> (Instance, P) {
+    pub fn split(self) -> (CAN, (TX, RX)) {
         (self.can, self.pins)
     }
 }
 
-unsafe impl<Pins> bxcan::Instance for Can<CAN1, Pins> {
+unsafe impl<PINS> bxcan::Instance for Can<CAN1, PINS> {
     const REGISTERS: *mut bxcan::RegisterBlock = CAN1::ptr() as *mut _;
 }
 
-unsafe impl<Pins> bxcan::FilterOwner for Can<CAN1, Pins> {
+unsafe impl<PINS> bxcan::FilterOwner for Can<CAN1, PINS> {
     const NUM_FILTER_BANKS: u8 = 14;
 }
 
-unsafe impl<Pins> bxcan::MasterInstance for Can<CAN1, Pins> {}
+unsafe impl<PINS> bxcan::MasterInstance for Can<CAN1, PINS> {}
