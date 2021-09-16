@@ -33,13 +33,28 @@ pub trait PwmCh3<TIM>: private::Sealed {}
 /// PWM Marks a pin that can be used as pwm channel 4 for a given timer
 pub trait PwmCh4<TIM>: private::Sealed {}
 
+/// QSPI Marks a pin that can be used as clock for QSPI
+pub trait ClkPin<QSPI>: private::Sealed {}
+
+/// QSPI Marks a pin that can be used as IO0 for QSPI
+pub trait IO0Pin<QSPI>: private::Sealed {}
+
+/// QSPI Marks a pin that can be used as IO1 for QSPI
+pub trait IO1Pin<QSPI>: private::Sealed {}
+
+/// QSPI Marks a pin that can be used as IO2 for QSPI
+pub trait IO2Pin<QSPI>: private::Sealed {}
+
+/// QSPI Marks a pin that can be used as IO3 for QSPI
+pub trait IO3Pin<QSPI>: private::Sealed {}
+
+/// QSPI Marks a pin that can be used as NcsPin for QSPI
+pub trait NcsPin<QSPI>: private::Sealed {}
+
+// use gpio::Alternate, AF0..15, PA0..15, PB...
+use super::gpio::*;
 #[allow(unused)]
-use super::gpio::{
-    Alternate, AF0, AF1, AF10, AF11, AF12, AF13, AF14, AF15, AF2, AF3, AF4, AF5, AF6, AF7, AF8,
-    AF9, PA0, PA1, PA10, PA11, PA12, PA13, PA14, PA15, PA2, PA3, PA4, PA5, PA6, PA7, PA8, PA9,
-};
-#[allow(unused)]
-use crate::pac::{I2C1, I2C2, I2C3, USART1, USART2, USART3, TIM1, TIM2, TIM3, TIM15};
+use crate::pac::{I2C1, I2C2, I2C3, USART1, USART2, USART3, TIM1, TIM2, TIM3, TIM15, QUADSPI};
 
 macro_rules! afpin {
     ($pin:ident, $af:ty, $trait:ty) => {
@@ -201,6 +216,96 @@ macro_rules! af_table_af0af7 {
     };
 }
 
+macro_rules! AF8 {
+    // No trait to implement for this pin on AF0
+    ($pin:ident, _ | $($tail:tt)*) => {
+        // Just forward the rest of this row ($tail) to AF1
+        AF9!($pin, $($tail)*);
+    };
+    // Implement a trait for this pin on AF0
+    ($pin:ident, $trait:ty | $($tail:tt)*) => {
+        // Implement the trait
+        afpin!($pin, AF8, $trait);
+        // Forward the rest of this row to AF1
+        AF9!($pin, $($tail)*);
+    };
+}
+macro_rules! AF9 {
+    ($pin:ident, _ | $($tail:tt)*) => {
+        AF10!($pin, $($tail)*);
+    };
+    ($pin:ident, $trait:ty | $($tail:tt)*) => {
+        afpin!($pin, AF9, $trait);
+        AF10!($pin, $($tail)*);
+    };
+}
+macro_rules! AF10 {
+    ($pin:ident, _ | $($tail:tt)*) => {
+        AF11!($pin, $($tail)*);
+    };
+    ($pin:ident, $trait:ty | $($tail:tt)*) => {
+        afpin!($pin, AF10, $trait);
+        AF11!($pin, $($tail)*);
+    };
+}
+macro_rules! AF11 {
+    ($pin:ident, _ | $($tail:tt)*) => {
+        AF12!($pin, $($tail)*);
+    };
+    ($pin:ident, $trait:ty | $($tail:tt)*) => {
+        afpin!($pin, AF11, $trait);
+        AF12!($pin, $($tail)*);
+    };
+}
+macro_rules! AF12 {
+    ($pin:ident, _ | $($tail:tt)*) => {
+        AF13!($pin, $($tail)*);
+    };
+    ($pin:ident, $trait:ty | $($tail:tt)*) => {
+        afpin!($pin, AF12, $trait);
+        AF13!($pin, $($tail)*);
+    };
+}
+macro_rules! AF13 {
+    ($pin:ident, _ | $($tail:tt)*) => {
+        AF14!($pin, $($tail)*);
+    };
+    ($pin:ident, $trait:ty | $($tail:tt)*) => {
+        afpin!($pin, AF13, $trait);
+        AF14!($pin, $($tail)*);
+    };
+}
+macro_rules! AF14 {
+    ($pin:ident, _ | $($tail:tt)*) => {
+        AF15!($pin, $($tail)*);
+    };
+    ($pin:ident, $trait:ty | $($tail:tt)*) => {
+        afpin!($pin, AF14, $trait);
+        AF15!($pin, $($tail)*);
+    };
+}
+macro_rules! AF15 {
+    ($pin:ident, _) => {};
+    ($pin:ident, $trait:ty) => {
+        afpin!($pin, AF15, $trait);
+    };
+}
+
+macro_rules! af_row_af8af15 {
+    ($pin:ident | $($tail:tt)*) => {
+        AF8!($pin, $($tail)*);
+    }
+}
+
+macro_rules! af_table_af8af15 {
+    () => {};
+    ([$($row:tt)*] $($tail:tt)*) => {
+        af_row_af8af15!($($row)*);
+        af_table_af8af15!($($tail)*);
+    };
+}
+
+// stm32l452xx datasheet DS11912 Rev7 page 76
 af_table_af0af7! {
 //      AF0      AF1          AF2          AF3          AF4        AF5      AF6          AF7
 [ PA0  | _ |PwmCh1<TIM2>|      _     |      _      |     _      |   _    |   _    |  CtsPin<USART2>]
@@ -219,4 +324,67 @@ af_table_af0af7! {
 [ PA13 | _ |     _      |      _     |      _      |     _      |   _    |   _    |       _        ]
 [ PA14 | _ |     _      |      _     |      _      |     _      |   _    |   _    |       _        ]
 [ PA15 | _ |PwmCh1<TIM2>|      _     |RxPin<USART2>|     _      |   _    |   _    |RtsDePin<USART3>]
+}
+
+// stm32l452xx datasheet page 82, only qspi
+af_table_af8af15! {
+//      AF8
+[ PA0  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA1  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA2  | _ | _ |NcsPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PA3  | _ | _ |ClkPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PA4  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA5  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA6  | _ | _ |IO3Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PA7  | _ | _ |IO2Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PA8  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA9  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA10 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA11 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA12 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA13 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA14 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PA15 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+}
+
+// stm32l452xx datasheet page 83, only qspi
+af_table_af8af15! {
+//      AF8
+[ PB0  | _ | _ |IO1Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PB1  | _ | _ |IO0Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PB2  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB3  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB4  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB5  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB6  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB7  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB8  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB9  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB10 | _ | _ |ClkPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PB11 | _ | _ |NcsPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PB12 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB13 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB14 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB15 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+}
+
+// stm32l452xx datasheet page 86, only qspi
+af_table_af8af15! {
+//      AF8
+[ PE0  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE1  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE2  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE3  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE4  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE5  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE6  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE7  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE8  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE9  | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PE10 | _ | _ |ClkPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PE11 | _ | _ |NcsPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PE12 | _ | _ |IO0Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PE13 | _ | _ |IO1Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PE14 | _ | _ |IO2Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PE15 | _ | _ |IO3Pin<QUADSPI>| _ | _ | _ | _ | _ ]
 }

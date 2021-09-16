@@ -1,7 +1,6 @@
 //! # Pulse Width Modulation
 
 use core::marker::PhantomData;
-use core::mem;
 
 use crate::hal;
 use crate::stm32::{TIM1, TIM15, TIM2};
