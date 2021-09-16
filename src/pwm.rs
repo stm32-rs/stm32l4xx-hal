@@ -5,8 +5,8 @@ use core::marker::PhantomData;
 use crate::hal;
 use crate::stm32::{TIM1, TIM15, TIM2};
 
-use crate::gpio::AlternatePP;
 use crate::alternate_functions::{PwmCh1, PwmCh2, PwmCh3, PwmCh4};
+use crate::gpio::AlternatePP;
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
@@ -196,7 +196,13 @@ pins_to_channels_mapping! {
 */
 
 pub trait PwmExt1: Sized {
-    fn pwm<T>(self, pins: Pins<Self>, frequency: T, clocks: Clocks, apb: &mut APB2) -> PwmChannels<Self>
+    fn pwm<T>(
+        self,
+        pins: Pins<Self>,
+        frequency: T,
+        clocks: Clocks,
+        apb: &mut APB2,
+    ) -> PwmChannels<Self>
     where
         T: Into<Hertz>;
 }
@@ -232,7 +238,13 @@ impl PwmExt1 for TIM15 {
 }
 
 impl PwmExt2 for TIM2 {
-    fn pwm<T>(self, pins: Pins<Self>, freq: T, clocks: Clocks, apb: &mut APB1R1) -> PwmChannels<Self>
+    fn pwm<T>(
+        self,
+        pins: Pins<Self>,
+        freq: T,
+        clocks: Clocks,
+        apb: &mut APB1R1,
+    ) -> PwmChannels<Self>
     where
         T: Into<Hertz>,
     {

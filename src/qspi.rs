@@ -37,7 +37,7 @@ use crate::gpio::{
 
 use crate::gpio::{Alternate, PushPull, Speed, AF10};
 */
-use crate::alternate_functions::{ClkPin, NcsPin, IO0Pin, IO1Pin, IO2Pin, IO3Pin};
+use crate::alternate_functions::{ClkPin, IO0Pin, IO1Pin, IO2Pin, IO3Pin, NcsPin};
 use crate::gpio::{AlternatePP, Speed};
 use crate::rcc::AHB3;
 use crate::stm32::QUADSPI;

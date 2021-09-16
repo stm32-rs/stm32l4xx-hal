@@ -38,11 +38,16 @@ fn main() -> ! {
         .pa3
         .into_af1_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
-    let pwm_pins = stm32l4xx_hal::pwm::Pins::new().channel1(c1).channel2(c2).channel3(c3).channel4(c4);
+    let pwm_pins = stm32l4xx_hal::pwm::Pins::new()
+        .channel1(c1)
+        .channel2(c2)
+        .channel3(c3)
+        .channel4(c4);
     let mut pwm = p
         .TIM2
         .pwm(pwm_pins, 1.khz(), clocks, &mut rcc.apb1r1)
-        .channel3.unwrap();
+        .channel3
+        .unwrap();
 
     let max = pwm.get_max_duty();
 

@@ -37,11 +37,15 @@ fn main() -> ! {
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
-    let tx = gpioa.pa2.into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    let tx = gpioa
+        .pa2
+        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     //let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
     //let tx = gpiod.pd5.into_af7_pushpull(&mut gpiod.moder, &mut gpiod.otyper, &mut gpiod.afrl);
 
-    let rx = gpioa.pa3.into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    let rx = gpioa
+        .pa3
+        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     //let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
     //let rx = gpiod.pd6.into_af7_pushpull(&mut gpiod.moder, &mut gpiod.otyper, &mut gpiod.afrl);
 

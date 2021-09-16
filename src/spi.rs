@@ -13,8 +13,8 @@ use crate::dma::{self, dma1, dma2, TransferPayload};
 /* old approach, just kept to be moved later
 use crate::gpio::{Alternate, PushPull, AF5};
 */
-use crate::alternate_functions::{SckPin, MisoPin, MosiPin};
-use crate::gpio::{AlternatePP};
+use crate::alternate_functions::{MisoPin, MosiPin, SckPin};
+use crate::gpio::AlternatePP;
 
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use crate::rcc::{Clocks, APB1R1, APB2};
@@ -317,7 +317,7 @@ pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
-use crate::{stm32::SPI3};
+use crate::stm32::SPI3;
 
 #[cfg(any(
     feature = "stm32l4x1",
