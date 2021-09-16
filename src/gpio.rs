@@ -579,27 +579,6 @@ macro_rules! gpio {
                             .modify(|r, w| unsafe { w.bits(r.bits() & !(0b11 << offset)) });
                         $PXi { _mode: PhantomData }
                     }
-
-                    /// Configures the pin to operate as an touch sample
-                    pub fn into_touch_sample(
-                        self,
-                        moder: &mut MODER,
-                        otyper: &mut OTYPER,
-                        afr: &mut $AFR,
-                    ) -> $PXi<Alternate<AF9, OpenDrain>> {
-                        self.into_af9_opendrain(moder, otyper, afr)
-                    }
-
-                    /// Configures the pin to operate as an touch channel
-                    pub fn into_touch_channel(
-                        self,
-                        moder: &mut MODER,
-                        otyper: &mut OTYPER,
-                        afr: &mut $AFR,
-                    ) -> $PXi<Alternate<AF9, PushPull>> {
-                        self.into_af9_pushpull(moder, otyper, afr)
-                    }
-
                 }
 
                 impl $PXi<Output<OpenDrain>> {

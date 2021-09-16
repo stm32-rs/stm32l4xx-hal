@@ -41,13 +41,13 @@ fn main() -> ! {
     let sample_pin =
         gpiob
             .pb4
-            .into_touch_sample(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+            .into_af9_opendrain(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     let mut c1 = gpiob
         .pb5
-        .into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+        .into_af9_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     let mut c2 = gpiob
         .pb6
-        .into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+        .into_af9_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     // let mut c3 = gpiob.pb7.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
     // , (c1, c2, c3)

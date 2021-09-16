@@ -46,10 +46,15 @@ pub trait IO3Pin<QSPI>: private::Sealed {}
 /// QSPI Marks a pin that can be used as NcsPin for QSPI
 pub trait NcsPin<QSPI>: private::Sealed {}
 
+/// TSC Marks a pin that can be used for the touch sensing controller
+pub trait TscPin<const GROUP: usize, const IO: usize>: private::Sealed {}
+
 // use gpio::Alternate, AF0..15, PA0..15, PB...
 use super::gpio::*;
 #[allow(unused)]
-use crate::pac::{I2C1, I2C2, I2C3, USART1, USART2, USART3, TIM1, TIM2, TIM3, TIM15, QUADSPI, SPI1};
+use crate::pac::{
+    I2C1, I2C2, I2C3, QUADSPI, SPI1, TIM1, TIM15, TIM2, TIM3, USART1, USART2, USART3,
+};
 
 macro_rules! afpin {
     ($pin:ident, $af:ty, $trait:ty) => {
@@ -342,25 +347,25 @@ af_table_af8af15! {
 [ PA15 | _ | _ |       _       | _ | _ | _ | _ | _ ]
 }
 
-// stm32l452xx datasheet page 83, only qspi
+// stm32l452xx datasheet page 83, only qspi and tsc
 af_table_af8af15! {
 //      AF8
-[ PB0  | _ | _ |IO1Pin<QUADSPI>| _ | _ | _ | _ | _ ]
-[ PB1  | _ | _ |IO0Pin<QUADSPI>| _ | _ | _ | _ | _ ]
-[ PB2  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB3  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB4  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB5  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB6  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB7  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB8  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB9  | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB10 | _ | _ |ClkPin<QUADSPI>| _ | _ | _ | _ | _ ]
-[ PB11 | _ | _ |NcsPin<QUADSPI>| _ | _ | _ | _ | _ ]
-[ PB12 | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB13 | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB14 | _ | _ |       _       | _ | _ | _ | _ | _ ]
-[ PB15 | _ | _ |       _       | _ | _ | _ | _ | _ ]
+[ PB0  | _ |      _     |IO1Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PB1  | _ |      _     |IO0Pin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PB2  | _ |      _     |       _       | _ | _ | _ | _ | _ ]
+[ PB3  | _ |      _     |       _       | _ | _ | _ | _ | _ ]
+[ PB4  | _ |TscPin<2, 1>|       _       | _ | _ | _ | _ | _ ]
+[ PB5  | _ |TscPin<2, 2>|       _       | _ | _ | _ | _ | _ ]
+[ PB6  | _ |TscPin<2, 3>|       _       | _ | _ | _ | _ | _ ]
+[ PB7  | _ |TscPin<2, 4>|       _       | _ | _ | _ | _ | _ ]
+[ PB8  | _ |      _     |       _       | _ | _ | _ | _ | _ ]
+[ PB9  | _ |      _     |       _       | _ | _ | _ | _ | _ ]
+[ PB10 | _ |      _     |ClkPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PB11 | _ |      _     |NcsPin<QUADSPI>| _ | _ | _ | _ | _ ]
+[ PB12 | _ |TscPin<1, 1>|       _       | _ | _ | _ | _ | _ ]
+[ PB13 | _ |TscPin<1, 2>|       _       | _ | _ | _ | _ | _ ]
+[ PB14 | _ |TscPin<1, 3>|       _       | _ | _ | _ | _ | _ ]
+[ PB15 | _ |TscPin<1, 4>|       _       | _ | _ | _ | _ | _ ]
 }
 
 // stm32l452xx datasheet page 86, only qspi
