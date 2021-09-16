@@ -10,7 +10,12 @@ use core::sync::atomic;
 use core::sync::atomic::Ordering;
 
 use crate::dma::{self, dma1, dma2, TransferPayload};
+/* old approach, just kept to be moved later
 use crate::gpio::{Alternate, PushPull, AF5};
+*/
+use crate::alternate_functions::{SckPin, MisoPin, MosiPin};
+use crate::gpio::{AlternatePP};
+
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
@@ -29,6 +34,7 @@ pub enum Error {
     Crc,
 }
 
+/*
 #[doc(hidden)]
 mod private {
     pub trait Sealed {}
@@ -57,6 +63,7 @@ macro_rules! pins {
         )*
     }
 }
+*/
 
 /// SPI peripheral operating in full duplex master mode
 pub struct Spi<SPI, PINS> {
@@ -79,9 +86,9 @@ macro_rules! hal {
                 ) -> Self
                 where
                     F: Into<Hertz>,
-                    SCK: SckPin<$SPIX>,
-                    MISO: MisoPin<$SPIX>,
-                    MOSI: MosiPin<$SPIX>,
+                    SCK: SckPin<$SPIX> + AlternatePP,
+                    MISO: MisoPin<$SPIX> + AlternatePP,
+                    MOSI: MosiPin<$SPIX> + AlternatePP,
                 {
                     // enable or reset $SPIX
                     apb2.enr().modify(|_, w| w.$spiXen().set_bit());
@@ -137,9 +144,9 @@ macro_rules! hal {
 
                 pub fn $spiX_slave(spi: $SPIX, pins: (SCK, MISO, MOSI), mode: Mode, apb2: &mut $APBX,) -> Self
                 where
-                    SCK: SckPin<$SPIX>,
-                    MISO: MisoPin<$SPIX>,
-                    MOSI: MosiPin<$SPIX>,
+                    SCK: SckPin<$SPIX> + AlternatePP,
+                    MISO: MisoPin<$SPIX> + AlternatePP,
+                    MOSI: MosiPin<$SPIX> + AlternatePP,
                 {
                     // enable or reset $SPIX
                     apb2.enr().modify(|_, w| w.$spiXen().set_bit());
@@ -268,6 +275,7 @@ macro_rules! hal {
     }
 }
 
+/* old approach, just kept to be moved later
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
@@ -279,19 +287,14 @@ use crate::gpio::gpiod::*;
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 use crate::gpio::gpiog::*;
 use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
+*/
 
 use crate::stm32::SPI1;
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
 hal! {
     SPI1: (spi1, spi1_slave, APB2, spi1en, spi1rst, pclk2),
 }
 
+/*
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
@@ -306,6 +309,7 @@ pins!(SPI1, AF5,
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
 pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
+*/
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -313,7 +317,7 @@ pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
-use crate::{gpio::AF6, stm32::SPI3};
+use crate::{stm32::SPI3};
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -325,6 +329,7 @@ hal! {
     SPI3: (spi3, spi3_slave, APB1R1, spi3en, spi3rst, pclk1),
 }
 
+/*
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
@@ -338,6 +343,7 @@ pins!(SPI3, AF6,
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
+*/
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -359,6 +365,7 @@ hal! {
     SPI2: (spi2, spi2_slave, APB1R1, spi2en, spi2rst, pclk1),
 }
 
+/*
 #[cfg(any(
     feature = "stm32l4x1",
     feature = "stm32l4x2",
@@ -370,6 +377,7 @@ pins!(SPI2, AF5,
     SCK: [PB13, PB10, PD1],
     MISO: [PB14, PC2, PD3],
     MOSI: [PB15, PC3, PD4]);
+*/
 
 pub struct SpiPayload<SPI, PINS> {
     spi: Spi<SPI, PINS>,

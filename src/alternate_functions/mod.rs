@@ -5,56 +5,51 @@ mod private {
 
 /// I2C SCL pin. This trait is sealed and cannot be implemented.
 pub trait SclPin<I2C>: private::Sealed {}
-
 /// I2C SDA pin. This trait is sealed and cannot be implemented.
 pub trait SdaPin<I2C>: private::Sealed {}
 
 /// USART Marks pins as being as being TX pins for the given USART instance
 pub trait TxPin<Instance>: private::Sealed {}
-
 /// USART Marks pins as being as being RX pins for the given USART instance
 pub trait RxPin<Instance>: private::Sealed {}
-
 /// USART Marks pins as being as being RTS pins for the given USART instance
 pub trait RtsDePin<Instance>: private::Sealed {}
-
 /// USART Marks pins as being as being CTS pins for the given USART instance
 pub trait CtsPin<Instance>: private::Sealed {}
 
 /// PWM Marks a pin that can be used as pwm channel 1 for a given timer
 pub trait PwmCh1<TIM>: private::Sealed {}
-
 /// PWM Marks a pin that can be used as pwm channel 2 for a given timer
 pub trait PwmCh2<TIM>: private::Sealed {}
-
 /// PWM Marks a pin that can be used as pwm channel 3 for a given timer
 pub trait PwmCh3<TIM>: private::Sealed {}
-
 /// PWM Marks a pin that can be used as pwm channel 4 for a given timer
 pub trait PwmCh4<TIM>: private::Sealed {}
 
+/// SPI SCK pin. This trait is sealed and cannot be implemented.
+pub trait SckPin<SPI>: private::Sealed {}
+/// SPI MISO pin. This trait is sealed and cannot be implemented.
+pub trait MisoPin<SPI>: private::Sealed {}
+/// SPI MOSI pin. This trait is sealed and cannot be implemented.
+pub trait MosiPin<SPI>: private::Sealed {}
+
 /// QSPI Marks a pin that can be used as clock for QSPI
 pub trait ClkPin<QSPI>: private::Sealed {}
-
 /// QSPI Marks a pin that can be used as IO0 for QSPI
 pub trait IO0Pin<QSPI>: private::Sealed {}
-
 /// QSPI Marks a pin that can be used as IO1 for QSPI
 pub trait IO1Pin<QSPI>: private::Sealed {}
-
 /// QSPI Marks a pin that can be used as IO2 for QSPI
 pub trait IO2Pin<QSPI>: private::Sealed {}
-
 /// QSPI Marks a pin that can be used as IO3 for QSPI
 pub trait IO3Pin<QSPI>: private::Sealed {}
-
 /// QSPI Marks a pin that can be used as NcsPin for QSPI
 pub trait NcsPin<QSPI>: private::Sealed {}
 
 // use gpio::Alternate, AF0..15, PA0..15, PB...
 use super::gpio::*;
 #[allow(unused)]
-use crate::pac::{I2C1, I2C2, I2C3, USART1, USART2, USART3, TIM1, TIM2, TIM3, TIM15, QUADSPI};
+use crate::pac::{I2C1, I2C2, I2C3, USART1, USART2, USART3, TIM1, TIM2, TIM3, TIM15, QUADSPI, SPI1};
 
 macro_rules! afpin {
     ($pin:ident, $af:ty, $trait:ty) => {
@@ -308,22 +303,22 @@ macro_rules! af_table_af8af15 {
 // stm32l452xx datasheet DS11912 Rev7 page 76
 af_table_af0af7! {
 //      AF0      AF1          AF2          AF3          AF4        AF5      AF6          AF7
-[ PA0  | _ |PwmCh1<TIM2>|      _     |      _      |     _      |   _    |   _    |  CtsPin<USART2>]
-[ PA1  | _ |PwmCh2<TIM2>|      _     |      _      |     _      |   _    |   _    |RtsDePin<USART2>]
-[ PA2  | _ |PwmCh3<TIM2>|      _     |      _      |     _      |   _    |   _    |  TxPin<USART2> ]
-[ PA3  | _ |PwmCh4<TIM2>|      _     |      _      |     _      |   _    |   _    |  RxPin<USART2> ]
-[ PA4  | _ |     _      |      _     |      _      |     _      |   _    |   _    |       _        ]
-[ PA5  | _ |PwmCh1<TIM2>|      _     |      _      |     _      |   _    |   _    |       _        ]
-[ PA6  | _ |     _      |PwmCh1<TIM3>|      _      |     _      |   _    |   _    |  CtsPin<USART3>]
-[ PA7  | _ |     _      |PwmCh2<TIM3>|      _      |SclPin<I2C3>|   _    |   _    |       _        ]
-[ PA8  | _ |PwmCh1<TIM1>|      _     |      _      |     _      |   _    |   _    |       _        ]
-[ PA9  | _ |PwmCh2<TIM1>|      _     |      _      |SclPin<I2C1>|   _    |   _    |  TxPin<USART1> ]
-[ PA10 | _ |PwmCh3<TIM1>|      _     |      _      |SdaPin<I2C1>|   _    |   _    |  RxPin<USART1> ]
-[ PA11 | _ |PwmCh4<TIM1>|      _     |      _      |     _      |   _    |   _    |  CtsPin<USART1>]
-[ PA12 | _ |     _      |      _     |      _      |     _      |   _    |   _    |RtsDePin<USART1>]
-[ PA13 | _ |     _      |      _     |      _      |     _      |   _    |   _    |       _        ]
-[ PA14 | _ |     _      |      _     |      _      |     _      |   _    |   _    |       _        ]
-[ PA15 | _ |PwmCh1<TIM2>|      _     |RxPin<USART2>|     _      |   _    |   _    |RtsDePin<USART3>]
+[ PA0  | _ |PwmCh1<TIM2>|      _     |      _      |     _      |      _      |   _    |  CtsPin<USART2>]
+[ PA1  | _ |PwmCh2<TIM2>|      _     |      _      |     _      |SckPin<SPI1> |   _    |RtsDePin<USART2>]
+[ PA2  | _ |PwmCh3<TIM2>|      _     |      _      |     _      |      _      |   _    |  TxPin<USART2> ]
+[ PA3  | _ |PwmCh4<TIM2>|      _     |      _      |     _      |      _      |   _    |  RxPin<USART2> ]
+[ PA4  | _ |     _      |      _     |      _      |     _      |      _      |   _    |       _        ]
+[ PA5  | _ |PwmCh1<TIM2>|      _     |      _      |     _      |SckPin<SPI1> |   _    |       _        ]
+[ PA6  | _ |     _      |PwmCh1<TIM3>|      _      |     _      |MisoPin<SPI1>|   _    |  CtsPin<USART3>]
+[ PA7  | _ |     _      |PwmCh2<TIM3>|      _      |SclPin<I2C3>|MosiPin<SPI1>|   _    |       _        ]
+[ PA8  | _ |PwmCh1<TIM1>|      _     |      _      |     _      |      _      |   _    |       _        ]
+[ PA9  | _ |PwmCh2<TIM1>|      _     |      _      |SclPin<I2C1>|      _      |   _    |  TxPin<USART1> ]
+[ PA10 | _ |PwmCh3<TIM1>|      _     |      _      |SdaPin<I2C1>|      _      |   _    |  RxPin<USART1> ]
+[ PA11 | _ |PwmCh4<TIM1>|      _     |      _      |     _      |MisoPin<SPI1>|   _    |  CtsPin<USART1>]
+[ PA12 | _ |     _      |      _     |      _      |     _      |MosiPin<SPI1>|   _    |RtsDePin<USART1>]
+[ PA13 | _ |     _      |      _     |      _      |     _      |      _      |   _    |       _        ]
+[ PA14 | _ |     _      |      _     |      _      |     _      |      _      |   _    |       _        ]
+[ PA15 | _ |PwmCh1<TIM2>|      _     |RxPin<USART2>|     _      |      _      |   _    |RtsDePin<USART3>]
 }
 
 // stm32l452xx datasheet page 82, only qspi
