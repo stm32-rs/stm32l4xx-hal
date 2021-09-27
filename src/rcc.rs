@@ -634,7 +634,11 @@ impl CFGR {
             self.pll_config
         };
 
-        let sysclk = self.sysclk.unwrap_or(HSI);
+        let sysclk = match (self.sysclk, self.msi) {
+            (Some(sysclk), _) => sysclk,
+            (None, Some(msi)) => msi.to_hertz().0,
+            (None, None) => MsiFreq::RANGE4M.to_hertz().0,
+        };
 
         assert!(sysclk <= 80_000_000);
 
@@ -711,6 +715,7 @@ impl CFGR {
         }
 
         let sysclk_src_bits;
+        let mut msi = self.msi;
         if let Some(pllconf) = pllconf {
             // Sanity-checks per RM0394, 6.4.4 PLL configuration register (RCC_PLLCFGR)
             let r = pllconf.r.to_division_factor();
@@ -763,13 +768,13 @@ impl CFGR {
                     .bits(sysclk_src_bits)
             });
         } else {
-            // use HSI as source
-            sysclk_src_bits = 0b01;
+            // use MSI as fallback source for sysclk
+            sysclk_src_bits = 0b00;
+            if msi.is_none() {
+                msi = Some(MsiFreq::RANGE4M);
+            }
 
-            rcc.cr.write(|w| w.hsion().set_bit());
-            while rcc.cr.read().hsirdy().bit_is_clear() {}
-
-            // SW: HSI selected as system clock
+            // SW: MSI selected as system clock
             rcc.cfgr.write(|w| unsafe {
                 w.ppre2()
                     .bits(ppre2_bits)
@@ -789,7 +794,7 @@ impl CFGR {
         //
 
         // MSI always starts on reset
-        if self.msi.is_none() {
+        if msi.is_none() {
             rcc.cr
                 .modify(|_, w| w.msion().clear_bit().msipllen().clear_bit())
         }
@@ -802,7 +807,7 @@ impl CFGR {
             hclk: Hertz(hclk),
             lsi: lsi_used,
             lse: self.lse.is_some(),
-            msi: self.msi,
+            msi,
             hsi48: self.hsi48,
             pclk1: Hertz(pclk1),
             pclk2: Hertz(pclk2),
