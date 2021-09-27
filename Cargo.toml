@@ -49,7 +49,7 @@ features = ["ram_access_2x16"]
 optional = true
 
 [dependencies.rtic-monotonic]
-version = "0.1.0-alpha.2"
+version = "0.1.0-rc.1"
 
 [package.metadata.docs.rs]
 features = ["rt", "stm32l4x2", "stm32-usbd"]
