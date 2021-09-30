@@ -16,7 +16,7 @@ use crate::dma::{
     dma1, CircBuffer, DMAFrame, FrameReader, FrameSender, Receive, RxDma, TransferPayload,
     Transmit, TxDma,
 };
-use crate::gpio::{self, Alternate, AlternateOD, Floating, Input};
+use crate::gpio::{self, Alternate, OpenDrain, PushPull};
 use crate::pac;
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
@@ -912,37 +912,37 @@ macro_rules! impl_pin_traits {
             $(
                 $(
                     impl private::SealedTx for
-                        gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<gpio::$af, PushPull>> {}
                     impl TxPin<pac::$instance> for
-                        gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<gpio::$af, PushPull>> {}
                 )*
 
                 $(
                     impl private::SealedTxHalfDuplex for
-                        gpio::$tx<AlternateOD<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<gpio::$af, OpenDrain>> {}
                     impl TxHalfDuplexPin<pac::$instance> for
-                        gpio::$tx<AlternateOD<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<gpio::$af, OpenDrain>> {}
                 )*
 
                 $(
                     impl private::SealedRx for
-                        gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rx<Alternate<gpio::$af, PushPull>> {}
                     impl RxPin<pac::$instance> for
-                        gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rx<Alternate<gpio::$af, PushPull>> {}
                 )*
 
                 $(
                     impl private::SealedRtsDe for
-                        gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rts_de<Alternate<gpio::$af, PushPull>> {}
                     impl RtsDePin<pac::$instance> for
-                        gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rts_de<Alternate<gpio::$af, PushPull>> {}
                 )*
 
                 $(
                     impl private::SealedCts for
-                        gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$cts<Alternate<gpio::$af, PushPull>> {}
                     impl CtsPin<pac::$instance> for
-                        gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$cts<Alternate<gpio::$af, PushPull>> {}
                 )*
             )*
         )*

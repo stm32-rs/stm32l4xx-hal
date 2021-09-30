@@ -18,8 +18,8 @@ pub trait GpioExt {
 }
 
 /// Input mode (type state)
-pub struct Input<MODE> {
-    _mode: PhantomData<MODE>,
+pub struct Input<IOCONF> {
+    _mode: PhantomData<IOCONF>,
 }
 
 /// Floating input (type state)
@@ -30,8 +30,8 @@ pub struct PullDown;
 pub struct PullUp;
 
 /// Output mode (type state)
-pub struct Output<MODE> {
-    _mode: PhantomData<MODE>,
+pub struct Output<OTYPE> {
+    _mode: PhantomData<OTYPE>,
 }
 
 /// Push pull output (type state)
@@ -51,15 +51,9 @@ pub enum Speed {
 }
 
 /// Alternate mode (type state)
-pub struct Alternate<AF, MODE> {
+pub struct Alternate<AF, OTYPE> {
     _af: PhantomData<AF>,
-    _mode: PhantomData<MODE>,
-}
-
-/// Some alternate mode in open drain configuration (type state)
-pub struct AlternateOD<AF, MODE> {
-    _af: PhantomData<AF>,
-    _mode: PhantomData<MODE>,
+    _mode: PhantomData<OTYPE>,
 }
 
 pub enum State {
@@ -140,11 +134,11 @@ macro_rules! doc_comment {
 }
 
 macro_rules! impl_into_af {
-    ($PXi:ident $AFR:ident $i:expr, $(($AF:ident, $NUM:expr, $NAME:ident));* $(;)?) => {
+    ($PXi:ident $AFR:ident $i:expr, $(($AF:ident, $NUM:expr, $NAME_PUSHPULL:ident, $NAME_OPENDRAIN:ident));* $(;)?) => {
         $(
             doc_comment! {
-                concat!("Configures the pin to serve as alternate function ", stringify!($NUM), " (", stringify!($AF), ")"),
-                pub fn $NAME(self, moder: &mut MODER, afr: &mut $AFR) -> $PXi<Alternate<$AF, MODE>> {
+                concat!("Configures the pin to serve as alternate function ", stringify!($NUM), " (", stringify!($AF), ") in push-pull configuration"),
+                pub fn $NAME_PUSHPULL(self, moder: &mut MODER, otyper: &mut OTYPER, afr: &mut $AFR) -> $PXi<Alternate<$AF, PushPull>> {
                     const OFF_MODE: u32 = 2 * $i;
                     const OFF_AFR: u32 = 4 * ($i % 8);
                     const MODE: u32 = 0b10; // alternate function mode
@@ -152,6 +146,31 @@ macro_rules! impl_into_af {
                     moder.moder().modify(|r, w| unsafe {
                         w.bits((r.bits() & !(0b11 << OFF_MODE)) | (MODE << OFF_MODE))
                     });
+                    // push pull output
+                    otyper
+                        .otyper()
+                        .modify(|r, w| unsafe { w.bits(r.bits() & !(0b1 << $NUM)) });
+                    afr.afr().modify(|r, w| unsafe {
+                        w.bits((r.bits() & !(0b1111 << OFF_AFR)) | ($NUM << OFF_AFR))
+                    });
+
+                    $PXi { _mode: PhantomData }
+                }
+            }
+            doc_comment! {
+                concat!("Configures the pin to serve as alternate function ", stringify!($NUM), " (", stringify!($AF), ") in open-drain configuration"),
+                pub fn $NAME_OPENDRAIN(self, moder: &mut MODER, otyper: &mut OTYPER, afr: &mut $AFR) -> $PXi<Alternate<$AF, OpenDrain>> {
+                    const OFF_MODE: u32 = 2 * $i;
+                    const OFF_AFR: u32 = 4 * ($i % 8);
+                    const MODE: u32 = 0b10; // alternate function mode
+
+                    moder.moder().modify(|r, w| unsafe {
+                        w.bits((r.bits() & !(0b11 << OFF_MODE)) | (MODE << OFF_MODE))
+                    });
+                    // open drain output
+                    otyper
+                        .otyper()
+                        .modify(|r, w| unsafe { w.bits(r.bits() | (0b1 << $NUM)) });
                     afr.afr().modify(|r, w| unsafe {
                         w.bits((r.bits() & !(0b1111 << OFF_AFR)) | ($NUM << OFF_AFR))
                     });
@@ -182,7 +201,7 @@ macro_rules! gpio {
             use crate::rcc::{AHB2, APB2};
             use super::{
 
-                Alternate, AlternateOD,
+                Alternate,
                 AF0, AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15,
                 Floating, GpioExt, Input, OpenDrain, Output, Analog, Edge, ExtiPin,
                 PullDown, PullUp, PushPull, State, Speed,
@@ -302,7 +321,7 @@ macro_rules! gpio {
                 _mode: PhantomData<MODE>,
             }
 
-            impl<MODE> OutputPin for $PXx<Output<MODE>> {
+            impl<OTYPE> OutputPin for $PXx<Output<OTYPE>> {
                 type Error = Infallible;
 
                 fn set_high(&mut self) -> Result<(), Self::Error> {
@@ -318,7 +337,7 @@ macro_rules! gpio {
                 }
             }
 
-            impl<MODE> ExtiPin for $PXx<Input<MODE>> {
+            impl<IOCONF> ExtiPin for $PXx<Input<IOCONF>> {
                 /// Make corresponding EXTI line sensitive to this pin
                 fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) {
                     apb2.enr().modify(|_,w| w.syscfgen().set_bit());
@@ -523,10 +542,10 @@ macro_rules! gpio {
                         res
                     }
 
-                        /// Configures the pin to operate as analog.
-                        /// This mode is suitable when the pin is connected to the DAC or ADC,
-                        /// COMP, OPAMP.
-                        pub fn into_analog(
+                    /// Configures the pin to operate as analog.
+                    /// This mode is suitable when the pin is connected to the DAC or ADC,
+                    /// COMP, OPAMP.
+                    pub fn into_analog(
                         self,
                         moder: &mut MODER,
                         pupdr: &mut PUPDR,
@@ -552,9 +571,8 @@ macro_rules! gpio {
                         moder: &mut MODER,
                         otyper: &mut OTYPER,
                         afr: &mut $AFR,
-                    ) -> $PXi<Alternate<AF9, Output<OpenDrain>>> {
-                        let od = self.into_open_drain_output(moder, otyper);
-                        od.into_af9(moder, afr)
+                    ) -> $PXi<Alternate<AF9, OpenDrain>> {
+                        self.into_af9_opendrain(moder, otyper, afr)
                     }
 
                     /// Configures the pin to operate as an touch channel
@@ -563,35 +581,30 @@ macro_rules! gpio {
                         moder: &mut MODER,
                         otyper: &mut OTYPER,
                         afr: &mut $AFR,
-                    ) -> $PXi<Alternate<AF9, Output<PushPull>>> {
-                        let od = self.into_push_pull_output(moder, otyper);
-                        od.into_af9(moder, afr)
+                    ) -> $PXi<Alternate<AF9, PushPull>> {
+                        self.into_af9_pushpull(moder, otyper, afr)
                     }
+
                 }
 
                 impl $PXi<Output<OpenDrain>> {
                     /// Enables / disables the internal pull up
                     pub fn internal_pull_up(&mut self, pupdr: &mut PUPDR, on: bool) {
                         let offset = 2 * $i;
+                        let value = if on { 0b01 } else { 0b00 };
 
                         pupdr.pupdr().modify(|r, w| unsafe {
-                            w.bits(
-                                (r.bits() & !(0b11 << offset)) | if on {
-                                    0b01 << offset
-                                } else {
-                                    0
-                                },
-                            )
+                            w.bits((r.bits() & !(0b11 << offset)) | (value << offset))
                         });
                     }
                 }
 
-                impl<MODE> $PXi<Output<MODE>> {
+                impl<OTYPE> $PXi<Output<OTYPE>> {
                     /// Erases the pin number from the type
                     ///
                     /// This is useful when you want to collect the pins into an array where you
                     /// need all the elements to have the same type
-                    pub fn downgrade(self) -> $PXx<Output<MODE>> {
+                    pub fn downgrade(self) -> $PXx<Output<OTYPE>> {
                         $PXx {
                             i: $i,
                             _mode: self._mode,
@@ -612,7 +625,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<AF, MODE> $PXi<Alternate<AF, MODE>> {
+                impl<AF, OTYPE> $PXi<Alternate<AF, OTYPE>> {
                     /// Set pin speed
                     pub fn set_speed(self, speed: Speed) -> Self {
                         let offset = 2 * $i;
@@ -625,34 +638,21 @@ macro_rules! gpio {
 
                         self
                     }
+                }
 
+                impl<AF> $PXi<Alternate<AF, OpenDrain>> {
                     /// Enables / disables the internal pull up
-                    pub fn internal_pull_up(self, on: bool) -> Self {
+                    pub fn internal_pull_up(&mut self, pupdr: &mut PUPDR, on: bool) {
                         let offset = 2 * $i;
                         let value = if on { 0b01 } else { 0b00 };
-                        unsafe {
-                            &(*$GPIOX::ptr()).pupdr.modify(|r, w| {
-                                w.bits((r.bits() & !(0b11 << offset)) | (value << offset))
-                            })
-                        };
 
-                        self
-                    }
-
-                    /// Turns pin alternate configuration pin into open drain
-                    pub fn set_open_drain(self) -> $PXi<AlternateOD<AF, MODE>> {
-                        let offset = $i;
-                        unsafe {
-                            &(*$GPIOX::ptr()).otyper.modify(|r, w| {
-                                w.bits(r.bits() | (1 << offset))
-                            })
-                        };
-
-                        $PXi {_mode: PhantomData }
+                        pupdr.pupdr().modify(|r, w| unsafe {
+                            w.bits((r.bits() & !(0b11 << offset)) | (value << offset))
+                        });
                     }
                 }
 
-                impl<MODE> OutputPin for $PXi<Output<MODE>> {
+                impl<OTYPE> OutputPin for $PXi<Output<OTYPE>> {
                     type Error = Infallible;
 
                     fn set_high(&mut self) -> Result<(), Self::Error> {
@@ -668,7 +668,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> StatefulOutputPin for $PXi<Output<MODE>> {
+                impl<OTYPE> StatefulOutputPin for $PXi<Output<OTYPE>> {
                   fn is_set_high(&self) -> Result<bool, Self::Error> {
                       Ok(!self.is_set_low().unwrap())
                   }
@@ -679,9 +679,9 @@ macro_rules! gpio {
                   }
                 }
 
-                impl<MODE> toggleable::Default for $PXi<Output<MODE>> {}
+                impl<OTYPE> toggleable::Default for $PXi<Output<OTYPE>> {}
 
-                impl<MODE> InputPin for $PXi<Input<MODE>> {
+                impl<IOCONF> InputPin for $PXi<Input<IOCONF>> {
                     type Error = Infallible;
 
                     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -694,7 +694,7 @@ macro_rules! gpio {
                     }
                 }
 
-                impl<MODE> ExtiPin for $PXi<Input<MODE>> {
+                impl<IOCONF> ExtiPin for $PXi<Input<IOCONF>> {
                     /// Configure EXTI Line $i to trigger from this pin.
                     fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) {
                         apb2.enr().modify(|_,w| w.syscfgen().set_bit());
@@ -748,22 +748,22 @@ macro_rules! gpio {
                 impl<MODE> $PXi<MODE> {
                     impl_into_af! {
                         $PXi $AFR $i,
-                        (AF0, 0, into_af0);
-                        (AF1, 1, into_af1);
-                        (AF2, 2, into_af2);
-                        (AF3, 3, into_af3);
-                        (AF4, 4, into_af4);
-                        (AF5, 5, into_af5);
-                        (AF6, 6, into_af6);
-                        (AF7, 7, into_af7);
-                        (AF8, 8, into_af8);
-                        (AF9, 9, into_af9);
-                        (AF10, 10, into_af10);
-                        (AF11, 11, into_af11);
-                        (AF12, 12, into_af12);
-                        (AF13, 13, into_af13);
-                        (AF14, 14, into_af14);
-                        (AF15, 15, into_af15);
+                        (AF0, 0, into_af0_pushpull, into_af0_opendrain);
+                        (AF1, 1, into_af1_pushpull, into_af1_opendrain);
+                        (AF2, 2, into_af2_pushpull, into_af2_opendrain);
+                        (AF3, 3, into_af3_pushpull, into_af3_opendrain);
+                        (AF4, 4, into_af4_pushpull, into_af4_opendrain);
+                        (AF5, 5, into_af5_pushpull, into_af5_opendrain);
+                        (AF6, 6, into_af6_pushpull, into_af6_opendrain);
+                        (AF7, 7, into_af7_pushpull, into_af7_opendrain);
+                        (AF8, 8, into_af8_pushpull, into_af8_opendrain);
+                        (AF9, 9, into_af9_pushpull, into_af9_opendrain);
+                        (AF10, 10, into_af10_pushpull, into_af10_opendrain);
+                        (AF11, 11, into_af11_pushpull, into_af11_opendrain);
+                        (AF12, 12, into_af12_pushpull, into_af12_opendrain);
+                        (AF13, 13, into_af13_pushpull, into_af13_opendrain);
+                        (AF14, 14, into_af14_pushpull, into_af14_opendrain);
+                        (AF15, 15, into_af15_pushpull, into_af15_opendrain);
                     }
                 }
             )+

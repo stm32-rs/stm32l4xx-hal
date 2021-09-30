@@ -63,8 +63,12 @@ const APP: () = {
             .freeze(&mut flash.acr, &mut pwr);
 
         // USART2 pins
-        let tx2 = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
-        let rx2 = gpioa.pa3.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
+        let tx2 = gpioa
+            .pa2
+            .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        let rx2 = gpioa
+            .pa3
+            .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
         // We will listen for the character `a`, this can be changed to any character such as `\0`
         // if using COBS encoding, or `\n` if using string encoding.

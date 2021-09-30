@@ -51,12 +51,30 @@ fn main() -> ! {
     let mut id_arr: [u8; 3] = [0; 3];
 
     let qspi = {
-        let clk = gpioe.pe10.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
-        let ncs = gpioe.pe11.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
-        let io_0 = gpioe.pe12.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
-        let io_1 = gpioe.pe13.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
-        let io_2 = gpioe.pe14.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
-        let io_3 = gpioe.pe15.into_af10(&mut gpioe.moder, &mut gpioe.afrh);
+        let clk =
+            gpioe
+                .pe10
+                .into_af10_pushpull(&mut gpioe.moder, &mut gpioe.otyper, &mut gpioe.afrh);
+        let ncs =
+            gpioe
+                .pe11
+                .into_af10_pushpull(&mut gpioe.moder, &mut gpioe.otyper, &mut gpioe.afrh);
+        let io_0 =
+            gpioe
+                .pe12
+                .into_af10_pushpull(&mut gpioe.moder, &mut gpioe.otyper, &mut gpioe.afrh);
+        let io_1 =
+            gpioe
+                .pe13
+                .into_af10_pushpull(&mut gpioe.moder, &mut gpioe.otyper, &mut gpioe.afrh);
+        let io_2 =
+            gpioe
+                .pe14
+                .into_af10_pushpull(&mut gpioe.moder, &mut gpioe.otyper, &mut gpioe.afrh);
+        let io_3 =
+            gpioe
+                .pe15
+                .into_af10_pushpull(&mut gpioe.moder, &mut gpioe.otyper, &mut gpioe.afrh);
         Qspi::new(
             p.QUADSPI,
             (clk, ncs, io_0, io_1, io_2, io_3),

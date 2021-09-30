@@ -63,8 +63,12 @@ fn main() -> ! {
 
     let usb = Peripheral {
         usb: dp.USB,
-        pin_dm: gpioa.pa11.into_af10(&mut gpioa.moder, &mut gpioa.afrh),
-        pin_dp: gpioa.pa12.into_af10(&mut gpioa.moder, &mut gpioa.afrh),
+        pin_dm: gpioa
+            .pa11
+            .into_af10_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh),
+        pin_dp: gpioa
+            .pa12
+            .into_af10_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh),
     };
     let usb_bus = UsbBus::new(usb);
 

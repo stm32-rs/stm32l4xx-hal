@@ -50,9 +50,8 @@ fn main() -> ! {
     // let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh).set_open_drain();
     let tx = gpioa
         .pa2
-        .into_af7(&mut gpioa.moder, &mut gpioa.afrl)
-        .set_open_drain();
-    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl).set_open_drain();
+        .into_af7_opendrain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    // let tx = gpiob.pb6.into_af7_opendrain(&mut gpiob.moder, &mut gpioa.otyper, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart2(

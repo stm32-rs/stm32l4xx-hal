@@ -145,11 +145,11 @@ unsafe fn main() -> ! {
         hclk: clocks.hclk(),
         pin_dm: gpioa
             .pa11
-            .into_af10(&mut gpioa.moder, &mut gpioa.afrh)
+            .into_af10_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
             .set_speed(Speed::VeryHigh),
         pin_dp: gpioa
             .pa12
-            .into_af10(&mut gpioa.moder, &mut gpioa.afrh)
+            .into_af10_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
             .set_speed(Speed::VeryHigh),
     };
 

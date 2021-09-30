@@ -42,12 +42,12 @@ pub trait SdaPin<I2C>: private::Sealed {}
 macro_rules! pins {
     ($spi:ident, $af:ident, SCL: [$($scl:ident),*], SDA: [$($sda:ident),*]) => {
         $(
-            impl super::private::Sealed for $scl<Alternate<$af, Output<OpenDrain>>> {}
-            impl super::SclPin<$spi> for $scl<Alternate<$af, Output<OpenDrain>>> {}
+            impl super::private::Sealed for $scl<Alternate<$af, OpenDrain>> {}
+            impl super::SclPin<$spi> for $scl<Alternate<$af, OpenDrain>> {}
         )*
         $(
-            impl super::private::Sealed for $sda<Alternate<$af, Output<OpenDrain>>> {}
-            impl super::SdaPin<$spi> for $sda<Alternate<$af, Output<OpenDrain>>> {}
+            impl super::private::Sealed for $sda<Alternate<$af, OpenDrain>> {}
+            impl super::SdaPin<$spi> for $sda<Alternate<$af, OpenDrain>> {}
         )*
     }
 }

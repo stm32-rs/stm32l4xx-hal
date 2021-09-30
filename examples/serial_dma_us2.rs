@@ -41,12 +41,16 @@ fn main() -> ! {
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
-    let tx = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
-    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let tx = gpioa
+        .pa2
+        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    // let tx = gpiob.pb6.into_af7_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
-    // let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    let rx = gpioa.pa3.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
-    // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    // let rx = gpioa.pa10.into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+    let rx = gpioa
+        .pa3
+        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    // let rx = gpiob.pb7.into_af7_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart2(

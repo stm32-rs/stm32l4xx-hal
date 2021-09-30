@@ -20,8 +20,8 @@ pub trait Pins: sealed::Sealed {
 macro_rules! pins {
     ($($PER:ident => ($tx:ident<$txaf:ident>, $rx:ident<$rxaf:ident>),)+) => {
         $(
-            impl crate::can::sealed::Sealed for ($tx<crate::gpio::Alternate<$txaf, Input<Floating>>>, $rx<crate::gpio::Alternate<$rxaf, Input<Floating>>>) {}
-            impl crate::can::Pins for ($tx<crate::gpio::Alternate<$txaf, Input<Floating>>>, $rx<crate::gpio::Alternate<$rxaf, Input<Floating>>>) {
+            impl crate::can::sealed::Sealed for ($tx<crate::gpio::Alternate<$txaf, PushPull>>, $rx<crate::gpio::Alternate<$rxaf, PushPull>>) {}
+            impl crate::can::Pins for ($tx<crate::gpio::Alternate<$txaf, PushPull>>, $rx<crate::gpio::Alternate<$rxaf, PushPull>>) {
                 type Instance = $PER;
             }
         )+
@@ -33,7 +33,7 @@ mod common_pins {
         gpioa::{PA11, PA12},
         gpiob::{PB8, PB9},
         gpiod::{PD0, PD1},
-        Floating, Input, AF9,
+        PushPull, AF9,
     };
     use crate::pac::CAN1;
 
@@ -49,7 +49,7 @@ mod common_pins {
 mod pb13_pb12_af10 {
     use crate::gpio::{
         gpiob::{PB12, PB13},
-        Floating, Input, AF10,
+        PushPull, AF10,
     };
     use crate::pac::CAN1;
     pins! { CAN1 => (PB13<AF10>, PB12<AF10>), }

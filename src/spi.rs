@@ -10,7 +10,7 @@ use core::sync::atomic;
 use core::sync::atomic::Ordering;
 
 use crate::dma::{self, dma1, dma2, TransferPayload};
-use crate::gpio::{Alternate, Floating, Input, AF5};
+use crate::gpio::{Alternate, PushPull, AF5};
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
@@ -44,16 +44,16 @@ pub trait MosiPin<SPI>: private::Sealed {}
 macro_rules! pins {
     ($spi:ident, $af:ident, SCK: [$($sck:ident),*], MISO: [$($miso:ident),*], MOSI: [$($mosi:ident),*]) => {
         $(
-            impl private::Sealed for $sck<Alternate<$af, Input<Floating>>> {}
-            impl SckPin<$spi> for $sck<Alternate<$af, Input<Floating>>> {}
+            impl private::Sealed for $sck<Alternate<$af, PushPull>> {}
+            impl SckPin<$spi> for $sck<Alternate<$af, PushPull>> {}
         )*
         $(
-            impl private::Sealed for $miso<Alternate<$af, Input<Floating>>> {}
-            impl MisoPin<$spi> for $miso<Alternate<$af, Input<Floating>>> {}
+            impl private::Sealed for $miso<Alternate<$af, PushPull>> {}
+            impl MisoPin<$spi> for $miso<Alternate<$af, PushPull>> {}
         )*
         $(
-            impl private::Sealed for $mosi<Alternate<$af, Input<Floating>>> {}
-            impl MosiPin<$spi> for $mosi<Alternate<$af, Input<Floating>>> {}
+            impl private::Sealed for $mosi<Alternate<$af, PushPull>> {}
+            impl MosiPin<$spi> for $mosi<Alternate<$af, PushPull>> {}
         )*
     }
 }

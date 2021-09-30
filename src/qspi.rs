@@ -32,7 +32,7 @@ use crate::gpio::{
     gpiof::{PF6, PF7, PF8, PF9},
 };
 
-use crate::gpio::{Alternate, Floating, Input, Speed, AF10};
+use crate::gpio::{Alternate, PushPull, Speed, AF10};
 use crate::rcc::AHB3;
 use crate::stm32::QUADSPI;
 use core::ptr;
@@ -72,48 +72,48 @@ macro_rules! pins {
         IO0: [$($io0:ident),*], IO1: [$($io1:ident),*], IO2: [$($io2:ident),*],
         IO3: [$($io3:ident),*]) => {
         $(
-            impl private::Sealed for $clk<Alternate<$af, Input<Floating>>> {}
-            impl ClkPin<$qspi> for $clk<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $clk<Alternate<$af, PushPull>> {}
+            impl ClkPin<$qspi> for $clk<Alternate<$af, PushPull>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $ncs<Alternate<$af, Input<Floating>>> {}
-            impl NCSPin<$qspi> for $ncs<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $ncs<Alternate<$af, PushPull>> {}
+            impl NCSPin<$qspi> for $ncs<Alternate<$af, PushPull>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $io0<Alternate<$af, Input<Floating>>> {}
-            impl IO0Pin<$qspi> for $io0<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $io0<Alternate<$af, PushPull>> {}
+            impl IO0Pin<$qspi> for $io0<Alternate<$af, PushPull>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $io1<Alternate<$af, Input<Floating>>> {}
-            impl IO1Pin<$qspi> for $io1<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $io1<Alternate<$af, PushPull>> {}
+            impl IO1Pin<$qspi> for $io1<Alternate<$af, PushPull>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $io2<Alternate<$af, Input<Floating>>> {}
-            impl IO2Pin<$qspi> for $io2<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $io2<Alternate<$af, PushPull>> {}
+            impl IO2Pin<$qspi> for $io2<Alternate<$af, PushPull>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $io3<Alternate<$af, Input<Floating>>> {}
-            impl IO3Pin<$qspi> for $io3<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $io3<Alternate<$af, PushPull>> {}
+            impl IO3Pin<$qspi> for $io3<Alternate<$af, PushPull>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
@@ -742,15 +742,15 @@ pins!(
 );
 
 #[cfg(feature = "stm32l4x2")]
-impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, Input<Floating>>> {
+impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, PushPull>> {
     fn set_speed(self, speed: Speed) -> Self {
         self.set_speed(speed)
     }
 }
 #[cfg(feature = "stm32l4x2")]
-impl private::Sealed for PB2<Alternate<AF10, Input<Floating>>> {}
+impl private::Sealed for PB2<Alternate<AF10, PushPull>> {}
 #[cfg(feature = "stm32l4x2")]
-impl IO1Pin<QUADSPI> for PB2<Alternate<AF10, Input<Floating>>> {
+impl IO1Pin<QUADSPI> for PB2<Alternate<AF10, PushPull>> {
     fn set_speed(self, speed: Speed) -> Self {
         self.set_speed(speed)
     }

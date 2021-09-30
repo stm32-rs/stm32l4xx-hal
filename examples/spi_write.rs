@@ -54,9 +54,15 @@ fn main() -> ! {
     // The `L3gd20` abstraction exposed by the `f3` crate requires a specific pin configuration to
     // be used and won't accept any configuration other than the one used here. Trying to use a
     // different pin configuration will result in a compiler error.
-    let sck = gpioa.pa5.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
-    let miso = gpioa.pa6.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
-    let mosi = gpioa.pa7.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
+    let sck = gpioa
+        .pa5
+        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    let miso = gpioa
+        .pa6
+        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    let mosi = gpioa
+        .pa7
+        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
     // nss.set_high();
     dc.set_low().ok();
