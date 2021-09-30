@@ -50,10 +50,29 @@ pub enum RtcClockSource {
     /// 11: HSE oscillator clock divided by 32 used as RTC clock
     HSE = 0b11,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
+pub enum RtcWakeupClockSource {
+    /// RTC/16 clock is selected
+    RtcClkDiv16 = 0b000,
+    /// RTC/8 clock is selected
+    RtcClkDiv8 = 0b001,
+    /// RTC/4 clock is selected
+    RtcClkDiv4 = 0b010,
+    /// RTC/2 clock is selected
+    RtcClkDiv2 = 0b011,
+    /// ck_spre (usually 1 Hz) clock is selected. Handling of the 2 ** 16 bit is done if values
+    /// larger than 2 ** 16 are passed to the timer start function.
+    CkSpre = 0b100,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RtcConfig {
     /// RTC clock source
     clock_config: RtcClockSource,
+    /// Wakeup clock source
+    wakeup_clock_config: RtcWakeupClockSource,
     /// Asynchronous prescaler factor
     /// This is the asynchronous division factor:
     /// ck_apre frequency = RTCCLK frequency/(PREDIV_A+1)
@@ -72,6 +91,7 @@ impl Default for RtcConfig {
     fn default() -> Self {
         RtcConfig {
             clock_config: RtcClockSource::LSI,
+            wakeup_clock_config: RtcWakeupClockSource::CkSpre,
             async_prescaler: 127,
             sync_prescaler: 255,
         }
@@ -94,6 +114,12 @@ impl RtcConfig {
     /// Set the synchronous prescaler of RTC config
     pub fn sync_prescaler(mut self, prescaler: u16) -> Self {
         self.sync_prescaler = prescaler;
+        self
+    }
+
+    /// Set the Clock Source for the Wakeup Timer
+    pub fn wakeup_clock_config(mut self, cfg: RtcWakeupClockSource) -> Self {
+        self.wakeup_clock_config = cfg;
         self
     }
 }
@@ -466,8 +492,10 @@ impl timer::CountDown for WakeupTimer<'_> {
 
     /// Starts the wakeup timer
     ///
-    /// The `delay` argument specifies the timer delay in seconds. Up to 17 bits
+    /// The `delay` argument specifies the timer delay. If the wakeup_clock_config is set to
+    /// CkSpre, the value is in seconds and up to 17 bits
     /// of delay are supported, giving us a range of over 36 hours.
+    /// Otherwise, the timeunit depends on the RTCCLK and the configured wakeup_clock_config value.
     ///
     /// # Panics
     ///
@@ -478,7 +506,24 @@ impl timer::CountDown for WakeupTimer<'_> {
         T: Into<Self::Time>,
     {
         let delay = delay.into();
-        assert!(1 <= delay && delay <= 1 << 17);
+        assert!(1 <= delay);
+
+        if self.rtc.rtc_config.wakeup_clock_config == RtcWakeupClockSource::CkSpre {
+            assert!(delay <= 1 << 17);
+        } else {
+            assert!(delay <= 1 << 16);
+        }
+
+        // Determine the value for the wucksel register
+        let wucksel = self.rtc.rtc_config.wakeup_clock_config as u8;
+        let wucksel = wucksel
+            | if self.rtc.rtc_config.wakeup_clock_config == RtcWakeupClockSource::CkSpre
+                && delay & 0x1_00_00 != 0
+            {
+                0b010
+            } else {
+                0b000
+            };
 
         let delay = delay - 1;
 
@@ -494,16 +539,10 @@ impl timer::CountDown for WakeupTimer<'_> {
                 unsafe { w.wut().bits(delay as u16) });
 
             rtc.cr.modify(|_, w| {
-                if delay & 0x1_00_00 != 0 {
-                    unsafe {
-                        w.wucksel().bits(0b110);
-                    }
-                } else {
-                    unsafe {
-                        w.wucksel().bits(0b100);
-                    }
+                // Write WUCKSEL depending on value determined previously.
+                unsafe {
+                    w.wucksel().bits(wucksel);
                 }
-
                 // Enable wakeup timer
                 w.wute().set_bit()
             });
