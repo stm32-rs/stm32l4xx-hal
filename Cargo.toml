@@ -61,13 +61,18 @@ features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [features]
 rt = ["stm32l4/rt"]
+unproven = ["embedded-hal/unproven"]
+otg_fs = ["synopsys-usb-otg"]
+# MCU selection features / feature gates. Every specific MCU also enables the appropriate fallback
+# feature so that we only have to check that one of the fallback features is enabled and the
+# examples are available for a broader range of MCUs.
+stm32l452 = ["stm32l4x2", "stm32l4/stm32l4x2"]
+# Fallback features
 stm32l4x1 = ["stm32l4/stm32l4x1"]
 stm32l4x2 = ["stm32l4/stm32l4x2"]
 stm32l4x3 = ["stm32l4/stm32l4x3"]
 stm32l4x5 = ["stm32l4/stm32l4x5"]
 stm32l4x6 = ["stm32l4/stm32l4x6"]
-unproven = ["embedded-hal/unproven"]
-otg_fs = ["synopsys-usb-otg"]
 
 [dev-dependencies]
 panic-halt = "0.2.0"
