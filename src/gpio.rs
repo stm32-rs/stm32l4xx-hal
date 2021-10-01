@@ -149,7 +149,7 @@ macro_rules! impl_into_af {
                     // push pull output
                     otyper
                         .otyper()
-                        .modify(|r, w| unsafe { w.bits(r.bits() & !(0b1 << $NUM)) });
+                        .modify(|r, w| unsafe { w.bits(r.bits() & !(0b1 << $i)) });
                     afr.afr().modify(|r, w| unsafe {
                         w.bits((r.bits() & !(0b1111 << OFF_AFR)) | ($NUM << OFF_AFR))
                     });
@@ -170,7 +170,7 @@ macro_rules! impl_into_af {
                     // open drain output
                     otyper
                         .otyper()
-                        .modify(|r, w| unsafe { w.bits(r.bits() | (0b1 << $NUM)) });
+                        .modify(|r, w| unsafe { w.bits(r.bits() | (0b1 << $i)) });
                     afr.afr().modify(|r, w| unsafe {
                         w.bits((r.bits() & !(0b1111 << OFF_AFR)) | ($NUM << OFF_AFR))
                     });
