@@ -1,7 +1,5 @@
 //! Blinks an LED
 
-// #![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_std]
 #![no_main]
 
@@ -58,6 +56,6 @@ fn TIM7() {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }
