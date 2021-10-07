@@ -277,9 +277,11 @@ impl ADC {
     }
 
     /// Convert a raw sample from the `Temperature` to deg C
-    pub fn to_degrees_centigrade(sample: u16) -> f32 {
-        (130.0 - 30.0) / (VtempCal130::get().read() as f32 - VtempCal30::get().read() as f32)
-            * (sample as f32 - VtempCal30::get().read() as f32)
+    pub fn to_degrees_centigrade(&self, sample: u16) -> f32 {
+        let sample = (u32::from(sample) * self.calibrated_vdda) / VDDA_CALIB_MV;
+        (VtempCal130::TEMP_DEGREES - VtempCal30::TEMP_DEGREES) as f32
+            / (VtempCal130::get().read() - VtempCal30::get().read()) as f32
+            * (sample - u32::from(VtempCal30::get().read())) as f32
             + 30.0
     }
 

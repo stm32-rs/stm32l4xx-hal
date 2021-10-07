@@ -93,12 +93,15 @@ impl VrefCal {
 }
 
 /// A temperature reading taken at 30°C stored at the factory
+/// aka TS_CAL1
 #[derive(Debug)]
 #[repr(C)]
 pub struct VtempCal30(u16);
 define_ptr_type!(VtempCal30, 0x1FFF_75A8);
 
 impl VtempCal30 {
+    /// TS_CAL1_TEMP
+    pub const TEMP_DEGREES: u16 = 30;
     /// Read calibration value
     pub fn read(&self) -> u16 {
         self.0
@@ -106,12 +109,16 @@ impl VtempCal30 {
 }
 
 /// A temperature reading taken at 130°C stored at the factory
+/// aka TS_CAL2
 #[derive(Debug)]
 #[repr(C)]
 pub struct VtempCal130(u16);
 define_ptr_type!(VtempCal130, 0x1FFF_75CA);
 
 impl VtempCal130 {
+    /// TS_CAL2_TEMP
+    /// TODO: this is 110 for L47x, 130 for L43x
+    pub const TEMP_DEGREES: u16 = 130;
     /// Read calibration value
     pub fn read(&self) -> u16 {
         self.0
