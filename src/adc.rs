@@ -199,8 +199,18 @@ impl ADC {
     }
 
     /// Enable and get the `Temperature`
-    pub fn enable_temperature(&mut self) -> Temperature {
+    pub fn enable_temperature(&mut self, delay: &mut impl DelayUs<u32>) -> Temperature {
         self.common.ccr.modify(|_, w| w.ch17sel().set_bit());
+
+        // rm0351 section 18.4.32 pg580 (L47/L48/L49/L4A models)
+        // Note:
+        // The sensor has a startup time after waking from power-down mode before it can output VTS
+        // at the correct level. The ADC also has a startup time after power-on, so to minimize the
+        // delay, the ADEN and CH17SEL bits should be set at the same time.
+        //
+        // https://github.com/STMicroelectronics/STM32CubeL4/blob/master/Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_ll_adc.h#L1363
+        // 120us is used in the ST HAL code
+        delay.delay_us(150);
 
         Temperature {}
     }
