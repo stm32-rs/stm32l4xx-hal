@@ -118,7 +118,7 @@ define_ptr_type!(VtempCal130, 0x1FFF_75CA);
 impl VtempCal130 {
     /// TS_CAL2_TEMP
     /// TODO: this is 110 for L47x, 130 for L43x
-    pub const TEMP_DEGREES: u16 = 130;
+    pub const TEMP_DEGREES: u16 = 110;
     /// Read calibration value
     pub fn read(&self) -> u16 {
         self.0
