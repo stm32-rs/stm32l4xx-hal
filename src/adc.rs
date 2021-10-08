@@ -333,27 +333,13 @@ impl ADC {
 
     /// Get the configured sequence length (= `actual sequence length - 1`)
     pub(crate) fn get_sequence_length(&self) -> u8 {
-        #[cfg(not(feature = "stm32l4x6"))]
-        {
-            self.adc.sqr1.read().l3().bits()
-        }
-        #[cfg(feature = "stm32l4x6")]
-        {
-            self.adc.sqr1.read().l().bits()
-        }
+        self.adc.sqr1.read().l().bits()
     }
 
     /// Private: length must be `actual sequence length - 1`, so not API-friendly.
     /// Use [`ADC::reset_sequence`] and [`ADC::configure_sequence`] instead
     fn set_sequence_length(&mut self, length: u8) {
-        #[cfg(not(feature = "stm32l4x6"))]
-        {
-            self.adc.sqr1.modify(|_, w| unsafe { w.l3().bits(length) });
-        }
-        #[cfg(feature = "stm32l4x6")]
-        {
-            self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(length) });
-        }
+        self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(length) });
     }
 
     /// Reset the sequence length to 1
@@ -361,14 +347,7 @@ impl ADC {
     /// Does *not* erase previously configured sequence settings, only
     /// changes the sequence length
     pub fn reset_sequence(&mut self) {
-        #[cfg(not(feature = "stm32l4x6"))]
-        {
-            self.adc.sqr1.modify(|_, w| unsafe { w.l3().bits(0b0000) })
-        }
-        #[cfg(feature = "stm32l4x6")]
-        {
-            self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(0b0000) })
-        }
+        self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(0b0000) })
     }
 
     pub fn has_completed_conversion(&self) -> bool {

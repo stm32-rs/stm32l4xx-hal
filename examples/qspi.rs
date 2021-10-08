@@ -1,8 +1,6 @@
 //! Test the Quad SPI interface
 //!
 //! The example wirtes a command over the QSPI interfaces and recives a 3 byte response.
-// #![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -94,6 +92,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

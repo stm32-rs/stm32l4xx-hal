@@ -3,7 +3,6 @@
 //! This example requires you to hook-up a pullup resistor on the TX pin. RX pin is not used.
 //! Resistor value depends on the baurate and line caracteristics, 1KOhms works well in most cases.
 //! Half-Duplex mode internally connect TX to RX, meaning that bytes sent will also be received.
-#![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -83,6 +82,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

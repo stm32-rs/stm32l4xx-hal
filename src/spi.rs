@@ -109,7 +109,7 @@ macro_rules! hal {
                     // SSI: set nss high = master mode
                     // CRCEN: hardware CRC calculation disabled
                     // BIDIMODE: 2 line unidirectional (full duplex)
-                    spi.cr1.write(|w| unsafe {
+                    spi.cr1.write(|w|
                         w.cpha()
                             .bit(mode.phase == Phase::CaptureOnSecondTransition)
                             .cpol()
@@ -130,7 +130,7 @@ macro_rules! hal {
                             .clear_bit()
                             .bidimode()
                             .clear_bit()
-                    });
+                    );
 
                     Spi { spi, pins }
                 }
@@ -194,7 +194,7 @@ macro_rules! hal {
                 {
                     self.spi.cr1.modify(|_, w| w.spe().clear_bit());
                     self.spi.cr1.modify(|_, w| {
-                        unsafe {w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq.into()));}
+                        w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq.into()));
                         w.spe().set_bit()
                     });
                 }
