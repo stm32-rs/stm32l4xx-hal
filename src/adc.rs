@@ -280,8 +280,11 @@ impl ADC {
     pub fn to_degrees_centigrade(&self, sample: u16) -> f32 {
         let sample = (u32::from(sample) * self.calibrated_vdda) / VDDA_CALIB_MV;
         (VtempCal130::TEMP_DEGREES - VtempCal30::TEMP_DEGREES) as f32
-            / (VtempCal130::get().read() - VtempCal30::get().read()) as f32
-            * (sample - u32::from(VtempCal30::get().read())) as f32
+            // as signed because RM0351 doesn't specify against this being an
+            // inverse relation (which would result in a negative differential)
+            / (VtempCal130::get().read() as i32 - VtempCal30::get().read() as i32) as f32
+            // this can definitely be negative so must be done as a signed value
+            * (sample as i32 - VtempCal30::get().read() as i32) as f32
             + 30.0
     }
 
