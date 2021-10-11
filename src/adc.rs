@@ -199,8 +199,18 @@ impl ADC {
     }
 
     /// Enable and get the `Temperature`
-    pub fn enable_temperature(&mut self) -> Temperature {
+    pub fn enable_temperature(&mut self, delay: &mut impl DelayUs<u32>) -> Temperature {
         self.common.ccr.modify(|_, w| w.ch17sel().set_bit());
+
+        // rm0351 section 18.4.32 pg580 (L47/L48/L49/L4A models)
+        // Note:
+        // The sensor has a startup time after waking from power-down mode before it can output VTS
+        // at the correct level. The ADC also has a startup time after power-on, so to minimize the
+        // delay, the ADEN and CH17SEL bits should be set at the same time.
+        //
+        // https://github.com/STMicroelectronics/STM32CubeL4/blob/master/Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_ll_adc.h#L1363
+        // 120us is used in the ST HAL code
+        delay.delay_us(150);
 
         Temperature {}
     }
@@ -267,9 +277,14 @@ impl ADC {
     }
 
     /// Convert a raw sample from the `Temperature` to deg C
-    pub fn to_degrees_centigrade(sample: u16) -> f32 {
-        (130.0 - 30.0) / (VtempCal130::get().read() as f32 - VtempCal30::get().read() as f32)
-            * (sample as f32 - VtempCal30::get().read() as f32)
+    pub fn to_degrees_centigrade(&self, sample: u16) -> f32 {
+        let sample = (u32::from(sample) * self.calibrated_vdda) / VDDA_CALIB_MV;
+        (VtempCal130::TEMP_DEGREES - VtempCal30::TEMP_DEGREES) as f32
+            // as signed because RM0351 doesn't specify against this being an
+            // inverse relation (which would result in a negative differential)
+            / (VtempCal130::get().read() as i32 - VtempCal30::get().read() as i32) as f32
+            // this can definitely be negative so must be done as a signed value
+            * (sample as i32 - VtempCal30::get().read() as i32) as f32
             + 30.0
     }
 
