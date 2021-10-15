@@ -69,6 +69,47 @@ private_pac_stm32l4x6 = ["stm32l4/stm32l4x6"]
 unproven = ["embedded-hal/unproven"]
 otg_fs = ["synopsys-usb-otg"]
 
+# L4x1
+stm32l431 = [ "private_pac_stm32l4x1" ]
+stm32l451 = [ "private_pac_stm32l4x1" ]
+stm32l471 = [ "private_pac_stm32l4x1" ]
+
+# L4x2
+stm32l412 = [ "private_pac_stm32l4x2" ]
+stm32l422 = [ "private_pac_stm32l4x2" ]
+stm32l432 = [ "private_pac_stm32l4x2" ]
+stm32l442 = [ "private_pac_stm32l4x2" ]
+stm32l452 = [ "private_pac_stm32l4x2" ]
+stm32l462 = [ "private_pac_stm32l4x2" ]
+
+# L4x3
+stm32l433 = [ "private_pac_stm32l4x3" ]
+stm32l443 = [ "private_pac_stm32l4x3" ]
+
+# L4x5
+stm32l475 = [ "private_pac_stm32l4x5" ]
+# L4+ series? Need to check if PAC supports
+stm32l4p5 = [ "private_pac_stm32l4x5" ]
+stm32l4q5 = [ "private_pac_stm32l4x5" ]
+stm32l4r5 = [ "private_pac_stm32l4x5" ]
+stm32l4s5 = [ "private_pac_stm32l4x5" ]
+
+# L4x6
+stm32l476 = [ "private_pac_stm32l4x6" ]
+stm32l486 = [ "private_pac_stm32l4x6" ]
+stm32l496 = [ "private_pac_stm32l4x6" ]
+stm32l4A6 = [ "private_pac_stm32l4x6" ]
+
+# L4x7
+# L4+ series? Need to check if PAC supports
+stm32l4r7 = [ "private_pac_stm32l4x7" ]
+stm32l4s7 = [ "private_pac_stm32l4x7" ]
+
+# L4x9
+# L4+ series? Need to check if PAC supports
+stm32l4r9 = [ "private_pac_stm32l4x9" ]
+stm32l4s9 = [ "private_pac_stm32l4x9" ]
+
 [dev-dependencies]
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.0"
