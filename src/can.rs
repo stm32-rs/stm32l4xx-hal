@@ -45,7 +45,7 @@ mod common_pins {
     }
 }
 
-#[cfg(feature = "stm32l4x1")]
+#[cfg(feature = "private_pac_stm32l4x1")]
 mod pb13_pb12_af10 {
     use crate::gpio::{
         gpiob::{PB12, PB13},

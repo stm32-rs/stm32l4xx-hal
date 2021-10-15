@@ -256,13 +256,13 @@ impl APB1R1 {
         unsafe { &(*RCC::ptr()).apb1rstr1 }
     }
 
-    #[cfg(not(any(feature = "stm32l4x3", feature = "stm32l4x5")))]
+    #[cfg(not(any(feature = "private_pac_stm32l4x3", feature = "private_pac_stm32l4x5")))]
     pub(crate) fn enr2(&mut self) -> &rcc::APB1ENR2 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb1enr2 }
     }
 
-    #[cfg(not(any(feature = "stm32l4x3", feature = "stm32l4x5")))]
+    #[cfg(not(any(feature = "private_pac_stm32l4x3", feature = "private_pac_stm32l4x5")))]
     pub(crate) fn rstr2(&mut self) -> &rcc::APB1RSTR2 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).apb1rstr2 }

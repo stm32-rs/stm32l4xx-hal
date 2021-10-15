@@ -21,7 +21,7 @@ use crate::pac;
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::{Bps, U32Ext};
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "private_pac_stm32l4x5", feature = "private_pac_stm32l4x6",))]
 use crate::dma::dma2;
 
 /// Interrupt event
@@ -831,21 +831,21 @@ hal! {
 }
 
 #[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
+    feature = "private_pac_stm32l4x2",
+    feature = "private_pac_stm32l4x3",
+    feature = "private_pac_stm32l4x5",
+    feature = "private_pac_stm32l4x6",
 ))]
 hal! {
     USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (TxDma3, c2s, dma1::C2), rx: (RxDma3, c3s, dma1::C3)),
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "private_pac_stm32l4x5", feature = "private_pac_stm32l4x6",))]
 hal! {
     UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (TxDma4, c3s, dma2::C3), rx: (RxDma4, c5s, dma2::C5)),
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(feature = "private_pac_stm32l4x5", feature = "private_pac_stm32l4x6",))]
 hal! {
     UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (TxDma5, c1s, dma2::C1), rx: (RxDma5, c2s, dma2::C2)),
 }
@@ -975,10 +975,10 @@ impl_pin_traits! {
 }
 
 #[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
+    feature = "private_pac_stm32l4x2",
+    feature = "private_pac_stm32l4x3",
+    feature = "private_pac_stm32l4x5",
+    feature = "private_pac_stm32l4x6",
 ))]
 impl_pin_traits! {
     USART3: {
@@ -991,7 +991,7 @@ impl_pin_traits! {
     }
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(feature = "private_pac_stm32l4x5", feature = "private_pac_stm32l4x6"))]
 impl_pin_traits! {
     UART4: {
         AF8: {
