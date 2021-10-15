@@ -45,7 +45,8 @@ mod common_pins {
     }
 }
 
-#[cfg(feature = "stm32l4x1")]
+// L4x1
+#[cfg(any(feature = "stm32l431", feature = "stm32l451", feature = "stm32l471"))]
 mod pb13_pb12_af10 {
     use crate::gpio::{
         gpiob::{PB12, PB13},

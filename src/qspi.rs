@@ -1,32 +1,33 @@
 //! Quad Serial Peripheral Interface (QSPI) bus
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
+
 use crate::gpio::{
     gpioa::{PA6, PA7},
     gpiob::{PB0, PB1, PB10, PB11},
     gpioe::{PE10, PE11, PE12, PE13, PE14, PE15},
 };
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x6"
-))]
+#[cfg(not(any(feature = "stm32l475")))]
 use crate::gpio::{
     gpioa::{PA2, PA3},
     gpiod::{PD3, PD4, PD5, PD6, PD7},
 };
 
-#[cfg(feature = "stm32l4x2")]
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+))]
 use crate::gpio::gpiob::PB2;
 
-#[cfg(feature = "stm32l4x6")]
+#[cfg(any(
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6"
+))]
 use crate::gpio::{
     gpioc::{PC1, PC2, PC4, PC5},
     gpiof::{PF6, PF7, PF8, PF9},
@@ -706,13 +707,6 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
     }
 }
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
 pins!(
     QUADSPI,
     10,
@@ -724,12 +718,7 @@ pins!(
     IO3: [PE15, PA6]
 );
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x6"
-))]
+#[cfg(not(any(feature = "stm32l475")))]
 pins!(
     QUADSPI,
     10,
@@ -741,22 +730,48 @@ pins!(
     IO3: [PD7]
 );
 
-#[cfg(feature = "stm32l4x2")]
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+))]
 impl IO0Pin<QUADSPI> for PB1<Alternate<PushPull, 10>> {
     fn set_speed(self, speed: Speed) -> Self {
         self.set_speed(speed)
     }
 }
-#[cfg(feature = "stm32l4x2")]
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+))]
 impl private::Sealed for PB2<Alternate<PushPull, 10>> {}
-#[cfg(feature = "stm32l4x2")]
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+))]
 impl IO1Pin<QUADSPI> for PB2<Alternate<PushPull, 10>> {
     fn set_speed(self, speed: Speed) -> Self {
         self.set_speed(speed)
     }
 }
 
-#[cfg(feature = "stm32l4x6")]
+#[cfg(any(
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6"
+))]
 pins!(
     QUADSPI,
     10,
