@@ -61,54 +61,73 @@ features = ["rt", "stm32l4x2", "stm32-usbd"]
 
 [features]
 rt = ["stm32l4/rt"]
+unproven = ["embedded-hal/unproven"]
+otg_fs = ["synopsys-usb-otg"]
+
+# private features are for internal use only
+# L4 PAC is currently feature gated on the stm32L4 line
 private_pac_stm32l4x1 = ["stm32l4/stm32l4x1"]
 private_pac_stm32l4x2 = ["stm32l4/stm32l4x2"]
 private_pac_stm32l4x3 = ["stm32l4/stm32l4x3"]
 private_pac_stm32l4x5 = ["stm32l4/stm32l4x5"]
 private_pac_stm32l4x6 = ["stm32l4/stm32l4x6"]
-unproven = ["embedded-hal/unproven"]
-otg_fs = ["synopsys-usb-otg"]
+
+# Devices can also be grouped by peripheral set
+private_product_L41_L42 = []
+private_product_L43_L44 = []
+private_product_L45_L46 = []
+private_product_L47_L48 = []
+private_product_L49_L4A = []
+# L4+ products
+private_product_L4P_L4Q = []
+private_product_L4R_L4S = []
+
+# AES is available only for L4A, L48, L46, L44, L42
+# these devices are otherwise identical the the odd numbered pair
+private_aes = []
+# Sha-256 is only present on L4A and the L4+ parts with AES capability
+private_sha256 = []
 
 # L4x1
-stm32l431 = [ "private_pac_stm32l4x1" ]
-stm32l451 = [ "private_pac_stm32l4x1" ]
-stm32l471 = [ "private_pac_stm32l4x1" ]
+stm32l431 = [ "private_pac_stm32l4x1", "private_product_L43_L44" ]
+stm32l451 = [ "private_pac_stm32l4x1", "private_product_L45_L46" ]
+stm32l471 = [ "private_pac_stm32l4x1", "private_product_L47_L48" ]
 
 # L4x2
-stm32l412 = [ "private_pac_stm32l4x2" ]
-stm32l422 = [ "private_pac_stm32l4x2" ]
-stm32l432 = [ "private_pac_stm32l4x2" ]
-stm32l442 = [ "private_pac_stm32l4x2" ]
-stm32l452 = [ "private_pac_stm32l4x2" ]
-stm32l462 = [ "private_pac_stm32l4x2" ]
+stm32l412 = [ "private_pac_stm32l4x2", "private_product_L41_L42" ]
+stm32l422 = [ "private_pac_stm32l4x2", "private_product_L41_L42", "private_aes" ]
+stm32l432 = [ "private_pac_stm32l4x2", "private_product_L43_L44" ]
+stm32l442 = [ "private_pac_stm32l4x2", "private_product_L43_L44", "private_aes" ]
+stm32l452 = [ "private_pac_stm32l4x2", "private_product_L45_L46" ]
+stm32l462 = [ "private_pac_stm32l4x2", "private_product_L45_L46", "private_aes" ]
 
 # L4x3
-stm32l433 = [ "private_pac_stm32l4x3" ]
-stm32l443 = [ "private_pac_stm32l4x3" ]
+stm32l433 = [ "private_pac_stm32l4x3", "private_product_L43_L44" ]
+stm32l443 = [ "private_pac_stm32l4x3", "private_product_L43_L44" ]
 
 # L4x5
-stm32l475 = [ "private_pac_stm32l4x5" ]
+stm32l475 = [ "private_pac_stm32l4x5", "private_product_L47_L48" ]
 # L4+ series? Need to check if PAC supports
-stm32l4p5 = [ "private_pac_stm32l4x5" ]
-stm32l4q5 = [ "private_pac_stm32l4x5" ]
-stm32l4r5 = [ "private_pac_stm32l4x5" ]
-stm32l4s5 = [ "private_pac_stm32l4x5" ]
+stm32l4p5 = [ "private_pac_stm32l4x5", "private_product_L4P_L4Q" ]
+stm32l4q5 = [ "private_pac_stm32l4x5", "private_product_L4P_L4Q", "private_aes", "private_sha256" ]
+stm32l4r5 = [ "private_pac_stm32l4x5", "private_product_L4R_L4S" ]
+stm32l4s5 = [ "private_pac_stm32l4x5", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 # L4x6
-stm32l476 = [ "private_pac_stm32l4x6" ]
-stm32l486 = [ "private_pac_stm32l4x6" ]
-stm32l496 = [ "private_pac_stm32l4x6" ]
-stm32l4A6 = [ "private_pac_stm32l4x6" ]
+stm32l476 = [ "private_pac_stm32l4x6", "private_product_L47_L48" ]
+stm32l486 = [ "private_pac_stm32l4x6", "private_product_L47_L48" ]
+stm32l496 = [ "private_pac_stm32l4x6", "private_product_L49_L4A" ]
+stm32l4A6 = [ "private_pac_stm32l4x6", "private_product_L49_L4A", "private_aes", "private_sha256" ]
 
 # L4x7
 # L4+ series? Need to check if PAC supports
-stm32l4r7 = [ "private_pac_stm32l4x7" ]
-stm32l4s7 = [ "private_pac_stm32l4x7" ]
+stm32l4r7 = [ "private_pac_stm32l4x7", "private_product_L4R_L4S" ]
+stm32l4s7 = [ "private_pac_stm32l4x7", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 # L4x9
 # L4+ series? Need to check if PAC supports
-stm32l4r9 = [ "private_pac_stm32l4x9" ]
-stm32l4s9 = [ "private_pac_stm32l4x9" ]
+stm32l4r9 = [ "private_pac_stm32l4x9", "private_product_L4R_L4S" ]
+stm32l4s9 = [ "private_pac_stm32l4x9", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 [dev-dependencies]
 panic-halt = "0.2.0"
