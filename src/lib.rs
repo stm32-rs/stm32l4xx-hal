@@ -11,13 +11,24 @@
 #![no_std]
 
 #[cfg(not(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "stm32l431",
+    feature = "stm32l451",
+    feature = "stm32l471",
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+    feature = "stm32l433",
+    feature = "stm32l443",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4A6",
 )))]
-compile_error!("This crate requires one of the following features enabled: stm32l4x1, stm32l4x2, stm32l4x3, stm32l4x4, stm32l4x5 or stm32l4x6");
+compile_error!("This crate requires one of the following features enabled: stm32l431, stm32l451, stm32l471, stm32l412, stm32l422, stm32l432, stm32l442, stm32l452, stm32l462, stm32l433, stm32l443, stm32l475, stm32l476, stm32l486, stm32l496, stm32l4A6, ");
 
 pub use embedded_hal as hal;
 
