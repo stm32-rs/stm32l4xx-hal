@@ -71,6 +71,8 @@ private_pac_stm32l4x2 = ["stm32l4/stm32l4x2"]
 private_pac_stm32l4x3 = ["stm32l4/stm32l4x3"]
 private_pac_stm32l4x5 = ["stm32l4/stm32l4x5"]
 private_pac_stm32l4x6 = ["stm32l4/stm32l4x6"]
+private_pac_stm32l4x7 = []
+private_pac_stm32l4x9 = []
 
 # Devices can also be grouped by peripheral set
 private_product_L41_L42 = []
