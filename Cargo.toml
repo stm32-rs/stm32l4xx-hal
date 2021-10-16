@@ -57,7 +57,7 @@ features = ["cortex-m", "fs"]
 optional = true
 
 [package.metadata.docs.rs]
-features = ["rt", "stm32l4x2", "stm32-usbd"]
+features = ["rt", "stm32l432", "stm32-usbd"]
 
 [features]
 rt = ["stm32l4/rt"]
@@ -165,11 +165,11 @@ lto = true
 
 [[example]]
 name = "adc"
-required-features = ["rt", "stm32l4x3"]
+required-features = ["rt", "private_pac_stm32l4x3"]
 
 [[example]]
 name = "can-loopback"
-required-features = ["rt", "stm32l4x1"]
+required-features = ["rt", "private_pac_stm32l4x1"]
 
 [[example]]
 name = "irq_button"
@@ -177,7 +177,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "qspi"
-required-features = ["rt", "stm32l4x5"]
+required-features = ["rt", "private_pac_stm32l4x5"]
 
 [[example]]
 name = "rng"
@@ -189,15 +189,15 @@ required-features = ["rt"]
 
 [[example]]
 name = "rtic_frame_serial_dma"
-required-features = ["rt", "stm32l4x2"]
+required-features = ["rt", "private_pac_stm32l4x2"]
 
 [[example]]
 name = "spi_dma_rxtx"
-required-features = ["rt", "stm32l4x2"]
+required-features = ["rt", "private_pac_stm32l4x2"]
 
 [[example]]
 name = "serial_echo_rtic"
-required-features = ["rt", "stm32l4x3"]
+required-features = ["rt", "private_pac_stm32l4x3"]
 
 [[example]]
 name = "timer"
@@ -205,20 +205,20 @@ required-features = ["rt"]
 
 [[example]]
 name = "usb_serial"
-required-features = ["rt", "stm32l4x2", "stm32-usbd"]
+required-features = ["rt", "private_pac_stm32l4x2", "stm32-usbd"]
 
 [[example]]
 name = "otg_fs_serial"
-required-features = ["rt", "stm32l4x6", "otg_fs"]
+required-features = ["rt", "private_pac_stm32l4x6", "otg_fs"]
 
 [[example]]
 name = "i2c_write"
-required-features = ["stm32l4x1"]
+required-features = ["private_pac_stm32l4x1"]
 
 [[example]]
 name = "lptim_rtic"
-required-features = ["rt", "stm32l4x2"]
+required-features = ["rt", "private_pac_stm32l4x2"]
 
 [[example]]
 name = "adc_dma"
-required-features = ["rt", "stm32l4x1"]
+required-features = ["rt", "private_pac_stm32l4x1"]
