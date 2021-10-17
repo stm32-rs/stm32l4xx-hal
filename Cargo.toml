@@ -90,7 +90,7 @@ private_aes = []
 private_sha256 = []
 
 # generics are used by dependants that don't want to specify a specific MCU
-# Also used by specific MCU geatures as shorthand for the private and PAC features
+# Also used by specific MCU features as shorthand for the private and PAC features
 generic_pac_stm32l4x1 = ["private_line_stm32l4x1", "stm32l4/stm32l4x1"]
 generic_pac_stm32l4x2 = ["private_line_stm32l4x2", "stm32l4/stm32l4x2"]
 generic_pac_stm32l4x3 = ["private_line_stm32l4x3", "stm32l4/stm32l4x3"]
