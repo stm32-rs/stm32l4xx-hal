@@ -71,8 +71,8 @@ private_pac_stm32l4x2 = ["stm32l4/stm32l4x2"]
 private_pac_stm32l4x3 = ["stm32l4/stm32l4x3"]
 private_pac_stm32l4x5 = ["stm32l4/stm32l4x5"]
 private_pac_stm32l4x6 = ["stm32l4/stm32l4x6"]
-private_pac_stm32l4x7 = []
-private_pac_stm32l4x9 = []
+private_pac_stm32l4x7 = ["stm32l4/stm32l4x5"] # NOTE: x5 not x7
+private_pac_stm32l4x9 = ["stm32l4/stm32l4r9"] # NOTE: r9 no x9
 
 # Devices can also be grouped by peripheral set (PAC may need similar features?)
 private_product_L41_L42 = []
@@ -109,11 +109,11 @@ stm32l443 = [ "private_pac_stm32l4x3", "private_product_L43_L44" ]
 
 # L4x5
 stm32l475 = [ "private_pac_stm32l4x5", "private_product_L47_L48" ]
-## L4+ series? PAC doesn't currently support?
-#stm32l4p5 = [ "private_pac_stm32l4x5", "private_product_L4P_L4Q" ]
-#stm32l4q5 = [ "private_pac_stm32l4x5", "private_product_L4P_L4Q", "private_aes", "private_sha256" ]
-#stm32l4r5 = [ "private_pac_stm32l4x5", "private_product_L4R_L4S" ]
-#stm32l4s5 = [ "private_pac_stm32l4x5", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
+# L4+ series PAC support??
+stm32l4p5 = [ "private_pac_stm32l4x5", "private_product_L4P_L4Q" ]
+stm32l4q5 = [ "private_pac_stm32l4x5", "private_product_L4P_L4Q", "private_aes", "private_sha256" ]
+stm32l4r5 = [ "private_pac_stm32l4x5", "private_product_L4R_L4S" ]
+stm32l4s5 = [ "private_pac_stm32l4x5", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 # L4x6
 stm32l476 = [ "private_pac_stm32l4x6", "private_product_L47_L48" ]
@@ -121,15 +121,15 @@ stm32l486 = [ "private_pac_stm32l4x6", "private_product_L47_L48" ]
 stm32l496 = [ "private_pac_stm32l4x6", "private_product_L49_L4A" ]
 stm32l4A6 = [ "private_pac_stm32l4x6", "private_product_L49_L4A", "private_aes", "private_sha256" ]
 
-## L4x7
-## L4+ series? PAC doesn't currently support?
-#stm32l4r7 = [ "private_pac_stm32l4x7", "private_product_L4R_L4S" ]
-#stm32l4s7 = [ "private_pac_stm32l4x7", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
+# L4x7
+# L4+ series PAC support??
+stm32l4r7 = [ "private_pac_stm32l4x7", "private_product_L4R_L4S" ]
+stm32l4s7 = [ "private_pac_stm32l4x7", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 ## L4x9
-## L4+ series? PAC doesn't currently support?
-#stm32l4r9 = [ "private_pac_stm32l4x9", "private_product_L4R_L4S" ]
-#stm32l4s9 = [ "private_pac_stm32l4x9", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
+# L4+ series PAC support??
+stm32l4r9 = [ "private_pac_stm32l4x9", "private_product_L4R_L4S" ]
+stm32l4s9 = [ "private_pac_stm32l4x9", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 [dev-dependencies]
 panic-halt = "0.2.0"
