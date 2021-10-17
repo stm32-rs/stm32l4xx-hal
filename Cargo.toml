@@ -105,7 +105,7 @@ stm32l451 = [ "generic_pac_stm32l4x1", "private_product_L45_L46" ]
 stm32l471 = [ "generic_pac_stm32l4x1", "private_product_L47_L48" ]
 
 # L4x2
-stm32l412 = [ "private_line_stm32l4x2", "stm32l4/stm32l412", "private_product_L41_L42" ] # PAC has a L412 specific variation
+stm32l412 = [ "generic_pac_stm32l4x2", "private_product_L41_L42" ]
 stm32l422 = [ "generic_pac_stm32l4x2", "private_product_L41_L42", "private_aes" ]
 stm32l432 = [ "generic_pac_stm32l4x2", "private_product_L43_L44" ]
 stm32l442 = [ "generic_pac_stm32l4x2", "private_product_L43_L44", "private_aes" ]

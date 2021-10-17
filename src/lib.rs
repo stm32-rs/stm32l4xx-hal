@@ -76,6 +76,9 @@ pub use stm32l4::stm32l4x5 as pac;
 #[cfg(feature = "private_line_stm32l4x6")]
 pub use stm32l4::stm32l4x6 as pac;
 
+#[cfg(feature = "private_line_stm32l4x9")]
+pub use stm32l4::stm32l4r9 as pac;
+
 #[cfg(feature = "rt")]
 pub use self::pac::interrupt;
 
