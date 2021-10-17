@@ -4,9 +4,9 @@
 
 use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x6"
 ))]
 use crate::pac::I2C4;
 use crate::pac::{i2c1, I2C1, I2C2, I2C3};
@@ -195,9 +195,9 @@ hal!(I2C3, enr, rstr, i2c3, i2c3en, i2c3rst);
 // STM32L432XX and STM32l442XX
 // STM32L486XX and STM32L476XX
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x6"
 ))]
 hal!(I2C4, enr2, rstr2, i2c4, i2c4en, i2c4rst);
 
@@ -451,7 +451,7 @@ where
     }
 }
 
-#[cfg(feature = "private_pac_stm32l4x1")]
+#[cfg(feature = "private_line_stm32l4x1")]
 mod stm32l4x1_pins {
     use super::{I2C1, I2C2, I2C3, I2C4};
     use crate::gpio::*;
@@ -476,7 +476,7 @@ mod stm32l4x1_pins {
     pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
 }
 
-#[cfg(feature = "private_pac_stm32l4x2")]
+#[cfg(feature = "private_line_stm32l4x2")]
 mod stm32l4x2_pins {
     use super::{I2C1, I2C2, I2C3, I2C4};
     use crate::gpio::*;
@@ -502,7 +502,7 @@ mod stm32l4x2_pins {
     pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
 }
 
-#[cfg(feature = "private_pac_stm32l4x3")]
+#[cfg(feature = "private_line_stm32l4x3")]
 mod stm32l4x3_pins {
     use super::{I2C1, I2C2, I2C3};
     use crate::gpio::*;
@@ -517,7 +517,7 @@ mod stm32l4x3_pins {
     pins!(I2C3, AF4, SCL: [PA7, PC0], SDA: [PB4, PC1]);
 }
 
-#[cfg(feature = "private_pac_stm32l4x5")]
+#[cfg(feature = "private_line_stm32l4x5")]
 mod stm32l4x5_pins {
     use super::{I2C1, I2C2, I2C3};
     use crate::gpio::*;
@@ -531,7 +531,7 @@ mod stm32l4x5_pins {
     pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
 }
 
-#[cfg(feature = "private_pac_stm32l4x6")]
+#[cfg(feature = "private_line_stm32l4x6")]
 mod stm32l4x6_pins {
     use super::{I2C1, I2C2, I2C3, I2C4};
     use crate::gpio::*;

@@ -65,14 +65,13 @@ unproven = ["embedded-hal/unproven"]
 otg_fs = ["synopsys-usb-otg"]
 
 # private features are for internal use only
-# L4 PAC is currently feature gated on the stm32L4 line
-private_pac_stm32l4x1 = ["stm32l4/stm32l4x1"]
-private_pac_stm32l4x2 = ["stm32l4/stm32l4x2"]
-private_pac_stm32l4x3 = ["stm32l4/stm32l4x3"]
-private_pac_stm32l4x5 = ["stm32l4/stm32l4x5"]
-private_pac_stm32l4x6 = ["stm32l4/stm32l4x6"]
-private_pac_stm32l4x7 = ["stm32l4/stm32l4x5"] # NOTE: x5 not x7
-private_pac_stm32l4x9 = ["stm32l4/stm32l4r9"] # NOTE: r9 no x9
+private_line_stm32l4x1 = []
+private_line_stm32l4x2 = []
+private_line_stm32l4x3 = []
+private_line_stm32l4x5 = []
+private_line_stm32l4x6 = []
+private_line_stm32l4x7 = []
+private_line_stm32l4x9 = []
 
 # Devices can also be grouped by peripheral set (PAC may need similar features?)
 private_product_L41_L42 = []
@@ -87,49 +86,59 @@ private_product_L4R_L4S = []
 # AES is available only for L4(A/8/6/4/2) and L4+(Q/S)
 # these devices are otherwise identical the the odd numbered pair
 private_aes = []
-# SHA-256 is only present on L4A and the L4+(Q/S)
+# SHA-256 is only present on L4(A) and the L4+(Q/S)
 private_sha256 = []
 
+# generics are used by dependants that don't want to specify a specific MCU
+# Also used by specific MCU geatures as shorthand for the private and PAC features
+generic_pac_stm32l4x1 = ["private_line_stm32l4x1", "stm32l4/stm32l4x1"]
+generic_pac_stm32l4x2 = ["private_line_stm32l4x2", "stm32l4/stm32l4x2"]
+generic_pac_stm32l4x3 = ["private_line_stm32l4x3", "stm32l4/stm32l4x3"]
+generic_pac_stm32l4x5 = ["private_line_stm32l4x5", "stm32l4/stm32l4x5"]
+generic_pac_stm32l4x6 = ["private_line_stm32l4x6", "stm32l4/stm32l4x6"]
+generic_pac_stm32l4x7 = ["private_line_stm32l4x7", "stm32l4/stm32l4x5"] # NOTE: x5 not x7
+generic_pac_stm32l4x9 = ["private_line_stm32l4x9", "stm32l4/stm32l4r9"] # NOTE: r9 no x9
+
 # L4x1
-stm32l431 = [ "private_pac_stm32l4x1", "private_product_L43_L44" ]
-stm32l451 = [ "private_pac_stm32l4x1", "private_product_L45_L46" ]
-stm32l471 = [ "private_pac_stm32l4x1", "private_product_L47_L48" ]
+stm32l431 = [ "generic_pac_stm32l4x1", "private_product_L43_L44" ]
+stm32l451 = [ "generic_pac_stm32l4x1", "private_product_L45_L46" ]
+stm32l471 = [ "generic_pac_stm32l4x1", "private_product_L47_L48" ]
 
 # L4x2
-stm32l412 = [ "private_pac_stm32l4x2", "private_product_L41_L42" ]
-stm32l422 = [ "private_pac_stm32l4x2", "private_product_L41_L42", "private_aes" ]
-stm32l432 = [ "private_pac_stm32l4x2", "private_product_L43_L44" ]
-stm32l442 = [ "private_pac_stm32l4x2", "private_product_L43_L44", "private_aes" ]
-stm32l452 = [ "private_pac_stm32l4x2", "private_product_L45_L46" ]
-stm32l462 = [ "private_pac_stm32l4x2", "private_product_L45_L46", "private_aes" ]
+stm32l412 = [ "private_line_stm32l4x2", "stm32l4/stm32l412", "private_product_L41_L42" ] # PAC has a L412 specific variation
+stm32l422 = [ "generic_pac_stm32l4x2", "private_product_L41_L42", "private_aes" ]
+stm32l432 = [ "generic_pac_stm32l4x2", "private_product_L43_L44" ]
+stm32l442 = [ "generic_pac_stm32l4x2", "private_product_L43_L44", "private_aes" ]
+stm32l452 = [ "generic_pac_stm32l4x2", "private_product_L45_L46" ]
+stm32l462 = [ "generic_pac_stm32l4x2", "private_product_L45_L46", "private_aes" ]
 
 # L4x3
-stm32l433 = [ "private_pac_stm32l4x3", "private_product_L43_L44" ]
-stm32l443 = [ "private_pac_stm32l4x3", "private_product_L43_L44" ]
+stm32l433 = [ "generic_pac_stm32l4x3", "private_product_L43_L44" ]
+stm32l443 = [ "generic_pac_stm32l4x3", "private_product_L43_L44" ]
 
 # L4x5
-stm32l475 = [ "private_pac_stm32l4x5", "private_product_L47_L48" ]
+stm32l475 = [ "generic_pac_stm32l4x5", "private_product_L47_L48" ]
 # L4+ series PAC support??
-stm32l4p5 = [ "private_pac_stm32l4x5", "private_product_L4P_L4Q" ]
-stm32l4q5 = [ "private_pac_stm32l4x5", "private_product_L4P_L4Q", "private_aes", "private_sha256" ]
-stm32l4r5 = [ "private_pac_stm32l4x5", "private_product_L4R_L4S" ]
-stm32l4s5 = [ "private_pac_stm32l4x5", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
+stm32l4p5 = [ "generic_pac_stm32l4x5", "private_product_L4P_L4Q" ]
+stm32l4q5 = [ "generic_pac_stm32l4x5", "private_product_L4P_L4Q", "private_aes", "private_sha256" ]
+stm32l4r5 = [ "generic_pac_stm32l4x5", "private_product_L4R_L4S" ]
+stm32l4s5 = [ "generic_pac_stm32l4x5", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 # L4x6
-stm32l476 = [ "private_pac_stm32l4x6", "private_product_L47_L48" ]
-stm32l486 = [ "private_pac_stm32l4x6", "private_product_L47_L48" ]
-stm32l496 = [ "private_pac_stm32l4x6", "private_product_L49_L4A" ]
-stm32l4A6 = [ "private_pac_stm32l4x6", "private_product_L49_L4A", "private_aes", "private_sha256" ]
+stm32l476 = [ "generic_pac_stm32l4x6", "private_product_L47_L48" ]
+stm32l486 = [ "generic_pac_stm32l4x6", "private_product_L47_L48" ]
+stm32l496 = [ "generic_pac_stm32l4x6", "private_product_L49_L4A" ]
+stm32l4A6 = [ "generic_pac_stm32l4x6", "private_product_L49_L4A", "private_aes", "private_sha256" ]
 
 # L4x7
 # L4+ series PAC support??
-stm32l4r7 = [ "private_pac_stm32l4x7", "private_product_L4R_L4S" ]
-stm32l4s7 = [ "private_pac_stm32l4x7", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
+stm32l4r7 = [ "generic_pac_stm32l4x7", "private_product_L4R_L4S" ]
+stm32l4s7 = [ "generic_pac_stm32l4x7", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 ## L4x9
 # L4+ series PAC support??
-stm32l4r9 = [ "private_pac_stm32l4x9", "private_product_L4R_L4S" ]
-stm32l4s9 = [ "private_pac_stm32l4x9", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
+stm32l4r9 = [ "private_line_stm32l4x9", "stm32l4/stm32l4r9", "private_product_L4R_L4S" ] # PAC has an L4r9 specific variation
+stm32l4s9 = [ "generic_pac_stm32l4x9", "private_product_L4R_L4S", "private_aes", "private_sha256" ]
 
 [dev-dependencies]
 panic-halt = "0.2.0"
@@ -165,11 +174,11 @@ lto = true
 
 [[example]]
 name = "adc"
-required-features = ["rt", "private_pac_stm32l4x3"]
+required-features = ["rt", "private_line_stm32l4x3"]
 
 [[example]]
 name = "can-loopback"
-required-features = ["rt", "private_pac_stm32l4x1"]
+required-features = ["rt", "private_line_stm32l4x1"]
 
 [[example]]
 name = "irq_button"
@@ -177,7 +186,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "qspi"
-required-features = ["rt", "private_pac_stm32l4x5"]
+required-features = ["rt", "private_line_stm32l4x5"]
 
 [[example]]
 name = "rng"
@@ -189,15 +198,15 @@ required-features = ["rt"]
 
 [[example]]
 name = "rtic_frame_serial_dma"
-required-features = ["rt", "private_pac_stm32l4x2"]
+required-features = ["rt", "private_line_stm32l4x2"]
 
 [[example]]
 name = "spi_dma_rxtx"
-required-features = ["rt", "private_pac_stm32l4x2"]
+required-features = ["rt", "private_line_stm32l4x2"]
 
 [[example]]
 name = "serial_echo_rtic"
-required-features = ["rt", "private_pac_stm32l4x3"]
+required-features = ["rt", "private_line_stm32l4x3"]
 
 [[example]]
 name = "timer"
@@ -205,20 +214,20 @@ required-features = ["rt"]
 
 [[example]]
 name = "usb_serial"
-required-features = ["rt", "private_pac_stm32l4x2", "stm32-usbd"]
+required-features = ["rt", "private_line_stm32l4x2", "stm32-usbd"]
 
 [[example]]
 name = "otg_fs_serial"
-required-features = ["rt", "private_pac_stm32l4x6", "otg_fs"]
+required-features = ["rt", "private_line_stm32l4x6", "otg_fs"]
 
 [[example]]
 name = "i2c_write"
-required-features = ["private_pac_stm32l4x1"]
+required-features = ["private_line_stm32l4x1"]
 
 [[example]]
 name = "lptim_rtic"
-required-features = ["rt", "private_pac_stm32l4x2"]
+required-features = ["rt", "private_line_stm32l4x2"]
 
 [[example]]
 name = "adc_dma"
-required-features = ["rt", "private_pac_stm32l4x1"]
+required-features = ["rt", "private_line_stm32l4x1"]

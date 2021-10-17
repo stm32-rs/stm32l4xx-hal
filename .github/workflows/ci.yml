@@ -13,11 +13,11 @@ jobs:
         rust:
           - stable
         mcu:
-          - stm32l451
-          - stm32l432
-          - stm32l433
-          - stm32l475
-          - stm32l476
+          - generic_pac_stm32l4x1
+          - generic_pac_stm32l4x2
+          - generic_pac_stm32l4x3
+          - generic_pac_stm32l4x5
+          - generic_pac_stm32l4x6
 
     steps:
       - uses: actions/checkout@v2

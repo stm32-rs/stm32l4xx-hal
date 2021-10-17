@@ -27,236 +27,264 @@
     feature = "stm32l486",
     feature = "stm32l496",
     feature = "stm32l4A6",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5",
+    feature = "stm32l4r5",
+    feature = "stm32l4s5",
+    feature = "stm32l4r7",
+    feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+    feature = "generic_pac_stm32l4x1",
+    feature = "generic_pac_stm32l4x2",
+    feature = "generic_pac_stm32l4x3",
+    feature = "generic_pac_stm32l4x5",
+    feature = "generic_pac_stm32l4x6",
+    feature = "generic_pac_stm32l4x7",
+    feature = "generic_pac_stm32l4x9",
 )))]
-compile_error!("This crate requires one of the following features enabled: stm32l431, stm32l451, stm32l471, stm32l412, stm32l422, stm32l432, stm32l442, stm32l452, stm32l462, stm32l433, stm32l443, stm32l475, stm32l476, stm32l486, stm32l496, stm32l4A6, ");
+compile_error!(
+    "\
+This crate requires one of the following features enabled:
+    stm32l431, stm32l451, stm32l471, stm32l412,
+    stm32l422, stm32l432, stm32l442, stm32l452, stm32l462
+    stm32l433, stm32l443
+    stm32l475, stm32l4p5, stm32l4q5, stm32l4r5, stm32l4s5
+    stm32l476, stm32l486, stm32l496, stm32l4A6
+    stm32l4r7, stm32l4s7
+    stm32l4r9, stm32l4s9
+    generic_pac_stm32l4x1, generic_pac_stm32l4x2, generic_pac_stm32l4x3, generic_pac_stm32l4x5,
+    generic_pac_stm32l4x6, generic_pac_stm32l4x7, generic_pac_stm32l4x9
+"
+);
 
 pub use embedded_hal as hal;
 
 pub use stm32l4;
-#[cfg(feature = "private_pac_stm32l4x1")]
+#[cfg(feature = "private_line_stm32l4x1")]
 pub use stm32l4::stm32l4x1 as pac;
 
-#[cfg(feature = "private_pac_stm32l4x2")]
+#[cfg(feature = "private_line_stm32l4x2")]
 pub use stm32l4::stm32l4x2 as pac;
 
-#[cfg(feature = "private_pac_stm32l4x3")]
+#[cfg(feature = "private_line_stm32l4x3")]
 pub use stm32l4::stm32l4x3 as pac;
 
-#[cfg(feature = "private_pac_stm32l4x5")]
+#[cfg(feature = "private_line_stm32l4x5")]
 pub use stm32l4::stm32l4x5 as pac;
 
-#[cfg(feature = "private_pac_stm32l4x6")]
+#[cfg(feature = "private_line_stm32l4x6")]
 pub use stm32l4::stm32l4x6 as pac;
 
 #[cfg(feature = "rt")]
 pub use self::pac::interrupt;
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub use crate::pac as device;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub use crate::pac as stm32;
 
 pub mod traits;
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod adc;
-#[cfg(any(feature = "private_pac_stm32l4x1", feature = "private_pac_stm32l4x5",))]
+#[cfg(any(feature = "private_line_stm32l4x1", feature = "private_line_stm32l4x5",))]
 pub mod can;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod crc;
 pub mod datetime;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod delay;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod dma;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod flash;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod gpio;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod i2c;
 #[cfg(all(
     feature = "otg_fs",
-    any(feature = "private_pac_stm32l4x5", feature = "private_pac_stm32l4x6")
+    any(feature = "private_line_stm32l4x5", feature = "private_line_stm32l4x6")
 ))]
 pub mod otg_fs;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod prelude;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod pwm;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod pwr;
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod lptimer;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod qspi;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod rcc;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod rng;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod rtc;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod serial;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod signature;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod spi;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod time;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod timer;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod tsc;
 
 #[cfg(all(
     feature = "stm32-usbd",
-    any(feature = "private_pac_stm32l4x2", feature = "private_pac_stm32l4x3")
+    any(feature = "private_line_stm32l4x2", feature = "private_line_stm32l4x3")
 ))]
 pub mod usb;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pub mod watchdog;

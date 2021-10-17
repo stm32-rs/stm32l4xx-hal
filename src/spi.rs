@@ -269,102 +269,102 @@ macro_rules! hal {
 }
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 use crate::gpio::gpiod::*;
-#[cfg(any(feature = "private_pac_stm32l4x5", feature = "private_pac_stm32l4x6"))]
+#[cfg(any(feature = "private_line_stm32l4x5", feature = "private_line_stm32l4x6"))]
 use crate::gpio::gpiog::*;
 use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
 
 use crate::stm32::SPI1;
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 hal! {
     SPI1: (spi1, spi1_slave, APB2, spi1en, spi1rst, pclk2),
 }
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6"
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6"
 ))]
 pins!(SPI1, AF5,
     SCK: [PA5, PB3, PE13],
     MISO: [PA6, PB4, PE14],
     MOSI: [PA7, PB5, PE15]);
 
-#[cfg(any(feature = "private_pac_stm32l4x5", feature = "private_pac_stm32l4x6"))]
+#[cfg(any(feature = "private_line_stm32l4x5", feature = "private_line_stm32l4x6"))]
 pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 use crate::{gpio::AF6, stm32::SPI3};
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 hal! {
     SPI3: (spi3, spi3_slave, APB1R1, spi3en, spi3rst, pclk1),
 }
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 pins!(SPI3, AF6,
     SCK: [PB3, PC10],
     MISO: [PB4, PC11],
     MOSI: [PB5, PC12]);
 
-#[cfg(any(feature = "private_pac_stm32l4x5", feature = "private_pac_stm32l4x6",))]
+#[cfg(any(feature = "private_line_stm32l4x5", feature = "private_line_stm32l4x6",))]
 pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 use crate::stm32::SPI2;
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 hal! {
     SPI2: (spi2, spi2_slave, APB1R1, spi2en, spi2rst, pclk1),
 }
 
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 pins!(SPI2, AF5,
     SCK: [PB13, PB10, PD1],
@@ -779,17 +779,17 @@ macro_rules! spi_dma {
 
 spi_dma!(SPI1, dma1::C2, c2s, map1, dma1::C3, c3s, map1);
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x3",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x3",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 spi_dma!(SPI2, dma1::C4, c4s, map1, dma1::C5, c5s, map1);
 // spi_dma!(SPI1, dma2::C3, c3s, map4, dma2::C4, c4s, map4);
 #[cfg(any(
-    feature = "private_pac_stm32l4x1",
-    feature = "private_pac_stm32l4x2",
-    feature = "private_pac_stm32l4x5",
-    feature = "private_pac_stm32l4x6",
+    feature = "private_line_stm32l4x1",
+    feature = "private_line_stm32l4x2",
+    feature = "private_line_stm32l4x5",
+    feature = "private_line_stm32l4x6",
 ))]
 spi_dma!(SPI3, dma2::C1, c1s, map3, dma2::C2, c2s, map3);
