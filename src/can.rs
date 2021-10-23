@@ -18,10 +18,10 @@ pub trait Pins: sealed::Sealed {
 /// Implements sealed::Sealed and Pins for a (TX, RX) pair of pins associated with a CAN peripheral
 /// The alternate function number can be specified after each pin name.
 macro_rules! pins {
-    ($($PER:ident => ($tx:ident<$txaf:ident>, $rx:ident<$rxaf:ident>),)+) => {
+    ($($PER:ident => ($tx:ident<$txaf:literal>, $rx:ident<$rxaf:literal>),)+) => {
         $(
-            impl crate::can::sealed::Sealed for ($tx<crate::gpio::Alternate<$txaf, PushPull>>, $rx<crate::gpio::Alternate<$rxaf, PushPull>>) {}
-            impl crate::can::Pins for ($tx<crate::gpio::Alternate<$txaf, PushPull>>, $rx<crate::gpio::Alternate<$rxaf, PushPull>>) {
+            impl crate::can::sealed::Sealed for ($tx<crate::gpio::Alternate<PushPull, $txaf, >>, $rx<crate::gpio::Alternate<PushPull, $rxaf>>) {}
+            impl crate::can::Pins for ($tx<crate::gpio::Alternate<PushPull, $txaf, >>, $rx<crate::gpio::Alternate<PushPull, $rxaf>>) {
                 type Instance = $PER;
             }
         )+
@@ -33,15 +33,15 @@ mod common_pins {
         gpioa::{PA11, PA12},
         gpiob::{PB8, PB9},
         gpiod::{PD0, PD1},
-        PushPull, AF9,
+        PushPull,
     };
     use crate::pac::CAN1;
 
     // All STM32L4 models with CAN support these pins
     pins! {
-        CAN1 => (PA12<AF9>, PA11<AF9>),
-        CAN1 => (PD1<AF9>, PD0<AF9>),
-        CAN1 => (PB9<AF9>, PB8<AF9>),
+        CAN1 => (PA12<9>, PA11<9>),
+        CAN1 => (PD1<9>, PD0<9>),
+        CAN1 => (PB9<9>, PB8<9>),
     }
 }
 
@@ -49,10 +49,10 @@ mod common_pins {
 mod pb13_pb12_af10 {
     use crate::gpio::{
         gpiob::{PB12, PB13},
-        PushPull, AF10,
+        PushPull,
     };
     use crate::pac::CAN1;
-    pins! { CAN1 => (PB13<AF10>, PB12<AF10>), }
+    pins! { CAN1 => (PB13<10>, PB12<10>), }
 }
 
 /// Enable/disable peripheral

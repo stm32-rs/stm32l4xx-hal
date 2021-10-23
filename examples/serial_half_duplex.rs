@@ -47,10 +47,11 @@ fn main() -> ! {
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
     // let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh).set_open_drain();
-    let tx = gpioa
-        .pa2
-        .into_af7_opendrain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
-    // let tx = gpiob.pb6.into_af7_opendrain(&mut gpiob.moder, &mut gpioa.otyper, &mut gpiob.afrl);
+    let tx =
+        gpioa
+            .pa2
+            .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    // let tx = gpiob.pb6.into_alternate_open_drain(&mut gpiob.moder, &mut gpioa.otyper, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart2(

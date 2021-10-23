@@ -39,14 +39,14 @@ fn main() -> ! {
     let sample_pin =
         gpiob
             .pb4
-            .into_touch_sample(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+            .into_alternate_open_drain(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     let mut c1 = gpiob
         .pb5
-        .into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+        .into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
     let mut c2 = gpiob
         .pb6
-        .into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
-    // let mut c3 = gpiob.pb7.into_touch_channel(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+        .into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+    // let mut c3 = gpiob.pb7.into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
     // , (c1, c2, c3)
     let tsc = Tsc::tsc(p.TSC, sample_pin, &mut rcc.ahb1, None);
@@ -60,9 +60,9 @@ fn main() -> ! {
         // try and pass c1, it will detect an error!
         let _touched_c2_again = tsc.read(&mut c2).unwrap();
         if touched < threshold {
-            led.set_high().ok();
+            led.set_high();
         } else {
-            led.set_low().ok();
+            led.set_low();
         }
     }
 }

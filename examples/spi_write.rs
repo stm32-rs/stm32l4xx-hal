@@ -54,16 +54,16 @@ fn main() -> ! {
     // different pin configuration will result in a compiler error.
     let sck = gpioa
         .pa5
-        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let miso = gpioa
         .pa6
-        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let mosi = gpioa
         .pa7
-        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
     // nss.set_high();
-    dc.set_low().ok();
+    dc.set_low();
 
     let mut spi = Spi::spi1(
         p.SPI1,

@@ -36,11 +36,11 @@ const APP: () = {
             let rx =
                 gpioa
                     .pa11
-                    .into_af9_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+                    .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
             let tx =
                 gpioa
                     .pa12
-                    .into_af9_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+                    .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
 
             let can = Can::new(&mut rcc.apb1r1, dp.CAN1, (tx, rx));
 

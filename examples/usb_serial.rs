@@ -57,7 +57,7 @@ fn main() -> ! {
     let mut led = gpiob
         .pb3
         .into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
-    led.set_low().ok(); // Turn off
+    led.set_low(); // Turn off
 
     let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);
 
@@ -65,10 +65,10 @@ fn main() -> ! {
         usb: dp.USB,
         pin_dm: gpioa
             .pa11
-            .into_af10_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh),
+            .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh),
         pin_dp: gpioa
             .pa12
-            .into_af10_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh),
+            .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh),
     };
     let usb_bus = UsbBus::new(usb);
 
@@ -90,7 +90,7 @@ fn main() -> ! {
 
         match serial.read(&mut buf) {
             Ok(count) if count > 0 => {
-                led.set_high().ok(); // Turn on
+                led.set_high(); // Turn on
 
                 // Echo back in upper case
                 for c in buf[0..count].iter_mut() {
@@ -112,6 +112,6 @@ fn main() -> ! {
             _ => {}
         }
 
-        led.set_low().ok(); // Turn off
+        led.set_low(); // Turn off
     }
 }

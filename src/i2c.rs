@@ -40,14 +40,14 @@ pub trait SclPin<I2C>: private::Sealed {}
 pub trait SdaPin<I2C>: private::Sealed {}
 
 macro_rules! pins {
-    ($spi:ident, $af:ident, SCL: [$($scl:ident),*], SDA: [$($sda:ident),*]) => {
+    ($spi:ident, $af:literal, SCL: [$($scl:ident),*], SDA: [$($sda:ident),*]) => {
         $(
-            impl super::private::Sealed for $scl<Alternate<$af, OpenDrain>> {}
-            impl super::SclPin<$spi> for $scl<Alternate<$af, OpenDrain>> {}
+            impl super::private::Sealed for $scl<Alternate<OpenDrain, $af>> {}
+            impl super::SclPin<$spi> for $scl<Alternate<OpenDrain, $af>> {}
         )*
         $(
-            impl super::private::Sealed for $sda<Alternate<$af, OpenDrain>> {}
-            impl super::SdaPin<$spi> for $sda<Alternate<$af, OpenDrain>> {}
+            impl super::private::Sealed for $sda<Alternate<OpenDrain, $af>> {}
+            impl super::SdaPin<$spi> for $sda<Alternate<OpenDrain, $af>> {}
         )*
     }
 }
@@ -451,21 +451,21 @@ mod stm32l4x1_pins {
     use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
     use gpioc::{PC0, PC1};
 
-    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
+    pins!(I2C1, 4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
 
     // Not on STM32L471XX
-    pins!(I2C1, AF4, SCL: [PA9], SDA: [PA10]);
+    pins!(I2C1, 4, SCL: [PA9], SDA: [PA10]);
 
-    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
+    pins!(I2C2, 4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
 
-    pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+    pins!(I2C3, 4, SCL: [PC0], SDA: [PC1]);
 
     // Not on STM32L471XX
-    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
+    pins!(I2C3, 4, SCL: [PA7], SDA: [PB4]);
 
     // Not on STM32L471XX and STM32L431XX
-    pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
-    pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
+    pins!(I2C4, 4, SCL: [PD12], SDA: [PD13]);
+    pins!(I2C4, 3, SCL: [PB10], SDA: [PB11]);
 }
 
 #[cfg(feature = "stm32l4x2")]
@@ -476,22 +476,22 @@ mod stm32l4x2_pins {
     use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
     use gpioc::{PC0, PC1};
 
-    pins!(I2C1, AF4, SCL: [PA9, PB6], SDA: [PA10, PB7]);
+    pins!(I2C1, 4, SCL: [PA9, PB6], SDA: [PA10, PB7]);
 
     // Both technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
-    pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
-    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
+    pins!(I2C1, 4, SCL: [PB8], SDA: [PB9]);
+    pins!(I2C2, 4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
 
-    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
+    pins!(I2C3, 4, SCL: [PA7], SDA: [PB4]);
 
     // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
-    pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+    pins!(I2C3, 4, SCL: [PC0], SDA: [PC1]);
 
     // Technically not present on STM32L432XX and STM32l442XX (pins missing from ref. manual)
     // Not present on STM32L412XX and STM32L422XX
-    pins!(I2C4, AF2, SCL: [PC0], SDA: [PC1]);
-    pins!(I2C4, AF3, SCL: [PB10], SDA: [PB11]);
-    pins!(I2C4, AF4, SCL: [PD12], SDA: [PD13]);
+    pins!(I2C4, 2, SCL: [PC0], SDA: [PC1]);
+    pins!(I2C4, 3, SCL: [PB10], SDA: [PB11]);
+    pins!(I2C4, 4, SCL: [PD12], SDA: [PD13]);
 }
 
 #[cfg(feature = "stm32l4x3")]
@@ -502,11 +502,11 @@ mod stm32l4x3_pins {
     use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
     use gpioc::{PC0, PC1};
 
-    pins!(I2C1, AF4, SCL: [PA9, PB6, PB8], SDA: [PA10, PB7, PB9]);
+    pins!(I2C1, 4, SCL: [PA9, PB6, PB8], SDA: [PA10, PB7, PB9]);
 
-    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
+    pins!(I2C2, 4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
 
-    pins!(I2C3, AF4, SCL: [PA7, PC0], SDA: [PB4, PC1]);
+    pins!(I2C3, 4, SCL: [PA7, PC0], SDA: [PB4, PC1]);
 }
 
 #[cfg(feature = "stm32l4x5")]
@@ -516,11 +516,11 @@ mod stm32l4x5_pins {
     use gpiob::{PB10, PB11, PB13, PB14, PB6, PB7, PB8, PB9};
     use gpioc::{PC0, PC1};
 
-    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
+    pins!(I2C1, 4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
 
-    pins!(I2C2, AF4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
+    pins!(I2C2, 4, SCL: [PB10, PB13], SDA: [PB11, PB14]);
 
-    pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);
+    pins!(I2C3, 4, SCL: [PC0], SDA: [PC1]);
 }
 
 #[cfg(feature = "stm32l4x6")]
@@ -534,15 +534,15 @@ mod stm32l4x6_pins {
     use gpiof::{PF0, PF1, PF14, PF15};
     use gpiog::{PG13, PG14, PG7, PG8};
 
-    pins!(I2C1, AF4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
+    pins!(I2C1, 4, SCL: [PB6, PB8], SDA: [PB7, PB9]);
 
-    pins!(I2C2, AF4, SCL: [PB10, PB13, PF1], SDA: [PB11, PB14, PF0]);
+    pins!(I2C2, 4, SCL: [PB10, PB13, PF1], SDA: [PB11, PB14, PF0]);
 
-    pins!(I2C3, AF4, SCL: [PC0, PG7, PG14], SDA: [PC1, PG8, PG13]);
+    pins!(I2C3, 4, SCL: [PC0, PG7, PG14], SDA: [PC1, PG8, PG13]);
 
     // Both not on STM32L486XX and STM32L476XX
-    pins!(I2C3, AF4, SCL: [PA7], SDA: [PB4]);
-    pins!(I2C4, AF4, SCL: [PD12, PF14], SDA: [PD13, PF15]);
+    pins!(I2C3, 4, SCL: [PA7], SDA: [PB4]);
+    pins!(I2C4, 4, SCL: [PD12, PF14], SDA: [PD13, PF15]);
 
     // These are present on STM32L496XX and STM32L4A6xG, but the
     // PAC does not have gpioh, so we can't actually these pins

@@ -8,7 +8,7 @@ use crate::stm32::{TIM1, TIM15, TIM2};
 
 use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA15, PA2, PA3, PA8, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB14, PB3};
-use crate::gpio::{Alternate, AF1, AF14};
+use crate::gpio::Alternate;
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
 
@@ -23,10 +23,10 @@ pub trait Pins<TIM> {
 }
 
 macro_rules! pins_to_channels_mapping {
-    ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($AF:ident),+ ); )+ ) => {
+    ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($AF:literal),+ ); )+ ) => {
         $(
             #[allow(unused_parens)]
-            impl<OTYPE> Pins<$TIMX> for ($($PINX<Alternate<$AF, OTYPE>>),+)
+            impl<OTYPE> Pins<$TIMX> for ($($PINX<Alternate<OTYPE, $AF>>),+)
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(Pwm<$TIMX, $ENCHX>),+);
@@ -37,70 +37,70 @@ macro_rules! pins_to_channels_mapping {
 
 pins_to_channels_mapping! {
     // TIM1
-    TIM1: (PA8, PA9, PA10, PA11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
-    TIM1: (PA9, PA10, PA11), (C2, C3, C4), (AF1, AF1, AF1);
-    TIM1: (PA8, PA10, PA11), (C1, C3, C4), (AF1, AF1, AF1);
-    TIM1: (PA8, PA9, PA11), (C1, C2, C4), (AF1, AF1, AF1);
-    TIM1: (PA8, PA9, PA10), (C1, C2, C3), (AF1, AF1, AF1);
-    TIM1: (PA10, PA11), (C3, C4), (AF1, AF1);
-    TIM1: (PA9, PA11), (C2, C4), (AF1, AF1);
-    TIM1: (PA9, PA10), (C2, C3), (AF1, AF1);
-    TIM1: (PA8, PA11), (C1, C4), (AF1, AF1);
-    TIM1: (PA8, PA10), (C1, C3), (AF1, AF1);
-    TIM1: (PA8, PA9), (C1, C2), (AF1, AF1);
-    TIM1: (PA8), (C1), (AF1);
-    TIM1: (PA9), (C2), (AF1);
-    TIM1: (PA10), (C3), (AF1);
-    TIM1: (PA11), (C4), (AF1);
+    TIM1: (PA8, PA9, PA10, PA11), (C1, C2, C3, C4), (1, 1, 1, 1);
+    TIM1: (PA9, PA10, PA11), (C2, C3, C4), (1, 1, 1);
+    TIM1: (PA8, PA10, PA11), (C1, C3, C4), (1, 1, 1);
+    TIM1: (PA8, PA9, PA11), (C1, C2, C4), (1, 1, 1);
+    TIM1: (PA8, PA9, PA10), (C1, C2, C3), (1, 1, 1);
+    TIM1: (PA10, PA11), (C3, C4), (1, 1);
+    TIM1: (PA9, PA11), (C2, C4), (1, 1);
+    TIM1: (PA9, PA10), (C2, C3), (1, 1);
+    TIM1: (PA8, PA11), (C1, C4), (1, 1);
+    TIM1: (PA8, PA10), (C1, C3), (1, 1);
+    TIM1: (PA8, PA9), (C1, C2), (1, 1);
+    TIM1: (PA8), (C1), (1);
+    TIM1: (PA9), (C2), (1);
+    TIM1: (PA10), (C3), (1);
+    TIM1: (PA11), (C4), (1);
 
     // TIM2
-    TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
-    TIM2: (PA0, PA1, PA2, PB11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
-    TIM2: (PA15, PB3, PB10, PB11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
+    TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4), (1, 1, 1, 1);
+    TIM2: (PA0, PA1, PA2, PB11), (C1, C2, C3, C4), (1, 1, 1, 1);
+    TIM2: (PA15, PB3, PB10, PB11), (C1, C2, C3, C4), (1, 1, 1, 1);
 
-    TIM2: (PA1, PA2, PA3), (C2, C3, C4), (AF1, AF1, AF1);
-    TIM2: (PA0, PA2, PA3), (C1, C3, C4), (AF1, AF1, AF1);
-    TIM2: (PA0, PA1, PA3), (C1, C2, C4), (AF1, AF1, AF1);
-    TIM2: (PA0, PA1, PA2), (C1, C2, C3), (AF1, AF1, AF1);
+    TIM2: (PA1, PA2, PA3), (C2, C3, C4), (1, 1, 1);
+    TIM2: (PA0, PA2, PA3), (C1, C3, C4), (1, 1, 1);
+    TIM2: (PA0, PA1, PA3), (C1, C2, C4), (1, 1, 1);
+    TIM2: (PA0, PA1, PA2), (C1, C2, C3), (1, 1, 1);
 
-    TIM2: (PB3, PB10, PB11), (C2, C3, C4), (AF1, AF1, AF1);
-    TIM2: (PA15, PB10, PB11), (C1, C3, C4), (AF1, AF1, AF1);
-    TIM2: (PA15, PB3, PB11), (C1, C2, C4), (AF1, AF1, AF1);
-    TIM2: (PA15, PB3, PB10), (C1, C2, C3), (AF1, AF1, AF1);
+    TIM2: (PB3, PB10, PB11), (C2, C3, C4), (1, 1, 1);
+    TIM2: (PA15, PB10, PB11), (C1, C3, C4), (1, 1, 1);
+    TIM2: (PA15, PB3, PB11), (C1, C2, C4), (1, 1, 1);
+    TIM2: (PA15, PB3, PB10), (C1, C2, C3), (1, 1, 1);
 
-    TIM2: (PA2, PA3), (C3, C4), (AF1, AF1);
-    TIM2: (PA1, PA3), (C2, C4), (AF1, AF1);
-    TIM2: (PA1, PA2), (C2, C3), (AF1, AF1);
-    TIM2: (PA0, PA3), (C1, C4), (AF1, AF1);
-    TIM2: (PA0, PA2), (C1, C3), (AF1, AF1);
-    TIM2: (PA0, PA1), (C1, C2), (AF1, AF1);
+    TIM2: (PA2, PA3), (C3, C4), (1, 1);
+    TIM2: (PA1, PA3), (C2, C4), (1, 1);
+    TIM2: (PA1, PA2), (C2, C3), (1, 1);
+    TIM2: (PA0, PA3), (C1, C4), (1, 1);
+    TIM2: (PA0, PA2), (C1, C3), (1, 1);
+    TIM2: (PA0, PA1), (C1, C2), (1, 1);
 
-    TIM2: (PB10, PB11), (C3, C4), (AF1, AF1);
-    TIM2: (PB3, PB11), (C2, C4), (AF1, AF1);
-    TIM2: (PB3, PB10), (C2, C3), (AF1, AF1);
-    TIM2: (PA15, PB11), (C1, C4), (AF1, AF1);
-    TIM2: (PA15, PB10), (C1, C3), (AF1, AF1);
-    TIM2: (PA15, PB3), (C1, C2), (AF1, AF1);
+    TIM2: (PB10, PB11), (C3, C4), (1, 1);
+    TIM2: (PB3, PB11), (C2, C4), (1, 1);
+    TIM2: (PB3, PB10), (C2, C3), (1, 1);
+    TIM2: (PA15, PB11), (C1, C4), (1, 1);
+    TIM2: (PA15, PB10), (C1, C3), (1, 1);
+    TIM2: (PA15, PB3), (C1, C2), (1, 1);
 
-    TIM2: (PA0), (C1), (AF1);
-    TIM2: (PA1), (C2), (AF1);
-    TIM2: (PA2), (C3), (AF1);
-    TIM2: (PA3), (C4), (AF1);
+    TIM2: (PA0), (C1), (1);
+    TIM2: (PA1), (C2), (1);
+    TIM2: (PA2), (C3), (1);
+    TIM2: (PA3), (C4), (1);
 
-    TIM2: (PA15), (C1), (AF1);
-    TIM2: (PB3), (C2), (AF1);
-    TIM2: (PB10), (C3), (AF1);
-    TIM2: (PB11), (C4), (AF1);
+    TIM2: (PA15), (C1), (1);
+    TIM2: (PB3), (C2), (1);
+    TIM2: (PB10), (C3), (1);
+    TIM2: (PB11), (C4), (1);
 
     // TIM15 - TODO: The uncommented lines are awaiting PAC updates to be valid.
-    TIM15: (PB14), (C1), (AF14);
-    // TIM15: (PB15), (C2), (AF14);
-    TIM15: (PA2), (C1), (AF14);
-    // TIM15: (PA3), (C2), (AF14);
-    // TIM15: (PB14, PB15), (C1, C2), (AF14, AF14);
-    // TIM15: (PB14, PA3), (C1, C2), (AF14, AF14);
-    // TIM15: (PA2, PB15), (C1, C2), (AF14, AF14);
-    // TIM15: (PA2, PA3), (C1, C2), (AF14, AF14);
+    TIM15: (PB14), (C1), (14);
+    // TIM15: (PB15), (C2), (14);
+    TIM15: (PA2), (C1), (14);
+    // TIM15: (PA3), (C2), (14);
+    // TIM15: (PB14, PB15), (C1, C2), (14, 14);
+    // TIM15: (PB14, PA3), (C1, C2), (14, 14);
+    // TIM15: (PA2, PB15), (C1, C2), (14, 14);
+    // TIM15: (PA2, PA3), (C1, C2), (14, 14);
 }
 
 pub trait PwmExt1: Sized {
