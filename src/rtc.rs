@@ -222,16 +222,25 @@ impl Rtc {
                 let interrupt_enabled = rtc.cr.read().alraie().bit(); // cache interrupt state
                 rtc.cr
                     .modify(|_, w| w.alrae().clear_bit().alraie().clear_bit()); // Disable the Alarm A interrupt
-                self.check_interrupt(alarm.into(), true); // clear pending interrupt flag if set
-
+                #[cfg(any(
+                    feature = "private_product_L41_L42",
+                    feature = "private_product_L4P_L4Q"
+                ))]
+                {
+                    rtc.scr.write(|w| w.calraf().set_bit());
+                    // no waiting
+                }
                 #[cfg(not(any(
                     feature = "stm32l412",
                     feature = "stm32l422",
                     feature = "stm32l4p5",
                     feature = "stm32l4q5",
                 )))]
-                // wait until signalled can modify alarm configuration
-                while rtc.isr.read().alrbwf().bit_is_clear() {}
+                {
+                    rtc.isr.modify(|_, w| w.alraf().clear_bit());
+                    // wait until signalled can modify alarm configuration
+                    while rtc.isr.read().alrawf().bit_is_clear() {}
+                }
 
                 rtc.alrmar.modify(|_, w| unsafe {
                     w.dt()
@@ -268,16 +277,26 @@ impl Rtc {
                 let interrupt_enabled = rtc.cr.read().alrbie().bit(); // cache interrupt state
                 rtc.cr
                     .modify(|_, w| w.alrbe().clear_bit().alrbie().clear_bit());
-                self.check_interrupt(alarm.into(), true); // clear pending interrupt flag if set
 
+                #[cfg(any(
+                    feature = "private_product_L41_L42",
+                    feature = "private_product_L4P_L4Q"
+                ))]
+                {
+                    rtc.scr.write(|w| w.calrbf().set_bit());
+                    // no waiting
+                }
                 #[cfg(not(any(
                     feature = "stm32l412",
                     feature = "stm32l422",
                     feature = "stm32l4p5",
                     feature = "stm32l4q5",
                 )))]
-                // wait until signalled can modify alarm configuration
-                while rtc.isr.read().alrbwf().bit_is_clear() {}
+                {
+                    rtc.isr.modify(|_, w| w.alrbf().clear_bit());
+                    // wait until signalled can modify alarm configuration
+                    while rtc.isr.read().alrbwf().bit_is_clear() {}
+                }
 
                 rtc.alrmbr.modify(|_, w| unsafe {
                     w.dt()
@@ -750,15 +769,20 @@ impl timer::Cancel for WakeupTimer<'_> {
                 feature = "private_product_L41_L42",
                 //feature = "private_product_L4P_L4Q"
             ))]
-            while self.rtc.rtc.icsr.read().wutwf().bit_is_set() {}
+            {
+                while rtc.icsr.read().wutwf().bit_is_set() {}
+                rtc.scr.write(|w| w.cwutf().set_bit());
+            }
             #[cfg(not(any(
                 feature = "private_product_L41_L42",
                 //feature = "private_product_L4P_L4Q"
             )))]
-            while rtc.isr.read().wutwf().bit_is_clear() {}
+            {
+                while rtc.isr.read().wutwf().bit_is_clear() {}
 
-            // Clear wakeup timer flag
-            rtc.isr.modify(|_, w| w.wutf().clear_bit());
+                // Clear wakeup timer flag
+                rtc.isr.modify(|_, w| w.wutf().clear_bit());
+            }
 
             // According to the reference manual, section 26.7.4, the WUTF flag
             // must be cleared at least 1.5 RTCCLK periods "before WUTF is set
