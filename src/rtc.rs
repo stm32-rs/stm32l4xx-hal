@@ -716,6 +716,15 @@ impl timer::CountDown for WakeupTimer<'_> {
 
         // Let's wait for WUTWF to clear. Otherwise we might run into a race
         // condition, if the user calls this method again really quickly.
+        #[cfg(any(
+            feature = "private_product_L41_L42",
+            //feature = "private_product_L4P_L4Q"
+        ))]
+        while self.rtc.rtc.icsr.read().wutwf().bit_is_set() {}
+        #[cfg(not(any(
+            feature = "private_product_L41_L42",
+            //feature = "private_product_L4P_L4Q"
+        )))]
         while self.rtc.rtc.isr.read().wutwf().bit_is_set() {}
     }
 
@@ -737,6 +746,15 @@ impl timer::Cancel for WakeupTimer<'_> {
             rtc.cr.modify(|_, w| w.wute().clear_bit());
 
             // Wait until we're allowed to update the wakeup timer configuration
+            #[cfg(any(
+                feature = "private_product_L41_L42",
+                //feature = "private_product_L4P_L4Q"
+            ))]
+            while self.rtc.rtc.icsr.read().wutwf().bit_is_set() {}
+            #[cfg(not(any(
+                feature = "private_product_L41_L42",
+                //feature = "private_product_L4P_L4Q"
+            )))]
             while rtc.isr.read().wutwf().bit_is_clear() {}
 
             // Clear wakeup timer flag
