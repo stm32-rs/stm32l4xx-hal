@@ -533,6 +533,22 @@ impl Rtc {
             });
 
             // TODO configuration for output pins
+            #[cfg(any(
+                feature = "private_product_L41_L42",
+                //feature = "private_product_L4P_L4Q"
+            ))]
+            rtc.cr.modify(|_, w| {
+                w.out2en()
+                    .clear_bit()
+                    .tampalrm_type()
+                    .clear_bit()
+                    .tampalrm_pu()
+                    .clear_bit()
+            });
+            #[cfg(not(any(
+                feature = "private_product_L41_L42",
+                //feature = "private_product_L4P_L4Q"
+            )))]
             rtc.or
                 .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
         });
