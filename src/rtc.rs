@@ -219,12 +219,10 @@ impl Rtc {
         // HAL_RTC_SetAlarm_IT[L1921-L2098]
         self.write(false, |rtc| match alarm {
             Alarm::AlarmA => {
-                let interrupt_enabled = rtc.cr.read().alraie().bit(); // cache interrupt state
-                rtc.cr
-                    .modify(|_, w| w.alrae().clear_bit().alraie().clear_bit()); // Disable the Alarm A interrupt
+                rtc.cr.modify(|_, w| w.alrae().clear_bit()); // Disable the Alarm A interrupt
                 #[cfg(any(
                     feature = "private_product_L41_L42",
-                    feature = "private_product_L4P_L4Q"
+                    //feature = "private_product_L4P_L4Q"
                 ))]
                 {
                     rtc.scr.write(|w| w.calraf().set_bit());
@@ -270,17 +268,14 @@ impl Rtc {
                 // write the SS value and mask to `rtc.alrmassr`
 
                 // enable alarm and reenable interrupt if it was enabled
-                rtc.cr
-                    .modify(|_, w| w.alrae().set_bit().alraie().bit(interrupt_enabled));
+                rtc.cr.modify(|_, w| w.alrae().set_bit());
             }
             Alarm::AlarmB => {
-                let interrupt_enabled = rtc.cr.read().alrbie().bit(); // cache interrupt state
-                rtc.cr
-                    .modify(|_, w| w.alrbe().clear_bit().alrbie().clear_bit());
+                rtc.cr.modify(|_, w| w.alrbe().clear_bit());
 
                 #[cfg(any(
                     feature = "private_product_L41_L42",
-                    feature = "private_product_L4P_L4Q"
+                    // feature = "private_product_L4P_L4Q"
                 ))]
                 {
                     rtc.scr.write(|w| w.calrbf().set_bit());
@@ -326,8 +321,7 @@ impl Rtc {
                 // write the SS value and mask to `rtc.alrmassr`
 
                 // enable alarm and reenable interrupt if it was enabled
-                rtc.cr
-                    .modify(|_, w| w.alrbe().set_bit().alrbie().bit(interrupt_enabled));
+                rtc.cr.modify(|_, w| w.alrbe().set_bit());
             }
         });
     }
