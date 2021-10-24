@@ -569,7 +569,19 @@ impl Rtc {
         // This is safe, as we're only writin the correct and expected values.
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0xca) });
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0x53) });
-
+        #[cfg(any(
+            feature = "private_product_L41_L42",
+            //feature = "private_product_L4P_L4Q"
+        ))]
+        if init_mode && self.rtc.icsr.read().initf().bit_is_clear() {
+            // are we already in init mode?
+            self.rtc.icsr.modify(|_, w| w.init().set_bit());
+            while self.rtc.icsr.read().initf().bit_is_clear() {} // wait to return to init state
+        }
+        #[cfg(not(any(
+            feature = "private_product_L41_L42",
+            //feature = "private_product_L4P_L4Q"
+        )))]
         if init_mode && self.rtc.isr.read().initf().bit_is_clear() {
             // are we already in init mode?
             self.rtc.isr.modify(|_, w| w.init().set_bit());
@@ -577,7 +589,17 @@ impl Rtc {
         }
 
         let result = f(&self.rtc);
-
+        #[cfg(any(
+            feature = "private_product_L41_L42",
+            //feature = "private_product_L4P_L4Q"
+        ))]
+        if init_mode {
+            self.rtc.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+        }
+        #[cfg(not(any(
+            feature = "private_product_L41_L42",
+            //feature = "private_product_L4P_L4Q"
+        )))]
         if init_mode {
             self.rtc.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
         }
