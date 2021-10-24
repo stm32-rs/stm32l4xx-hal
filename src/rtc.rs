@@ -212,12 +212,26 @@ impl Rtc {
         let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
         let (st, su) = byte_to_bcd2(time.seconds as u8);
 
+        // referencing C SDK v1.13.0
+        // https://github.com/STMicroelectronics/stm32l4xx_hal_driver
+        // commit: 5829f4d9a846ba82f40181e78e0ba76aba687b43
+        // Src/stm32l4xx_hal_rtc.c
+        // HAL_RTC_SetAlarm_IT[L1921-L2098]
         self.write(false, |rtc| match alarm {
             Alarm::AlarmA => {
-                rtc.cr.modify(|_, w| w.alrae().clear_bit());
+                let interrupt_enabled = rtc.cr.read().alraie().bit(); // cache interrupt state
+                rtc.cr
+                    .modify(|_, w| w.alrae().clear_bit().alraie().clear_bit()); // Disable the Alarm A interrupt
+                self.check_interrupt(alarm.into(), true); // clear pending interrupt flag if set
 
-                // Wait until we're allowed to update the alarm b configuration
-                while rtc.isr.read().alrawf().bit_is_clear() {}
+                #[cfg(not(any(
+                    feature = "stm32l412",
+                    feature = "stm32l422",
+                    feature = "stm32l4p5",
+                    feature = "stm32l4q5",
+                )))]
+                // wait until signalled can modify alarm configuration
+                while rtc.isr.read().alrbwf().bit_is_clear() {}
 
                 rtc.alrmar.modify(|_, w| unsafe {
                     w.dt()
@@ -241,12 +255,28 @@ impl Rtc {
                         .wdsel()
                         .clear_bit()
                 });
-                rtc.cr.modify(|_, w| w.alrae().set_bit());
+                // binary mode alarm not implemented
+                // subsecond alarm not implemented
+                // would need a conversion method between `time.micros` and RTC ticks
+                // write the SS value and mask to `rtc.alrmassr`
+
+                // enable alarm and reenable interrupt if it was enabled
+                rtc.cr
+                    .modify(|_, w| w.alrae().set_bit().alraie().bit(interrupt_enabled));
             }
             Alarm::AlarmB => {
-                rtc.cr.modify(|_, w| w.alrbe().clear_bit());
+                let interrupt_enabled = rtc.cr.read().alrbie().bit(); // cache interrupt state
+                rtc.cr
+                    .modify(|_, w| w.alrbe().clear_bit().alrbie().clear_bit());
+                self.check_interrupt(alarm.into(), true); // clear pending interrupt flag if set
 
-                // Wait until we're allowed to update the alarm b configuration
+                #[cfg(not(any(
+                    feature = "stm32l412",
+                    feature = "stm32l422",
+                    feature = "stm32l4p5",
+                    feature = "stm32l4q5",
+                )))]
+                // wait until signalled can modify alarm configuration
                 while rtc.isr.read().alrbwf().bit_is_clear() {}
 
                 rtc.alrmbr.modify(|_, w| unsafe {
@@ -271,10 +301,16 @@ impl Rtc {
                         .wdsel()
                         .clear_bit()
                 });
-                rtc.cr.modify(|_, w| w.alrbe().set_bit());
+                // binary mode alarm not implemented
+                // subsecond alarm not implemented
+                // would need a conversion method between `time.micros` and RTC ticks
+                // write the SS value and mask to `rtc.alrmassr`
+
+                // enable alarm and reenable interrupt if it was enabled
+                rtc.cr
+                    .modify(|_, w| w.alrbe().set_bit().alrbie().bit(interrupt_enabled));
             }
         });
-        self.check_interrupt(alarm.into(), true);
     }
 
     /// Starts listening for an interrupt event
