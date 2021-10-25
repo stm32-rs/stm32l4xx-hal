@@ -1,7 +1,5 @@
 //! RTC peripheral abstraction
 
-mod traits;
-
 use void::Void;
 
 use crate::{
@@ -9,8 +7,8 @@ use crate::{
     hal::timer::{self, Cancel as _},
     pwr,
     rcc::{APB1R1, BDCR},
-    rtc::traits::{RtcGpio, RtcIsr},
     stm32::{EXTI, RTC},
+    traits::rtc::{RtcGpio, RtcIsr},
 };
 
 /// Interrupt event
@@ -507,7 +505,7 @@ impl Rtc {
     feature = "private_product_L41_L42",
     feature = "private_product_L4P_L4Q"
 )))]
-impl traits::RtcIsr for Rtc {
+impl RtcIsr for Rtc {
     /// true if initf bit indicates RTC peripheral is in init mode
     fn is_init_mode(rtc: &RTC) -> bool {
         rtc.isr.read().initf().bit_is_set()
@@ -581,7 +579,7 @@ impl traits::RtcIsr for Rtc {
     feature = "private_product_L41_L42",
     feature = "private_product_L4P_L4Q"
 ))]
-impl traits::RtcIsr for Rtc {
+impl RtcIsr for Rtc {
     /// true if initf bit indicates RTC peripheral is in init mode
     fn is_init_mode(rtc: &RTC) -> bool {
         rtc.icsr.read().initf().bit_is_set()
@@ -657,7 +655,7 @@ impl traits::RtcIsr for Rtc {
     feature = "private_product_L41_L42",
     feature = "private_product_L4P_L4Q"
 )))]
-impl traits::RtcGpio for Rtc {
+impl RtcGpio for Rtc {
     fn reset_gpio(rtc: &RTC) {
         rtc.or
             .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
@@ -669,7 +667,7 @@ impl traits::RtcGpio for Rtc {
     feature = "private_product_L41_L42",
     feature = "private_product_L4P_L4Q"
 ))]
-impl traits::RtcGpio for Rtc {
+impl RtcGpio for Rtc {
     fn reset_gpio(rtc: &RTC) {
         rtc.cr.modify(|_, w| {
             w.out2en()
