@@ -1,5 +1,7 @@
 //! RTC peripheral abstraction
 
+mod traits;
+
 use void::Void;
 
 use crate::{
@@ -7,6 +9,7 @@ use crate::{
     hal::timer::{self, Cancel as _},
     pwr,
     rcc::{APB1R1, BDCR},
+    rtc::traits::{RtcGpio, RtcIsr},
     stm32::{EXTI, RTC},
 };
 
@@ -212,33 +215,11 @@ impl Rtc {
         let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
         let (st, su) = byte_to_bcd2(time.seconds as u8);
 
-        // referencing C SDK v1.13.0
-        // https://github.com/STMicroelectronics/stm32l4xx_hal_driver
-        // commit: 5829f4d9a846ba82f40181e78e0ba76aba687b43
-        // Src/stm32l4xx_hal_rtc.c
-        // HAL_RTC_SetAlarm_IT[L1921-L2098]
         self.write(false, |rtc| match alarm {
             Alarm::AlarmA => {
-                rtc.cr.modify(|_, w| w.alrae().clear_bit()); // Disable the Alarm A interrupt
-                #[cfg(any(
-                    feature = "private_product_L41_L42",
-                    //feature = "private_product_L4P_L4Q"
-                ))]
-                {
-                    rtc.scr.write(|w| w.calraf().set_bit());
-                    // no waiting
-                }
-                #[cfg(not(any(
-                    feature = "stm32l412",
-                    feature = "stm32l422",
-                    feature = "stm32l4p5",
-                    feature = "stm32l4q5",
-                )))]
-                {
-                    rtc.isr.modify(|_, w| w.alraf().clear_bit());
-                    // wait until signalled can modify alarm configuration
-                    while rtc.isr.read().alrawf().bit_is_clear() {}
-                }
+                rtc.cr.modify(|_, w| w.alrae().clear_bit()); // Disable Alarm A
+                Rtc::clear_alarm_a_flag(rtc);
+                while !Rtc::is_alarm_a_accessible(rtc) {}
 
                 rtc.alrmar.modify(|_, w| unsafe {
                     w.dt()
@@ -262,7 +243,7 @@ impl Rtc {
                         .wdsel()
                         .clear_bit()
                 });
-                // binary mode alarm not implemented
+                // binary mode alarm not implemented (RTC3 only)
                 // subsecond alarm not implemented
                 // would need a conversion method between `time.micros` and RTC ticks
                 // write the SS value and mask to `rtc.alrmassr`
@@ -273,25 +254,8 @@ impl Rtc {
             Alarm::AlarmB => {
                 rtc.cr.modify(|_, w| w.alrbe().clear_bit());
 
-                #[cfg(any(
-                    feature = "private_product_L41_L42",
-                    // feature = "private_product_L4P_L4Q"
-                ))]
-                {
-                    rtc.scr.write(|w| w.calrbf().set_bit());
-                    // no waiting
-                }
-                #[cfg(not(any(
-                    feature = "stm32l412",
-                    feature = "stm32l422",
-                    feature = "stm32l4p5",
-                    feature = "stm32l4q5",
-                )))]
-                {
-                    rtc.isr.modify(|_, w| w.alrbf().clear_bit());
-                    // wait until signalled can modify alarm configuration
-                    while rtc.isr.read().alrbwf().bit_is_clear() {}
-                }
+                Rtc::clear_alarm_b_flag(rtc);
+                while !Rtc::is_alarm_b_accessible(rtc) {}
 
                 rtc.alrmbr.modify(|_, w| unsafe {
                     w.dt()
@@ -315,10 +279,10 @@ impl Rtc {
                         .wdsel()
                         .clear_bit()
                 });
-                // binary mode alarm not implemented
+                // binary mode alarm not implemented (RTC3 only)
                 // subsecond alarm not implemented
                 // would need a conversion method between `time.micros` and RTC ticks
-                // write the SS value and mask to `rtc.alrmassr`
+                // write the SS value and mask to `rtc.alrmbssr`
 
                 // enable alarm and reenable interrupt if it was enabled
                 rtc.cr.modify(|_, w| w.alrbe().set_bit());
@@ -382,98 +346,28 @@ impl Rtc {
 
     /// Checks for an interrupt event
     pub fn check_interrupt(&mut self, event: Event, clear: bool) -> bool {
-        #[cfg(any(
-            feature = "stm32l412",
-            feature = "stm32l422",
-            feature = "stm32l4p5",
-            feature = "stm32l4q5",
-        ))]
         let result = match event {
-            Event::WakeupTimer => self.rtc.sr.read().wutf().bit_is_set(),
-            Event::AlarmA => self.rtc.sr.read().alraf().bit_is_set(),
-            Event::AlarmB => self.rtc.sr.read().alrbf().bit_is_set(),
-            Event::Timestamp => self.rtc.sr.read().tsf().bit_is_set(),
-        };
-        #[cfg(not(any(
-            feature = "stm32l412",
-            feature = "stm32l422",
-            feature = "stm32l4p5",
-            feature = "stm32l4q5",
-        )))]
-        let result = match event {
-            Event::WakeupTimer => self.rtc.isr.read().wutf().bit_is_set(),
-            Event::AlarmA => self.rtc.isr.read().alraf().bit_is_set(),
-            Event::AlarmB => self.rtc.isr.read().alrbf().bit_is_set(),
-            Event::Timestamp => self.rtc.isr.read().tsf().bit_is_set(),
+            Event::WakeupTimer => Rtc::wakeup_timer_flag(&self.rtc),
+            Event::AlarmA => Rtc::alarm_a_flag(&self.rtc),
+            Event::AlarmB => Rtc::alarm_b_flag(&self.rtc),
+            Event::Timestamp => Rtc::timestamp_flag(&self.rtc),
         };
         if clear {
             self.write(false, |rtc| match event {
                 Event::WakeupTimer => {
-                    #[cfg(any(
-                        feature = "stm32l412",
-                        feature = "stm32l422",
-                        feature = "stm32l4p5",
-                        feature = "stm32l4q5",
-                    ))]
-                    rtc.scr.write(|w| w.cwutf().set_bit());
-                    #[cfg(not(any(
-                        feature = "stm32l412",
-                        feature = "stm32l422",
-                        feature = "stm32l4p5",
-                        feature = "stm32l4q5",
-                    )))]
-                    rtc.isr.modify(|_, w| w.wutf().clear_bit());
+                    Rtc::clear_wakeup_timer_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 20)) };
                 }
                 Event::AlarmA => {
-                    #[cfg(any(
-                        feature = "stm32l412",
-                        feature = "stm32l422",
-                        feature = "stm32l4p5",
-                        feature = "stm32l4q5",
-                    ))]
-                    rtc.scr.write(|w| w.calraf().set_bit());
-                    #[cfg(not(any(
-                        feature = "stm32l412",
-                        feature = "stm32l422",
-                        feature = "stm32l4p5",
-                        feature = "stm32l4q5",
-                    )))]
-                    rtc.isr.modify(|_, w| w.alraf().clear_bit());
+                    Rtc::clear_alarm_a_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::AlarmB => {
-                    #[cfg(any(
-                        feature = "stm32l412",
-                        feature = "stm32l422",
-                        feature = "stm32l4p5",
-                        feature = "stm32l4q5",
-                    ))]
-                    rtc.scr.write(|w| w.calrbf().set_bit());
-                    #[cfg(not(any(
-                        feature = "stm32l412",
-                        feature = "stm32l422",
-                        feature = "stm32l4p5",
-                        feature = "stm32l4q5",
-                    )))]
-                    rtc.isr.modify(|_, w| w.alrbf().clear_bit());
+                    Rtc::clear_alarm_b_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::Timestamp => {
-                    #[cfg(any(
-                        feature = "stm32l412",
-                        feature = "stm32l422",
-                        feature = "stm32l4p5",
-                        feature = "stm32l4q5",
-                    ))]
-                    rtc.scr.write(|w| w.ctsf().set_bit());
-                    #[cfg(not(any(
-                        feature = "stm32l412",
-                        feature = "stm32l422",
-                        feature = "stm32l4p5",
-                        feature = "stm32l4q5",
-                    )))]
-                    rtc.isr.modify(|_, w| w.tsf().clear_bit());
+                    Rtc::clear_timestamp_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 19)) };
                 }
             })
@@ -546,24 +440,7 @@ impl Rtc {
             });
 
             // TODO configuration for output pins
-            #[cfg(any(
-                feature = "private_product_L41_L42",
-                //feature = "private_product_L4P_L4Q"
-            ))]
-            rtc.cr.modify(|_, w| {
-                w.out2en()
-                    .clear_bit()
-                    .tampalrm_type()
-                    .clear_bit()
-                    .tampalrm_pu()
-                    .clear_bit()
-            });
-            #[cfg(not(any(
-                feature = "private_product_L41_L42",
-                //feature = "private_product_L4P_L4Q"
-            )))]
-            rtc.or
-                .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
+            Rtc::reset_gpio(rtc);
         });
 
         self.rtc_config = rtc_config;
@@ -582,39 +459,17 @@ impl Rtc {
         // This is safe, as we're only writin the correct and expected values.
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0xca) });
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0x53) });
-        #[cfg(any(
-            feature = "private_product_L41_L42",
-            //feature = "private_product_L4P_L4Q"
-        ))]
-        if init_mode && self.rtc.icsr.read().initf().bit_is_clear() {
-            // are we already in init mode?
-            self.rtc.icsr.modify(|_, w| w.init().set_bit());
-            while self.rtc.icsr.read().initf().bit_is_clear() {} // wait to return to init state
-        }
-        #[cfg(not(any(
-            feature = "private_product_L41_L42",
-            //feature = "private_product_L4P_L4Q"
-        )))]
-        if init_mode && self.rtc.isr.read().initf().bit_is_clear() {
-            // are we already in init mode?
-            self.rtc.isr.modify(|_, w| w.init().set_bit());
-            while self.rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
+
+        if init_mode && !Rtc::is_init_mode(&self.rtc) {
+            Rtc::enter_init_mode(&self.rtc);
+            // wait till init state entered
+            // ~2 RTCCLK cycles
+            while !Rtc::is_init_mode(&self.rtc) {}
         }
 
         let result = f(&self.rtc);
-        #[cfg(any(
-            feature = "private_product_L41_L42",
-            //feature = "private_product_L4P_L4Q"
-        ))]
         if init_mode {
-            self.rtc.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-        }
-        #[cfg(not(any(
-            feature = "private_product_L41_L42",
-            //feature = "private_product_L4P_L4Q"
-        )))]
-        if init_mode {
-            self.rtc.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+            Rtc::exit_init_mode(&self.rtc);
         }
 
         // Re-enable write protection.
@@ -644,6 +499,186 @@ impl Rtc {
         if register < 32 {
             unsafe { self.rtc.bkpr[register].write(|w| w.bits(value)) }
         }
+    }
+}
+
+/// RTC type 2 is used for most of the L4 and L4+ series
+#[cfg(not(any(
+    feature = "private_product_L41_L42",
+    feature = "private_product_L4P_L4Q"
+)))]
+impl traits::RtcIsr for Rtc {
+    /// true if initf bit indicates RTC peripheral is in init mode
+    fn is_init_mode(rtc: &RTC) -> bool {
+        rtc.isr.read().initf().bit_is_set()
+    }
+
+    /// to update calendar date/time, time format, and prescaler configuration, RTC must be in init mode
+    fn enter_init_mode(rtc: &RTC) {
+        rtc.isr.modify(|_, w| w.init().set_bit());
+    }
+
+    /// counting will restart in 4 RTCCLK cycles
+    fn exit_init_mode(rtc: &RTC) {
+        rtc.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+    }
+
+    /// has wakeup timer expired?
+    fn wakeup_timer_flag(rtc: &RTC) -> bool {
+        rtc.isr.read().wutf().bit_is_set()
+    }
+
+    fn wakeup_timer_write_flag(rtc: &RTC) -> bool {
+        rtc.isr.read().wutwf().bit_is_set()
+    }
+
+    /// clear the wakeup timer flag
+    fn clear_wakeup_timer_flag(rtc: &RTC) {
+        rtc.isr.modify(|_, w| w.wutf().clear_bit());
+    }
+
+    /// has alarm A been triggered
+    fn alarm_a_flag(rtc: &RTC) -> bool {
+        rtc.isr.read().alraf().bit_is_set()
+    }
+
+    /// clear the alarm A flag
+    fn clear_alarm_a_flag(rtc: &RTC) {
+        rtc.isr.modify(|_, w| w.alraf().clear_bit());
+    }
+
+    /// has alarm B been triggered?
+    fn alarm_b_flag(rtc: &RTC) -> bool {
+        rtc.isr.read().alrbf().bit_is_set()
+    }
+
+    /// clear the alarm B flag
+    fn clear_alarm_b_flag(rtc: &RTC) {
+        rtc.isr.modify(|_, w| w.alrbf().clear_bit());
+    }
+
+    /// has timestamp event triggered
+    fn timestamp_flag(rtc: &RTC) -> bool {
+        rtc.isr.read().tsf().bit_is_set()
+    }
+
+    /// clear the timestamp event flag
+    fn clear_timestamp_flag(rtc: &RTC) {
+        rtc.isr.modify(|_, w| w.tsf().clear_bit());
+    }
+
+    fn is_alarm_a_accessible(rtc: &RTC) -> bool {
+        rtc.isr.read().alrawf().bit_is_clear()
+    }
+
+    fn is_alarm_b_accessible(rtc: &RTC) -> bool {
+        rtc.isr.read().alrbwf().bit_is_clear()
+    }
+}
+
+/// RTC type 3 is used for the L41/2 and L4P/Q
+#[cfg(any(
+    feature = "private_product_L41_L42",
+    feature = "private_product_L4P_L4Q"
+))]
+impl traits::RtcIsr for Rtc {
+    /// true if initf bit indicates RTC peripheral is in init mode
+    fn is_init_mode(rtc: &RTC) -> bool {
+        rtc.icsr.read().initf().bit_is_set()
+    }
+
+    /// to update calendar date/time, time format, and prescaler configuration, RTC must be in init mode
+    fn enter_init_mode(rtc: &RTC) {
+        rtc.icsr.modify(|_, w| w.init().set_bit());
+    }
+
+    /// counting will restart in 4 RTCCLK cycles
+    fn exit_init_mode(rtc: &RTC) {
+        rtc.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+    }
+
+    /// has wakeup timer expired?
+    fn wakeup_timer_flag(rtc: &RTC) -> bool {
+        rtc.sr.read().wutf().bit_is_set()
+    }
+
+    fn wakeup_timer_write_flag(rtc: &RTC) -> bool {
+        rtc.icsr.read().wutwf().bit_is_set()
+    }
+
+    /// clear the wakeup timer flag
+    fn clear_wakeup_timer_flag(rtc: &RTC) {
+        rtc.scr.write(|w| w.cwutf().set_bit());
+    }
+
+    /// has alarm A been triggered
+    fn alarm_a_flag(rtc: &RTC) -> bool {
+        rtc.sr.read().alraf().bit_is_set()
+    }
+
+    /// clear the alarm A flag
+    fn clear_alarm_a_flag(rtc: &RTC) {
+        rtc.scr.write(|w| w.calraf().set_bit());
+    }
+
+    /// has alarm B been triggered?
+    fn alarm_b_flag(rtc: &RTC) -> bool {
+        rtc.sr.read().alrbf().bit_is_set()
+    }
+
+    /// clear the alarm B flag
+    fn clear_alarm_b_flag(rtc: &RTC) {
+        rtc.scr.write(|w| w.calrbf().set_bit());
+    }
+
+    /// has timestamp event triggered
+    fn timestamp_flag(rtc: &RTC) -> bool {
+        rtc.sr.read().tsf().bit_is_set()
+    }
+
+    /// clear the timestamp event flag
+    fn clear_timestamp_flag(rtc: &RTC) {
+        rtc.scr.write(|w| w.ctsf().set_bit());
+    }
+
+    fn is_alarm_a_accessible(_rtc: &RTC) -> bool {
+        // RTC type 3 has no wait after disabling the alarm (AN4759 - Rev 7, Table 8)
+        true
+    }
+
+    fn is_alarm_b_accessible(_rtc: &RTC) -> bool {
+        // RTC type 3 has no wait after disabling the alarm (AN4759 - Rev 7, Table 8)
+        true
+    }
+}
+
+/// RTC type 2
+#[cfg(not(any(
+    feature = "private_product_L41_L42",
+    feature = "private_product_L4P_L4Q"
+)))]
+impl traits::RtcGpio for Rtc {
+    fn reset_gpio(rtc: &RTC) {
+        rtc.or
+            .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
+    }
+}
+
+/// RTC3 type 3
+#[cfg(any(
+    feature = "private_product_L41_L42",
+    feature = "private_product_L4P_L4Q"
+))]
+impl traits::RtcGpio for Rtc {
+    fn reset_gpio(rtc: &RTC) {
+        rtc.cr.modify(|_, w| {
+            w.out2en()
+                .clear_bit()
+                .tampalrm_type()
+                .clear_bit()
+                .tampalrm_pu()
+                .clear_bit()
+        });
     }
 }
 
@@ -729,16 +764,7 @@ impl timer::CountDown for WakeupTimer<'_> {
 
         // Let's wait for WUTWF to clear. Otherwise we might run into a race
         // condition, if the user calls this method again really quickly.
-        #[cfg(any(
-            feature = "private_product_L41_L42",
-            //feature = "private_product_L4P_L4Q"
-        ))]
-        while self.rtc.rtc.icsr.read().wutwf().bit_is_set() {}
-        #[cfg(not(any(
-            feature = "private_product_L41_L42",
-            //feature = "private_product_L4P_L4Q"
-        )))]
-        while self.rtc.rtc.isr.read().wutwf().bit_is_set() {}
+        while Rtc::wakeup_timer_write_flag(&self.rtc.rtc) {}
     }
 
     fn wait(&mut self) -> nb::Result<(), Void> {
@@ -757,26 +783,8 @@ impl timer::Cancel for WakeupTimer<'_> {
         self.rtc.write(false, |rtc| {
             // Disable the wakeup timer
             rtc.cr.modify(|_, w| w.wute().clear_bit());
-
-            // Wait until we're allowed to update the wakeup timer configuration
-            #[cfg(any(
-                feature = "private_product_L41_L42",
-                //feature = "private_product_L4P_L4Q"
-            ))]
-            {
-                while rtc.icsr.read().wutwf().bit_is_set() {}
-                rtc.scr.write(|w| w.cwutf().set_bit());
-            }
-            #[cfg(not(any(
-                feature = "private_product_L41_L42",
-                //feature = "private_product_L4P_L4Q"
-            )))]
-            {
-                while rtc.isr.read().wutwf().bit_is_clear() {}
-
-                // Clear wakeup timer flag
-                rtc.isr.modify(|_, w| w.wutf().clear_bit());
-            }
+            while Rtc::wakeup_timer_write_flag(&rtc) {}
+            Rtc::clear_wakeup_timer_flag(rtc);
 
             // According to the reference manual, section 26.7.4, the WUTF flag
             // must be cleared at least 1.5 RTCCLK periods "before WUTF is set
