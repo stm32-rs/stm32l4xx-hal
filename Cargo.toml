@@ -142,7 +142,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "can-loopback"
-required-features = ["rt", "stm32l431"]
+required-features = ["rt"]
 
 [[example]]
 name = "irq_button"
@@ -150,7 +150,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "qspi"
-required-features = ["rt", "stm32l476"]
+required-features = ["rt", "stm32l476"] # L433/43 have no QSPI peripheral and are highly likely to be used
 
 [[example]]
 name = "rng"
