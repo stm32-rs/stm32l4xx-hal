@@ -142,7 +142,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "can-loopback"
-required-features = ["rt"]
+required-features = ["rt", "stm32l433" ] # CAN peripheral on ever series except L41/L42, gate so CI will pass
 
 [[example]]
 name = "irq_button"
