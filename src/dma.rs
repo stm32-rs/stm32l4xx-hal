@@ -644,6 +644,16 @@ macro_rules! dma {
                             unsafe { &(*$DMAX::ptr()).$cmarX }
                         }
 
+                        #[cfg(not(any(
+                            // feature = "stm32l4p5",
+                            // feature = "stm32l4q5",
+                            // feature = "stm32l4r5",
+                            // feature = "stm32l4s5",
+                            // feature = "stm32l4r7",
+                            // feature = "stm32l4s7",
+                            feature = "stm32l4r9",
+                            feature = "stm32l4s9"
+                        )))]
                         #[inline]
                         pub(crate) fn cselr(&mut self) -> &dma1::CSELR {
                             unsafe { &(*$DMAX::ptr()).cselr }
