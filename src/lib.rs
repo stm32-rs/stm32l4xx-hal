@@ -247,3 +247,22 @@ pub mod usb;
     feature = "stm32l4x6"
 ))]
 pub mod watchdog;
+
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+mod sealed {
+    pub trait Sealed {}
+}
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
+pub(crate) use sealed::Sealed;

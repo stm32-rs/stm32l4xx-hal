@@ -52,10 +52,10 @@ fn main() -> ! {
     loop {
         // block!(timer.wait()).unwrap();
         timer.delay_ms(1000_u32);
-        led.set_high().ok();
+        led.set_high();
         // block!(timer.wait()).unwrap();
         timer.delay_ms(1000_u32);
-        led.set_low().ok();
+        led.set_low();
     }
 }
 

@@ -6,7 +6,7 @@ use crate::stm32;
 
 use crate::gpio::{
     gpioa::{PA11, PA12},
-    Alternate, Floating, Input, AF10,
+    Alternate, PushPull,
 };
 use crate::time::Hertz;
 
@@ -17,8 +17,9 @@ pub struct USB {
     pub usb_global: stm32::OTG_FS_GLOBAL,
     pub usb_device: stm32::OTG_FS_DEVICE,
     pub usb_pwrclk: stm32::OTG_FS_PWRCLK,
-    pub pin_dm: PA11<Alternate<AF10, Input<Floating>>>,
-    pub pin_dp: PA12<Alternate<AF10, Input<Floating>>>,
+    // TODO: check type
+    pub pin_dm: PA11<Alternate<PushPull, 10>>,
+    pub pin_dp: PA12<Alternate<PushPull, 10>>,
     pub hclk: Hertz,
 }
 

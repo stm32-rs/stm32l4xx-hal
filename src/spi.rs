@@ -10,7 +10,7 @@ use core::sync::atomic;
 use core::sync::atomic::Ordering;
 
 use crate::dma::{self, dma1, dma2, TransferPayload};
-use crate::gpio::{Alternate, PushPull, AF5};
+use crate::gpio::{Alternate, PushPull};
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use crate::rcc::{Clocks, APB1R1, APB2};
 use crate::time::Hertz;
@@ -42,18 +42,18 @@ pub trait MisoPin<SPI>: private::Sealed {}
 pub trait MosiPin<SPI>: private::Sealed {}
 
 macro_rules! pins {
-    ($spi:ident, $af:ident, SCK: [$($sck:ident),*], MISO: [$($miso:ident),*], MOSI: [$($mosi:ident),*]) => {
+    ($spi:ident, $af:literal, SCK: [$($sck:ident),*], MISO: [$($miso:ident),*], MOSI: [$($mosi:ident),*]) => {
         $(
-            impl private::Sealed for $sck<Alternate<$af, PushPull>> {}
-            impl SckPin<$spi> for $sck<Alternate<$af, PushPull>> {}
+            impl private::Sealed for $sck<Alternate<PushPull, $af>> {}
+            impl SckPin<$spi> for $sck<Alternate<PushPull, $af>> {}
         )*
         $(
-            impl private::Sealed for $miso<Alternate<$af, PushPull>> {}
-            impl MisoPin<$spi> for $miso<Alternate<$af, PushPull>> {}
+            impl private::Sealed for $miso<Alternate<PushPull, $af>> {}
+            impl MisoPin<$spi> for $miso<Alternate<PushPull, $af>> {}
         )*
         $(
-            impl private::Sealed for $mosi<Alternate<$af, PushPull>> {}
-            impl MosiPin<$spi> for $mosi<Alternate<$af, PushPull>> {}
+            impl private::Sealed for $mosi<Alternate<PushPull, $af>> {}
+            impl MosiPin<$spi> for $mosi<Alternate<PushPull, $af>> {}
         )*
     }
 }
@@ -299,13 +299,13 @@ hal! {
     feature = "stm32l4x5",
     feature = "stm32l4x6"
 ))]
-pins!(SPI1, AF5,
+pins!(SPI1, 5,
     SCK: [PA5, PB3, PE13],
     MISO: [PA6, PB4, PE14],
     MOSI: [PA7, PB5, PE15]);
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
+pins!(SPI1, 5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -313,7 +313,7 @@ pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
-use crate::{gpio::AF6, stm32::SPI3};
+use crate::stm32::SPI3;
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -331,13 +331,13 @@ hal! {
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
-pins!(SPI3, AF6,
+pins!(SPI3, 6,
     SCK: [PB3, PC10],
     MISO: [PB4, PC11],
     MOSI: [PB5, PC12]);
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
+pins!(SPI3, 6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 
 #[cfg(any(
     feature = "stm32l4x1",
@@ -366,7 +366,7 @@ hal! {
     feature = "stm32l4x5",
     feature = "stm32l4x6",
 ))]
-pins!(SPI2, AF5,
+pins!(SPI2, 5,
     SCK: [PB13, PB10, PD1],
     MISO: [PB14, PC2, PD3],
     MOSI: [PB15, PC3, PD4]);
