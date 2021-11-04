@@ -3,7 +3,7 @@
 //! Based on STM32F4xx HAL.
 
 use crate::pac::CAN1;
-use crate::rcc::APB1R1;
+use crate::rcc::{Enable, RccBus, Reset};
 
 mod sealed {
     pub trait Sealed {}
@@ -55,43 +55,28 @@ mod pb13_pb12_af10 {
     pins! { CAN1 => (PB13<10>, PB12<10>), }
 }
 
-/// Enable/disable peripheral
-pub trait Enable: sealed::Sealed {
-    /// Enables this peripheral by setting the associated enable bit in an RCC enable register
-    fn enable(apb: &mut APB1R1);
-}
-
 impl crate::can::sealed::Sealed for crate::pac::CAN1 {}
 
-impl crate::can::Enable for crate::pac::CAN1 {
-    #[inline(always)]
-    fn enable(apb: &mut APB1R1) {
-        // Enable peripheral clock
-        apb.enr().modify(|_, w| w.can1en().set_bit());
-        apb.rstr().modify(|_, w| w.can1rst().set_bit());
-        apb.rstr().modify(|_, w| w.can1rst().clear_bit());
-    }
-}
-
 /// Interface to the CAN peripheral.
-pub struct Can<Instance, Pins> {
-    can: Instance,
+pub struct Can<CAN, Pins> {
+    can: CAN,
     pins: Pins,
 }
 
-impl<Instance, P> Can<Instance, P>
+impl<CAN, P> Can<CAN, P>
 where
-    Instance: Enable,
-    P: Pins<Instance = Instance>,
+    CAN: Enable + Reset,
+    P: Pins<Instance = CAN>,
 {
     /// Creates a CAN interface.
-    pub fn new(apb: &mut APB1R1, can: Instance, pins: P) -> Can<Instance, P> {
-        Instance::enable(apb);
+    pub fn new(apb: &mut <CAN as RccBus>::Bus, can: CAN, pins: P) -> Can<CAN, P> {
+        CAN::enable(apb);
+        CAN::reset(apb);
         Can { can, pins }
     }
 
     // Split the peripheral back into its components.
-    pub fn split(self) -> (Instance, P) {
+    pub fn split(self) -> (CAN, P) {
         (self.can, self.pins)
     }
 }

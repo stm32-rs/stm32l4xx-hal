@@ -14,7 +14,7 @@ use crate::{
         blocking::delay::DelayUs,
     },
     pac,
-    rcc::{AHB2, CCIPR},
+    rcc::{Enable, Reset, AHB2, CCIPR},
     signature::{VrefCal, VtempCal130, VtempCal30, VDDA_CALIB_MV},
 };
 
@@ -130,11 +130,10 @@ impl ADC {
         delay: &mut impl DelayUs<u32>,
     ) -> Self {
         // Enable peripheral
-        ahb.enr().modify(|_, w| w.adcen().set_bit());
+        ADC1::enable(ahb);
 
         // Reset peripheral
-        ahb.rstr().modify(|_, w| w.adcrst().set_bit());
-        ahb.rstr().modify(|_, w| w.adcrst().clear_bit());
+        ADC1::reset(ahb);
 
         // Select system clock as ADC clock source
         ccipr.ccipr().modify(|_, w| {

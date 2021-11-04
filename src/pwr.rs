@@ -1,6 +1,6 @@
 //! Power management
 
-use crate::rcc::APB1R1;
+use crate::rcc::{Enable, APB1R1};
 use crate::stm32::{pwr, PWR};
 
 pub struct Pwr {
@@ -19,7 +19,7 @@ pub trait PwrExt {
 impl PwrExt for PWR {
     fn constrain(self, apb1r1: &mut APB1R1) -> Pwr {
         // Enable the peripheral clock
-        apb1r1.enr().modify(|_, w| w.pwren().set_bit());
+        PWR::enable(apb1r1);
         Pwr {
             cr1: CR1 { _0: () },
             cr2: CR2 { _0: () },

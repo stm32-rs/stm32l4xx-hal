@@ -33,7 +33,7 @@ use crate::gpio::{
 };
 
 use crate::gpio::{Alternate, PushPull, Speed};
-use crate::rcc::AHB3;
+use crate::rcc::{Enable, AHB3};
 use crate::stm32::QUADSPI;
 use core::ptr;
 
@@ -337,7 +337,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         IO3: IO3Pin<QUADSPI>,
     {
         // Enable quad SPI in the clocks.
-        ahb3.enr().modify(|_, w| w.qspien().bit(true));
+        QUADSPI::enable(ahb3);
 
         // Disable QUADSPI before configuring it.
         qspi.cr.modify(|_, w| w.en().clear_bit());

@@ -7,7 +7,7 @@ use crate::stm32::{TIM17, TIM4, TIM5};
 use cast::{u16, u32};
 use void::Void;
 
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, Enable, Reset, APB1R1, APB2};
 use crate::time::Hertz;
 
 /// Hardware timers
@@ -24,7 +24,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $frname:ident, $timXen:ident, $timXrst:ident, $apb:ident, $width:ident),)+) => {
+    ($($TIM:ident: ($tim:ident, $frname:ident, $apb:ident, $width:ident),)+) => {
         $(
             impl Periodic for Timer<$TIM> {}
 
@@ -83,9 +83,8 @@ macro_rules! hal {
                     T: Into<Hertz>,
                 {
                     // enable and reset peripheral to a clean slate state
-                    apb.enr().modify(|_, w| w.$timXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    <$TIM>::enable(apb);
+                    <$TIM>::reset(apb);
 
                     let mut timer = Timer {
                         clocks,
@@ -110,9 +109,8 @@ macro_rules! hal {
                 where
                     T: Into<Hertz>,
                 {
-                    apb.enr().modify(|_, w| w.$timXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    <$TIM>::enable(apb);
+                    <$TIM>::reset(apb);
 
                     let frequency = frequency.into();
                     let psc = clocks.pclk1().0 / frequency.0 - 1;
@@ -212,16 +210,16 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM2:  (tim2, free_running_tim2, tim2en, tim2rst, APB1R1, u32),
-    TIM6:  (tim6, free_running_tim6, tim6en, tim6rst, APB1R1, u16),
-    TIM7:  (tim7, free_running_tim7, tim7en, tim7rst, APB1R1, u16),
-    TIM15: (tim15, free_running_tim15, tim15en, tim15rst, APB2, u16),
-    TIM16: (tim16, free_running_tim16, tim16en, tim16rst, APB2, u16),
+    TIM2:  (tim2, free_running_tim2, APB1R1, u32),
+    TIM6:  (tim6, free_running_tim6, APB1R1, u16),
+    TIM7:  (tim7, free_running_tim7, APB1R1, u16),
+    TIM15: (tim15, free_running_tim15, APB2, u16),
+    TIM16: (tim16, free_running_tim16, APB2, u16),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    TIM4:  (tim4, free_running_tim4, tim4en, tim4rst, APB1R1, u16),
-    TIM5:  (tim5, free_running_tim5, tim5en, tim5rst, APB1R1, u32),
-    TIM17: (tim17, free_running_tim17, tim17en, tim17rst, APB2, u16),
+    TIM4:  (tim4, free_running_tim4, APB1R1, u16),
+    TIM5:  (tim5, free_running_tim5, APB1R1, u32),
+    TIM17: (tim17, free_running_tim17, APB2, u16),
 }

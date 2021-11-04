@@ -9,7 +9,7 @@ use crate::stm32::{TIM1, TIM15, TIM2};
 use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA15, PA2, PA3, PA8, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB14, PB3};
 use crate::gpio::Alternate;
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, Enable, Reset, APB1R1, APB2};
 use crate::time::Hertz;
 
 // NB: REMAP is not implemented!
@@ -170,7 +170,7 @@ pub struct C3;
 pub struct C4;
 
 macro_rules! advanced_timer {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX<PINS>(
                 tim: $TIMX,
@@ -182,9 +182,8 @@ macro_rules! advanced_timer {
             where
                 PINS: Pins<$TIMX>,
             {
-                apb.enr().modify(|_, w| w.$timXen().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                <$TIMX>::enable(apb);
+                <$TIMX>::reset(apb);
 
                 if PINS::C1 {
                     tim.ccmr1_output().modify(|_, w| w.oc1pe().set_bit().oc1m().bits(6));
@@ -240,7 +239,7 @@ macro_rules! advanced_timer {
 }
 
 macro_rules! standard_timer {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX<PINS>(
                 tim: $TIMX,
@@ -252,9 +251,8 @@ macro_rules! standard_timer {
             where
                 PINS: Pins<$TIMX>,
             {
-                apb.enr().modify(|_, w| w.$timXen().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                <$TIMX>::enable(apb);
+                <$TIMX>::reset(apb);
 
                 if PINS::C1 {
                     tim.ccmr1_output().modify(|_, w| w.oc1pe().set_bit().oc1m().bits(6));
@@ -306,7 +304,7 @@ macro_rules! standard_timer {
 }
 
 macro_rules! small_timer {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX<PINS>(
                 tim: $TIMX,
@@ -318,9 +316,8 @@ macro_rules! small_timer {
             where
                 PINS: Pins<$TIMX>,
             {
-                apb.enr().modify(|_, w| w.$timXen().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                <$TIMX>::enable(apb);
+                <$TIMX>::reset(apb);
 
                 if PINS::C1 {
                     tim.ccmr1_output().modify(|_, w| w.oc1pe().set_bit().oc1m().bits(6));
@@ -399,13 +396,13 @@ macro_rules! pwm_channels {
 }
 
 advanced_timer! {
-    TIM1: (tim1, tim1en, tim1rst, APB2, u16, u16),
+    TIM1: (tim1, APB2, u16, u16),
 }
 
 standard_timer! {
-    TIM2: (tim2, tim2en, tim2rst, APB1R1, u16, u32),
+    TIM2: (tim2, APB1R1, u16, u32),
 }
 
 small_timer! {
-    TIM15: (tim15, tim15en, tim15rst, APB2, u16, u16),
+    TIM15: (tim15, APB2, u16, u16),
 }

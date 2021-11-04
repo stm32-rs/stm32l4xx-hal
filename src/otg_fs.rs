@@ -2,6 +2,7 @@
 //!
 //! The STM32L4 series only supports the full-speed peripheral.
 
+use crate::rcc::{Enable, Reset};
 use crate::stm32;
 
 use crate::gpio::{
@@ -34,16 +35,12 @@ unsafe impl UsbPeripheral for USB {
     const ENDPOINT_COUNT: usize = 6;
 
     fn enable() {
-        let rcc = unsafe { &*stm32::RCC::ptr() };
-
-        cortex_m::interrupt::free(|_| {
+        cortex_m::interrupt::free(|_| unsafe {
             // Enable USB peripheral
-            rcc.ahb2enr.modify(|_, w| w.otgfsen().set_bit());
-            let _ = rcc.ahb2enr.read().otgfsen().bit_is_set();
+            stm32::OTG_FS_GLOBAL::enable_unchecked();
 
             // Reset USB peripheral
-            rcc.ahb2rstr.modify(|_, w| w.otgfsrst().set_bit());
-            rcc.ahb2rstr.modify(|_, w| w.otgfsrst().clear_bit());
+            stm32::OTG_FS_GLOBAL::reset_unchecked();
         });
     }
 

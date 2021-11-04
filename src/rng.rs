@@ -2,7 +2,7 @@ extern crate core;
 #[cfg(feature = "unproven")]
 use core::cmp;
 
-use crate::rcc::{Clocks, AHB2};
+use crate::rcc::{Clocks, Enable, AHB2};
 use crate::stm32::RNG;
 pub use rand_core::{CryptoRng, RngCore};
 
@@ -25,10 +25,10 @@ impl RngExt for RNG {
         let hsi = clocks.hsi48();
         assert!(msi || hsi);
 
-        ahb2.enr().modify(|_, w| w.rngen().set_bit());
+        <RNG as Enable>::enable(ahb2);
         // if we don't do this... we can be "too fast", and
         // the following setting of rng.cr.rngen has no effect!!
-        while ahb2.enr().read().rngen().bit_is_clear() {}
+        while RNG::is_enabled() {}
 
         self.cr.modify(|_, w| w.rngen().set_bit());
 

@@ -14,7 +14,7 @@ use crate::dma::dma2;
 use crate::dma::{self, dma1, TransferPayload};
 use crate::gpio::{Alternate, PushPull};
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
 
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
@@ -67,7 +67,7 @@ pub struct Spi<SPI, PINS> {
 }
 
 macro_rules! hal {
-    ($($SPIX:ident: ($spiX:ident, $spiX_slave:ident, $APBX:ident, $spiXen:ident, $spiXrst:ident, $pclkX:ident),)+) => {
+    ($($SPIX:ident: ($spiX:ident, $spiX_slave:ident, $pclkX:ident),)+) => {
         $(
             impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
@@ -77,7 +77,7 @@ macro_rules! hal {
                     mode: Mode,
                     freq: F,
                     clocks: Clocks,
-                    apb2: &mut $APBX,
+                    apb2: &mut <$SPIX as RccBus>::Bus,
                 ) -> Self
                 where
                     F: Into<Hertz>,
@@ -86,9 +86,8 @@ macro_rules! hal {
                     MOSI: MosiPin<$SPIX>,
                 {
                     // enable or reset $SPIX
-                    apb2.enr().modify(|_, w| w.$spiXen().set_bit());
-                    apb2.rstr().modify(|_, w| w.$spiXrst().set_bit());
-                    apb2.rstr().modify(|_, w| w.$spiXrst().clear_bit());
+                    <$SPIX>::enable(apb2);
+                    <$SPIX>::reset(apb2);
 
                     // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
                     //        8-bit
@@ -137,16 +136,15 @@ macro_rules! hal {
                     Spi { spi, pins }
                 }
 
-                pub fn $spiX_slave(spi: $SPIX, pins: (SCK, MISO, MOSI), mode: Mode, apb2: &mut $APBX,) -> Self
+                pub fn $spiX_slave(spi: $SPIX, pins: (SCK, MISO, MOSI), mode: Mode, apb2: &mut <$SPIX as RccBus>::Bus) -> Self
                 where
                     SCK: SckPin<$SPIX>,
                     MISO: MisoPin<$SPIX>,
                     MOSI: MosiPin<$SPIX>,
                 {
                     // enable or reset $SPIX
-                    apb2.enr().modify(|_, w| w.$spiXen().set_bit());
-                    apb2.rstr().modify(|_, w| w.$spiXrst().set_bit());
-                    apb2.rstr().modify(|_, w| w.$spiXrst().clear_bit());
+                    <$SPIX>::enable(apb2);
+                    <$SPIX>::reset(apb2);
 
                     // CPOL: polarity
                     // CPHA: phase
@@ -291,7 +289,7 @@ use crate::stm32::SPI1;
     feature = "stm32l4x6"
 ))]
 hal! {
-    SPI1: (spi1, spi1_slave, APB2, spi1en, spi1rst, pclk2),
+    SPI1: (spi1, spi1_slave, pclk2),
 }
 
 #[cfg(any(
@@ -324,7 +322,7 @@ use crate::stm32::SPI3;
     feature = "stm32l4x6",
 ))]
 hal! {
-    SPI3: (spi3, spi3_slave, APB1R1, spi3en, spi3rst, pclk1),
+    SPI3: (spi3, spi3_slave, pclk1),
 }
 
 #[cfg(any(
@@ -358,7 +356,7 @@ use crate::stm32::SPI2;
     feature = "stm32l4x6",
 ))]
 hal! {
-    SPI2: (spi2, spi2_slave, APB1R1, spi2en, spi2rst, pclk1),
+    SPI2: (spi2, spi2_slave, pclk1),
 }
 
 #[cfg(any(

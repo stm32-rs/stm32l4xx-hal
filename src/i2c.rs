@@ -9,7 +9,7 @@ use crate::pac::{i2c1, I2C1, I2C2, I2C3};
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
 use crate::rcc::APB1R2;
 
-use crate::rcc::{Clocks, APB1R1};
+use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
 use cast::{u16, u8};
 use core::ops::Deref;
@@ -163,32 +163,36 @@ impl Config {
 }
 
 macro_rules! hal {
-    ($i2c_type: ident, $APB: ident, $i2cX: ident, $i2cXen: ident, $i2cXrst: ident) => {
+    ($i2c_type: ident, $i2cX: ident) => {
         impl<SCL, SDA> I2c<$i2c_type, (SCL, SDA)> {
-            pub fn $i2cX(i2c: $i2c_type, pins: (SCL, SDA), config: Config, apb1: &mut $APB) -> Self
+            pub fn $i2cX(
+                i2c: $i2c_type,
+                pins: (SCL, SDA),
+                config: Config,
+                apb1: &mut <$i2c_type as RccBus>::Bus,
+            ) -> Self
             where
                 SCL: SclPin<$i2c_type>,
                 SDA: SdaPin<$i2c_type>,
             {
-                apb1.enr().modify(|_, w| w.$i2cXen().set_bit());
-                apb1.rstr().modify(|_, w| w.$i2cXrst().set_bit());
-                apb1.rstr().modify(|_, w| w.$i2cXrst().clear_bit());
+                <$i2c_type>::enable(apb1);
+                <$i2c_type>::reset(apb1);
                 Self::new(i2c, pins, config)
             }
         }
     };
 }
 
-hal!(I2C1, APB1R1, i2c1, i2c1en, i2c1rst);
-hal!(I2C2, APB1R1, i2c2, i2c2en, i2c2rst);
-hal!(I2C3, APB1R1, i2c3, i2c3en, i2c3rst);
+hal!(I2C1, i2c1);
+hal!(I2C2, i2c2);
+hal!(I2C3, i2c3);
 
 // This peripheral is not present on
 // STM32L471XX and STM32L431XX
 // STM32L432XX and STM32l442XX
 // STM32L486XX and STM32L476XX
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
-hal!(I2C4, APB1R2, i2c4, i2c4en, i2c4rst);
+hal!(I2C4, i2c4);
 
 impl<SCL, SDA, I2C> I2c<I2C, (SCL, SDA)>
 where

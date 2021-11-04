@@ -502,7 +502,7 @@ macro_rules! rx_tx_channel_mapping {
 }
 
 macro_rules! dma {
-    ($($DMAX:ident: ($dmaX:ident, $dmaXen:ident, $dmaXrst:ident, {
+    ($($DMAX:ident: ($dmaX:ident, {
         $($CX:ident: (
             $ccrX:ident,
             $CCRX:ident,
@@ -530,7 +530,7 @@ macro_rules! dma {
                 use stable_deref_trait::StableDeref;
 
                 use crate::dma::{CircBuffer, FrameReader, FrameSender, DMAFrame, DmaExt, Error, Event, Transfer, W, R, RW, RxDma, RxTxDma, TxDma, TransferPayload};
-                use crate::rcc::AHB1;
+                use crate::rcc::{AHB1, Enable};
 
                 #[allow(clippy::manual_non_exhaustive)]
                 pub struct Channels((), $(pub $CX),+);
@@ -1070,7 +1070,7 @@ macro_rules! dma {
                     type Channels = Channels;
 
                     fn split(self, ahb: &mut AHB1) -> Channels {
-                        ahb.enr().modify(|_, w| w.$dmaXen().set_bit());
+                        <$DMAX>::enable(ahb);
 
                         // reset the DMA control registers (stops all on-going transfers)
                         $(
@@ -1086,7 +1086,7 @@ macro_rules! dma {
 }
 
 dma! {
-    DMA1: (dma1, dma1en, dma1rst, {
+    DMA1: (dma1, {
         C1: (
             ccr1, CCR1,
             cndtr1, CNDTR1,
@@ -1151,7 +1151,7 @@ dma! {
             teif7, cteif7
         ),
     }),
-    DMA2: (dma2, dma2en, dma2rst, {
+    DMA2: (dma2, {
         C1: (
             ccr1, CCR1,
             cndtr1, CNDTR1,
