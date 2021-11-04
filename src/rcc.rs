@@ -63,12 +63,12 @@ pub trait RccExt {
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
-            ahb1: AHB1 { _0: () },
-            ahb2: AHB2 { _0: () },
-            ahb3: AHB3 { _0: () },
-            apb1r1: APB1R1 { _0: () },
-            apb1r2: APB1R2 { _0: () },
-            apb2: APB2 { _0: () },
+            ahb1: AHB1::new(),
+            ahb2: AHB2::new(),
+            ahb3: AHB3::new(),
+            apb1r1: APB1R1::new(),
+            apb1r2: APB1R2::new(),
+            apb2: APB2::new(),
             bdcr: BDCR { _0: () },
             csr: CSR { _0: () },
             crrcr: CRRCR { _0: () },
@@ -181,129 +181,45 @@ impl BDCR {
     }
 }
 
-/// AMBA High-performance Bus 1 (AHB1) registers
-pub struct AHB1 {
-    _0: (),
+macro_rules! bus_struct {
+    ($($busX:ident => ($EN:ident, $en:ident, $SMEN:ident, $smen:ident, $RST:ident, $rst:ident, $doc:literal),)+) => {
+        $(
+            #[doc = $doc]
+            pub struct $busX {
+                _0: (),
+            }
+
+            impl $busX {
+                pub(crate) fn new() -> Self {
+                    Self { _0: () }
+                }
+
+                pub(crate) fn enr(&self) -> &rcc::$EN {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$en }
+                }
+
+                pub(crate) fn smenr(&self) -> &rcc::$SMEN {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$smen }
+                }
+
+                pub(crate) fn rstr(&self) -> &rcc::$RST {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$rst }
+                }
+            }
+        )+
+    };
 }
 
-impl AHB1 {
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHB1ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1enr }
-    }
-
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1rstr }
-    }
-}
-
-/// AMBA High-performance Bus 2 (AHB2) registers
-pub struct AHB2 {
-    _0: (),
-}
-
-impl AHB2 {
-    pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb2enr }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb2rstr }
-    }
-}
-
-/// AMBA High-performance Bus (AHB3) registers
-pub struct AHB3 {
-    _0: (),
-}
-
-impl AHB3 {
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHB3ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb3enr }
-    }
-
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB3RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb3rstr }
-    }
-}
-
-/// Advanced Peripheral Bus 1 (APB1) register 1 registers
-pub struct APB1R1 {
-    _0: (),
-}
-
-impl APB1R1 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR1 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr1 }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR1 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr1 }
-    }
-
-    #[cfg(not(any(feature = "stm32l4x3", feature = "stm32l4x5")))]
-    pub(crate) fn enr2(&mut self) -> &rcc::APB1ENR2 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr2 }
-    }
-
-    #[cfg(not(any(feature = "stm32l4x3", feature = "stm32l4x5")))]
-    pub(crate) fn rstr2(&mut self) -> &rcc::APB1RSTR2 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr2 }
-    }
-}
-
-/// Advanced Peripheral Bus 1 (APB1) register 2 registers
-pub struct APB1R2 {
-    _0: (),
-}
-
-impl APB1R2 {
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR2 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr2 }
-    }
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR2 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr2 }
-    }
-}
-
-/// Advanced Peripheral Bus 2 (APB2) registers
-pub struct APB2 {
-    _0: (),
-}
-
-impl APB2 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2enr }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::APB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2rstr }
-    }
+bus_struct! {
+    AHB1 => (AHB1ENR, ahb1enr, AHB1SMENR, ahb1smenr, AHB1RSTR, ahb1rstr, "Advanced High-performance Bus 1 (AHB1) registers"),
+    AHB2 => (AHB2ENR, ahb2enr, AHB2SMENR, ahb2smenr, AHB2RSTR, ahb2rstr, "Advanced High-performance Bus 2 (AHB2) registers"),
+    AHB3 => (AHB3ENR, ahb3enr, AHB3SMENR, ahb3smenr, AHB3RSTR, ahb3rstr, "Advanced High-performance Bus 3 (AHB3) registers"),
+    APB1R1 => (APB1ENR1, apb1enr1, APB1SMENR1, apb1smenr1, APB1RSTR1, apb1rstr1, "Advanced Peripheral Bus 1 (APB1) registers"),
+    APB1R2 => (APB1ENR2, apb1enr2, APB1SMENR2, apb1smenr2, APB1RSTR2, apb1rstr2, "Advanced Peripheral Bus 1 (APB1) registers"),
+    APB2 => (APB2ENR, apb2enr, APB2SMENR, apb2smenr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
 }
 
 #[derive(Debug, PartialEq)]
