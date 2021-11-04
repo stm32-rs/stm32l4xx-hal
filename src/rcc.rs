@@ -7,6 +7,8 @@ use crate::flash::ACR;
 use crate::pwr::Pwr;
 use crate::time::Hertz;
 
+mod enable;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MsiFreq {
     #[doc = "range 0 around 100 kHz"]
@@ -194,16 +196,19 @@ macro_rules! bus_struct {
                     Self { _0: () }
                 }
 
+                #[allow(unused)]
                 pub(crate) fn enr(&self) -> &rcc::$EN {
                     // NOTE(unsafe) this proxy grants exclusive access to this register
                     unsafe { &(*RCC::ptr()).$en }
                 }
 
+                #[allow(unused)]
                 pub(crate) fn smenr(&self) -> &rcc::$SMEN {
                     // NOTE(unsafe) this proxy grants exclusive access to this register
                     unsafe { &(*RCC::ptr()).$smen }
                 }
 
+                #[allow(unused)]
                 pub(crate) fn rstr(&self) -> &rcc::$RST {
                     // NOTE(unsafe) this proxy grants exclusive access to this register
                     unsafe { &(*RCC::ptr()).$rst }
@@ -220,6 +225,73 @@ bus_struct! {
     APB1R1 => (APB1ENR1, apb1enr1, APB1SMENR1, apb1smenr1, APB1RSTR1, apb1rstr1, "Advanced Peripheral Bus 1 (APB1) registers"),
     APB1R2 => (APB1ENR2, apb1enr2, APB1SMENR2, apb1smenr2, APB1RSTR2, apb1rstr2, "Advanced Peripheral Bus 1 (APB1) registers"),
     APB2 => (APB2ENR, apb2enr, APB2SMENR, apb2smenr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
+}
+
+/// Bus associated to peripheral
+pub trait RccBus: crate::Sealed {
+    /// Bus type;
+    type Bus;
+}
+
+/// Enable/disable peripheral
+pub trait Enable: RccBus {
+    /// Enables peripheral
+    fn enable(bus: &mut Self::Bus);
+
+    /// Disables peripheral
+    fn disable(bus: &mut Self::Bus);
+
+    /// Check if peripheral enabled
+    fn is_enabled() -> bool;
+
+    /// Check if peripheral disabled
+    fn is_disabled() -> bool;
+
+    /// # Safety
+    ///
+    /// Enables peripheral. Takes access to RCC internally
+    unsafe fn enable_unchecked();
+
+    /// # Safety
+    ///
+    /// Disables peripheral. Takes access to RCC internally
+    unsafe fn disable_unchecked();
+}
+
+/// Enable/disable peripheral in sleep mode
+pub trait SMEnable: RccBus {
+    /// Enables peripheral
+    fn enable_in_sleep_mode(bus: &mut Self::Bus);
+
+    /// Disables peripheral
+    fn disable_in_sleep_mode(bus: &mut Self::Bus);
+
+    /// Check if peripheral enabled
+    fn is_enabled_in_sleep_mode() -> bool;
+
+    /// Check if peripheral disabled
+    fn is_disabled_in_sleep_mode() -> bool;
+
+    /// # Safety
+    ///
+    /// Enables peripheral. Takes access to RCC internally
+    unsafe fn enable_in_sleep_mode_unchecked();
+
+    /// # Safety
+    ///
+    /// Disables peripheral. Takes access to RCC internally
+    unsafe fn disable_in_sleep_mode_unchecked();
+}
+
+/// Reset peripheral
+pub trait Reset: RccBus {
+    /// Resets peripheral
+    fn reset(bus: &mut Self::Bus);
+
+    /// # Safety
+    ///
+    /// Resets peripheral. Takes access to RCC internally
+    unsafe fn reset_unchecked();
 }
 
 #[derive(Debug, PartialEq)]

@@ -6,8 +6,10 @@ use crate::hal::blocking::i2c::{Read, Write, WriteRead};
 #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
 use crate::pac::I2C4;
 use crate::pac::{i2c1, I2C1, I2C2, I2C3};
+#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x6"))]
+use crate::rcc::APB1R2;
 
-use crate::rcc::{Clocks, APB1R1, APB1R2};
+use crate::rcc::{Clocks, APB1R1};
 use crate::time::Hertz;
 use cast::{u16, u8};
 use core::ops::Deref;

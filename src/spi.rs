@@ -9,7 +9,9 @@ use core::ptr;
 use core::sync::atomic;
 use core::sync::atomic::Ordering;
 
-use crate::dma::{self, dma1, dma2, TransferPayload};
+#[cfg(not(feature = "stm32l4x3"))]
+use crate::dma::dma2;
+use crate::dma::{self, dma1, TransferPayload};
 use crate::gpio::{Alternate, PushPull};
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use crate::rcc::{Clocks, APB1R1, APB2};
