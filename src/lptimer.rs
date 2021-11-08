@@ -1,5 +1,5 @@
 //! Low power timers
-use crate::rcc::{Clocks, APB1R1, APB1R2, CCIPR};
+use crate::rcc::{Clocks, Enable, RccBus, Reset, CCIPR};
 
 use crate::stm32::{LPTIM1, LPTIM2, RCC};
 
@@ -112,7 +112,7 @@ pub struct LowPowerTimer<LPTIM> {
 }
 
 macro_rules! hal {
-    ($timer_type: ident, $lptimX: ident, $apb1rX: ident, $timXen: ident, $timXrst: ident, $timXsel: ident) => {
+    ($timer_type: ident, $lptimX: ident, $timXsel: ident) => {
         impl LowPowerTimer<$timer_type> {
             #[inline(always)]
             fn enable(&mut self) {
@@ -146,7 +146,7 @@ macro_rules! hal {
             pub fn $lptimX(
                 lptim: $timer_type,
                 config: LowPowerTimerConfig,
-                apb1rn: &mut $apb1rX,
+                apb1rn: &mut <$timer_type as RccBus>::Bus,
                 ccipr: &mut CCIPR,
                 clocks: Clocks,
             ) -> Self {
@@ -175,9 +175,8 @@ macro_rules! hal {
                     _ => {}
                 }
 
-                apb1rn.enr().modify(|_, w| w.$timXen().set_bit());
-                apb1rn.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb1rn.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                <$timer_type>::enable(apb1rn);
+                <$timer_type>::reset(apb1rn);
 
                 // This operation is sound as `ClockSource as u8` only produces valid values
                 ccipr
@@ -313,5 +312,5 @@ macro_rules! hal {
     };
 }
 
-hal!(LPTIM1, lptim1, APB1R1, lptim1en, lptim1rst, lptim1sel);
-hal!(LPTIM2, lptim2, APB1R2, lptim2en, lptim2rst, lptim2sel);
+hal!(LPTIM1, lptim1, lptim1sel);
+hal!(LPTIM2, lptim2, lptim2sel);

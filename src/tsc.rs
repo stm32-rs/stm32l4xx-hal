@@ -9,7 +9,7 @@
 
 use crate::gpio::gpiob::{PB4, PB5, PB6, PB7};
 use crate::gpio::{Alternate, OpenDrain, PushPull};
-use crate::rcc::AHB1;
+use crate::rcc::{Enable, Reset, AHB1};
 use crate::stm32::TSC;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -142,9 +142,8 @@ impl<SPIN> Tsc<SPIN> {
         SPIN: SamplePin<TSC>,
     {
         /* Enable the peripheral clock */
-        ahb.enr().modify(|_, w| w.tscen().set_bit());
-        ahb.rstr().modify(|_, w| w.tscrst().set_bit());
-        ahb.rstr().modify(|_, w| w.tscrst().clear_bit());
+        TSC::enable(ahb);
+        TSC::reset(ahb);
 
         let config = cfg.unwrap_or(Config {
             clock_prescale: None,

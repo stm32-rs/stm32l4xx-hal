@@ -18,7 +18,7 @@ use crate::dma::{
 };
 use crate::gpio::{self, Alternate, OpenDrain, PushPull};
 use crate::pac;
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
@@ -196,9 +196,6 @@ macro_rules! hal {
         $(#[$meta:meta])*
         $USARTX:ident: (
             $usartX:ident,
-            $APB:ident,
-            $usartXen:ident,
-            $usartXrst:ident,
             $pclkX:ident,
             tx: ($txdma:ident, $dmacst:ident, $dmatxch:path),
             rx: ($rxdma:ident, $dmacsr:ident, $dmarxch:path)
@@ -226,15 +223,14 @@ macro_rules! hal {
                     pins: PINS,
                     config: Config,
                     clocks: Clocks,
-                    apb: &mut $APB,
+                    apb: &mut <pac::$USARTX as RccBus>::Bus,
                 ) -> Self
                 where
                     PINS: Pins<pac::$USARTX>,
                 {
                     // enable or reset $USARTX
-                    apb.enr().modify(|_, w| w.$usartXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
+                    <pac::$USARTX>::enable(apb);
+                    <pac::$USARTX>::reset(apb);
 
                     // Reset other registers to disable advanced USART features
                     usart.cr1.reset();
@@ -826,8 +822,8 @@ macro_rules! hal {
 }
 
 hal! {
-    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (TxDma1, c4s, dma1::C4), rx: (RxDma1, c5s, dma1::C5)),
-    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (TxDma2, c7s, dma1::C7), rx: (RxDma2, c6s, dma1::C6)),
+    USART1: (usart1, pclk2, tx: (TxDma1, c4s, dma1::C4), rx: (RxDma1, c5s, dma1::C5)),
+    USART2: (usart2, pclk1, tx: (TxDma2, c7s, dma1::C7), rx: (RxDma2, c6s, dma1::C6)),
 }
 
 #[cfg(any(
@@ -837,17 +833,17 @@ hal! {
     feature = "stm32l4x6",
 ))]
 hal! {
-    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (TxDma3, c2s, dma1::C2), rx: (RxDma3, c3s, dma1::C3)),
+    USART3: (usart3, pclk1, tx: (TxDma3, c2s, dma1::C2), rx: (RxDma3, c3s, dma1::C3)),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (TxDma4, c3s, dma2::C3), rx: (RxDma4, c5s, dma2::C5)),
+    UART4: (uart4, pclk1, tx: (TxDma4, c3s, dma2::C3), rx: (RxDma4, c5s, dma2::C5)),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (TxDma5, c1s, dma2::C1), rx: (RxDma5, c2s, dma2::C2)),
+    UART5: (uart5, pclk1, tx: (TxDma5, c1s, dma2::C1), rx: (RxDma5, c2s, dma2::C2)),
 }
 
 impl<USART, PINS> fmt::Write for Serial<USART, PINS>

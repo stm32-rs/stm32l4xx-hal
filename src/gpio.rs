@@ -6,7 +6,7 @@ use core::convert::Infallible;
 use core::marker::PhantomData;
 
 use crate::pac::{self, EXTI, SYSCFG};
-use crate::rcc::{AHB2, APB2};
+use crate::rcc::{Enable, AHB2, APB2};
 
 mod convert;
 
@@ -105,7 +105,7 @@ where
     #[inline(always)]
     fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) {
         // SYSCFG clock must be enabled in order to do register writes
-        apb2.enr().modify(|_, w| w.syscfgen().set_bit());
+        SYSCFG::enable(apb2);
 
         let i = self.pin_id();
         let port = self.port_id() as u32;
@@ -232,14 +232,14 @@ impl<const P: char> PUPDR<P> {
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $gpioy:ident, $iopxenr:ident, $iopxrst:ident, $PXx:ident, $port_id:literal, $extigpionr:expr, [
+    ($GPIOX:ident, $gpiox:ident, $PXx:ident, $port_id:literal, $extigpionr:expr, [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $HL:ident, $exticri:ident),)+
     ]) => {
         /// GPIO
         pub mod $gpiox {
             use crate::stm32::$GPIOX;
 
-            use crate::rcc::AHB2;
+            use crate::rcc::{AHB2, Enable, Reset};
             use super::{
                 Afr,
                 Pin,
@@ -280,9 +280,8 @@ macro_rules! gpio {
                 type Parts = Parts;
 
                 fn split(self, ahb: &mut AHB2) -> Parts {
-                    ahb.enr().modify(|_, w| w.$iopxenr().set_bit());
-                    ahb.rstr().modify(|_, w| w.$iopxrst().set_bit());
-                    ahb.rstr().modify(|_, w| w.$iopxrst().clear_bit());
+                    <$GPIOX>::enable(ahb);
+                    <$GPIOX>::reset(ahb);
 
                     Parts {
                         afrh: Afr::new(),
@@ -615,7 +614,7 @@ macro_rules! af {
 af!(H8, AFRH, afrh);
 af!(L8, AFRL, afrl);
 
-gpio!(GPIOA, gpioa, gpioa, gpioaen, gpioarst, PAx, 'A', 0, [
+gpio!(GPIOA, gpioa, PAx, 'A', 0, [
     PA0: (pa0, 0, Input<Floating>, L8, exticr1),
     PA1: (pa1, 1, Input<Floating>, L8, exticr1),
     PA2: (pa2, 2, Input<Floating>, L8, exticr1),
@@ -634,7 +633,7 @@ gpio!(GPIOA, gpioa, gpioa, gpioaen, gpioarst, PAx, 'A', 0, [
     PA15: (pa15, 15, Input<Floating>, H8, exticr4),
 ]);
 
-gpio!(GPIOB, gpiob, gpioa, gpioben, gpiobrst, PBx, 'B', 1, [
+gpio!(GPIOB, gpiob, PBx, 'B', 1, [
     PB0: (pb0, 0, Input<Floating>, L8, exticr1),
     PB1: (pb1, 1, Input<Floating>, L8, exticr1),
     PB2: (pb2, 2, Input<Floating>, L8, exticr1),
@@ -653,7 +652,7 @@ gpio!(GPIOB, gpiob, gpioa, gpioben, gpiobrst, PBx, 'B', 1, [
     PB15: (pb15, 15, Input<Floating>, H8, exticr4),
 ]);
 
-gpio!(GPIOC, gpioc, gpioa, gpiocen, gpiocrst, PCx, 'C', 2, [
+gpio!(GPIOC, gpioc, PCx, 'C', 2, [
     PC0: (pc0, 0, Input<Floating>, L8, exticr1),
     PC1: (pc1, 1, Input<Floating>, L8, exticr1),
     PC2: (pc2, 2, Input<Floating>, L8, exticr1),
@@ -672,7 +671,7 @@ gpio!(GPIOC, gpioc, gpioa, gpiocen, gpiocrst, PCx, 'C', 2, [
     PC15: (pc15, 15, Input<Floating>, H8, exticr4),
 ]);
 
-gpio!(GPIOD, gpiod, gpioa, gpioden, gpiodrst, PDx, 'D', 3, [
+gpio!(GPIOD, gpiod, PDx, 'D', 3, [
     PD0: (pd0, 0, Input<Floating>, L8, exticr1),
     PD1: (pd1, 1, Input<Floating>, L8, exticr1),
     PD2: (pd2, 2, Input<Floating>, L8, exticr1),
@@ -691,7 +690,7 @@ gpio!(GPIOD, gpiod, gpioa, gpioden, gpiodrst, PDx, 'D', 3, [
     PD15: (pd15, 15, Input<Floating>, H8, exticr4),
 ]);
 
-gpio!(GPIOE, gpioe, gpioa, gpioeen, gpioerst, PEx, 'E', 4, [
+gpio!(GPIOE, gpioe, PEx, 'E', 4, [
     PE0: (pe0, 0, Input<Floating>, L8, exticr1),
     PE1: (pe1, 1, Input<Floating>, L8, exticr1),
     PE2: (pe2, 2, Input<Floating>, L8, exticr1),
@@ -711,7 +710,7 @@ gpio!(GPIOE, gpioe, gpioa, gpioeen, gpioerst, PEx, 'E', 4, [
 ]);
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-gpio!(GPIOF, gpiof, gpioa, gpiofen, gpiofrst, PFx, 'F', 5, [
+gpio!(GPIOF, gpiof, PFx, 'F', 5, [
     PF0: (pf0, 0, Input<Floating>, L8, exticr1),
     PF1: (pf1, 1, Input<Floating>, L8, exticr1),
     PF2: (pf2, 2, Input<Floating>, L8, exticr1),
@@ -731,7 +730,7 @@ gpio!(GPIOF, gpiof, gpioa, gpiofen, gpiofrst, PFx, 'F', 5, [
 ]);
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-gpio!(GPIOG, gpiog, gpioa, gpiogen, gpiogrst, PGx, 'G', 6, [
+gpio!(GPIOG, gpiog, PGx, 'G', 6, [
     PG0: (pg0, 0, Input<Floating>, L8, exticr1),
     PG1: (pg1, 1, Input<Floating>, L8, exticr1),
     PG2: (pg2, 2, Input<Floating>, L8, exticr1),
