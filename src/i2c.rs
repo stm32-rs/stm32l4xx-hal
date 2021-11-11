@@ -609,3 +609,37 @@ mod stm32l4x6_pins {
     // pins!(I2C2, AF4, SCL: [PH4], SDA: [PH5]);
     // pins!(I2C3, AF4, SCL: [PH7], SDA: [PH8]);
 }
+
+#[cfg(any(
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
+mod stm32l4r9_pins {
+    use super::{I2C1, I2C2, I2C3, I2C4};
+    use crate::gpio::*;
+    use gpioa::PA7;
+    use gpiob::{PB10, PB11, PB13, PB14, PB4, PB6, PB7, PB8, PB9};
+    use gpioc::{PC0, PC1, PC9};
+    use gpiod::{PD12, PD13};
+    use gpiof::{PF0, PF1, PF14, PF15};
+    use gpiog::{PG13, PG14, PG7, PG8};
+    // use gpioh::{PH4, PH5, PH7, PH8};
+
+    pins!(I2C1, 4, SCL: [PB6, PB8, PG14], SDA: [PB7, PB9, PG13]);
+
+    pins!(I2C2, 4, SCL: [PB10, PB13, PF1], SDA: [PB11, PB14, PF0]);
+    // pins!(I2C2, 4, SCL: [PH4], SDA: [PH5]);
+
+    pins!(I2C3, 4, SCL: [PA7, PC0, PG7], SDA: [PB4, PC1, PC9, PG8]);
+    // pins!(I2C3, 4, SCL: [PH7], SDA: [PH8]);
+
+    pins!(I2C4, 3, SCL: [PB10], SDA: [PB11]);
+    pins!(I2C4, 3, SCL: [PD12, PF14], SDA: [PD13, PF15]);
+    pins!(I2C4, 5, SCL: [PB6], SDA: [PB7]);
+}
