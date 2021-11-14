@@ -7,7 +7,8 @@ use crate::stm32::{TIM15, TIM16, TIM2, TIM6, TIM7};
 use crate::stm32::{TIM17, TIM4, TIM5};
 use crate::time::Hertz;
 use cast::{u16, u32};
-use rtic_monotonic::{embedded_time, Clock, Fraction, Instant, Monotonic};
+pub use fugit;
+use rtic_monotonic::Monotonic;
 use void::Void;
 
 /// Hardware timers
@@ -214,14 +215,14 @@ macro_rules! hal {
     }
 }
 
-/// Extended TIM15/16 to 64 bits
+/// Extended TIM15/16 (16-bits) to 64 bits
 #[derive(Debug)]
-pub struct ExtendedTimer<TIM> {
+pub struct ExtendedTimer<TIM, const TIMER_HZ: u32> {
     tim: Timer<TIM>,
     ovf: u64,
 }
 
-impl ExtendedTimer<TIM15> {
+impl<const TIMER_HZ: u32> ExtendedTimer<TIM15, TIMER_HZ> {
     pub fn new(tim: Timer<TIM15>) -> Self {
         ExtendedTimer { tim, ovf: 0 }
     }
@@ -231,41 +232,43 @@ impl ExtendedTimer<TIM15> {
     }
 }
 
-impl Clock for ExtendedTimer<TIM15> {
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
-    type T = u64;
+/// Use Compare channel 1 for Monotonic
+impl<const TIMER_HZ: u32> Monotonic for ExtendedTimer<TIM15, TIMER_HZ> {
+    // Since we are counting overflows we can't let RTIC disable the interrupt.
+    const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
 
-    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
+    type Instant = fugit::TimerInstantU64<TIMER_HZ>;
+    type Duration = fugit::TimerDurationU64<TIMER_HZ>;
+
+    fn now(&mut self) -> Self::Instant {
         let cnt = Timer::<TIM15>::count();
 
         // If the overflow bit is set, we add this to the timer value. It means the `on_interrupt`
         // has not yet happened, and we need to compensate here.
         let ovf = if self.is_overflow() { 0x10000 } else { 0 };
 
-        Ok(Instant::new(cnt as u64 + ovf as u64 + self.ovf))
+        Self::Instant::from_ticks(cnt as u64 + ovf as u64 + self.ovf)
     }
-}
 
-/// Use Compare channel 1 for Monotonic
-impl Monotonic for ExtendedTimer<TIM15> {
-    // Since we are counting overflows we can't let RTIC disable the interrupt.
-    const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
+    fn zero() -> Self::Instant {
+        Self::Instant::from_ticks(0)
+    }
 
     unsafe fn reset(&mut self) {
         // Since reset is only called once, we use it to enable the interrupt generation bit.
         self.tim.tim.dier.modify(|_, w| w.cc1ie().set_bit());
-        // self.tim.tim.cnt.write(|w| w.bits(0));
+        self.tim.tim.cnt.write(|w| w.bits(0));
     }
 
-    fn set_compare(&mut self, instant: &Instant<Self>) {
-        let now = self.try_now().unwrap();
+    fn set_compare(&mut self, instant: Self::Instant) {
+        let now = self.now();
 
         // Since the timer may or may not overflow based on the requested compare val, we check
         // how many ticks are left.
-        let val = match instant.checked_duration_since(&now) {
-            None => Timer::<TIM15>::count().wrapping_add(1), // In the past
-            Some(x) if x.integer() <= 0xffff => instant.duration_since_epoch().integer() as u16, // Will not overflow
-            Some(_x) => Timer::<TIM15>::count().wrapping_add(0xffff), // Will overflow
+        let val = match instant.checked_duration_since(now) {
+            None => 1, // In the past, RTIC will handle this
+            Some(x) if x.ticks() <= 0xffff => instant.duration_since_epoch().ticks() as u16, // Will not overflow
+            Some(_x) => Timer::<TIM15>::count().wrapping_add(0xfffe), // Will overflow
         };
 
         unsafe { self.tim.tim.ccr1.write(|w| w.ccr1().bits(val)) };
@@ -287,35 +290,31 @@ impl Monotonic for ExtendedTimer<TIM15> {
 
 // ------------
 
-/// Implement Clock for TIM2 as it is the only timer with 32 bits.
-impl Clock for Timer<TIM2> {
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 80_000_000);
-    type T = u32;
-
-    #[inline(always)]
-    fn try_now(&self) -> Result<Instant<Self>, embedded_time::clock::Error> {
-        Ok(Instant::new(Self::count()))
-    }
-}
-
-/// Use Compare channel 1 for Monotonic
-impl Monotonic for Timer<TIM2> {
-    unsafe fn reset(&mut self) {
-        // Since reset is only called once, we use it to enable the interrupt generation bit.
-        self.tim.dier.modify(|_, w| w.cc1ie().set_bit());
-        // self.tim.cnt.write(|w| w.bits(0));
-    }
-
-    fn set_compare(&mut self, instant: &Instant<Self>) {
-        self.tim
-            .ccr1
-            .write(|w| w.ccr().bits(instant.duration_since_epoch().integer()));
-    }
-
-    fn clear_compare_flag(&mut self) {
-        self.tim.sr.modify(|_, w| w.cc1if().clear_bit());
-    }
-}
+// /// Use Compare channel 1 for Monotonic
+// impl Monotonic for Timer<TIM2> {
+//     type Instant = fugit::TimerInstantU64<TIMER_HZ>;
+//     type Duration = fugit::TimerDurationU64<TIMER_HZ>;
+//
+//     fn now(&mut self) -> Self::Instant {
+//         Instant::new(Self::count())
+//     }
+//
+//     unsafe fn reset(&mut self) {
+//         // Since reset is only called once, we use it to enable the interrupt generation bit.
+//         self.tim.dier.modify(|_, w| w.cc1ie().set_bit());
+//         self.tim.cnt.write(|w| w.bits(0));
+//     }
+//
+//     fn set_compare(&mut self, instant: &Instant<Self>) {
+//         self.tim
+//             .ccr1
+//             .write(|w| w.ccr().bits(instant.duration_since_epoch().integer()));
+//     }
+//
+//     fn clear_compare_flag(&mut self) {
+//         self.tim.sr.modify(|_, w| w.cc1if().clear_bit());
+//     }
+// }
 
 hal! {
     TIM2:  (tim2, free_running_tim2, tim2en, tim2rst, APB1R1, u32),
