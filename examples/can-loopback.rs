@@ -32,7 +32,7 @@ const APP: () = {
 
         rprintln!("  - CAN init");
 
-        let mut can = {
+        let can = {
             let rx =
                 gpioa
                     .pa11
@@ -44,14 +44,15 @@ const APP: () = {
 
             let can = Can::new(&mut rcc.apb1r1, dp.CAN1, (tx, rx));
 
-            bxcan::Can::new(can)
-        };
-        can.configure(|config| {
-            // APB1 (PCLK1): 80 MHz, Bit rate: 100kBit/s, Sample Point 87.5%
-            // Value was calculated with http://www.bittiming.can-wiki.info/
-            config.set_bit_timing(0x001c_0031);
-            config.set_loopback(true);
-        });
+            bxcan::Can::builder(can)
+        }
+        // APB1 (PCLK1): 80 MHz, Bit rate: 100kBit/s, Sample Point 87.5%
+        // Value was calculated with http://www.bittiming.can-wiki.info/
+        .set_bit_timing(0x001c_0031)
+        .set_loopback(true);
+
+        // Enable and wait for bxCAN sync to bus
+        let mut can = can.enable();
 
         // Configure filters so that can frames can be received.
         let mut filters = can.modify_filters();
@@ -59,9 +60,6 @@ const APP: () = {
 
         // Drop filters to leave filter configuraiton mode.
         drop(filters);
-
-        // Enable and wait for bxCAN sync to bus
-        while let Err(_) = can.enable() {}
 
         // Send a frame
         let mut test: [u8; 8] = [0; 8];
