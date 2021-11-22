@@ -28,7 +28,7 @@ impl RngExt for RNG {
         <RNG as Enable>::enable(ahb2);
         // if we don't do this... we can be "too fast", and
         // the following setting of rng.cr.rngen has no effect!!
-        while RNG::is_enabled() {}
+        while !RNG::is_enabled() {}
 
         self.cr.modify(|_, w| w.rngen().set_bit());
 
