@@ -466,6 +466,28 @@ impl Rtc {
 
         result
     }
+
+    /// Read content of the backup register.
+    ///
+    /// The registers retain their values during wakes from standby mode or system resets. They also
+    /// retain their value when Vdd is switched off as long as V_BAT is powered.
+    pub fn read_backup_register(&self, register: usize) -> Option<u32> {
+        if register < 32 {
+            Some(self.rtc.bkpr[register].read().bits())
+        } else {
+            None
+        }
+    }
+
+    /// Set content of the backup register.
+    ///
+    /// The registers retain their values during wakes from standby mode or system resets. They also
+    /// retain their value when Vdd is switched off as long as V_BAT is powered.
+    pub fn write_backup_register(&self, register: usize, value: u32) {
+        if register < 32 {
+            unsafe { self.rtc.bkpr[register].write(|w| w.bits(value)) }
+        }
+    }
 }
 
 /// The RTC wakeup timer
