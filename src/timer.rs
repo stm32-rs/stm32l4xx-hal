@@ -62,13 +62,13 @@ use crate::stm32::{TIM17, TIM4, TIM5};
 use cast::{u16, u32};
 use void::Void;
 
-use crate::rcc::{Clocks, Enable, Reset, APB1R1, APB2};
+use crate::rcc::{BusTimerClock, Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
 use fugit::RateExtU32;
 
 /// Hardware timers
 pub struct Timer<TIM> {
-    clocks: Clocks,
+    clk: Hertz,
     tim: TIM,
     timeout: Hertz,
 }
@@ -80,7 +80,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $frname:ident, $apb:ident, $width:ident),)+) => {
+    ($($TIM:ident: ($tim:ident, $frname:ident, $width:ident),)+) => {
         $(
             impl Periodic for Timer<$TIM> {}
 
@@ -98,7 +98,7 @@ macro_rules! hal {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
 
                     self.timeout = timeout.into();
-                    let ticks = self.clocks.pclk1() / self.timeout; // TODO check pclk that timer is on
+                    let ticks = self.clk / self.timeout;
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
                     self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
@@ -133,13 +133,13 @@ macro_rules! hal {
                 // even if the `$TIM` are non overlapping (compare to the `free` function below
                 // which just works)
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim(tim: $TIM, timeout: Hertz, clocks: Clocks, apb: &mut $apb) -> Self {
+                pub fn $tim(tim: $TIM, timeout: Hertz, clocks: Clocks, apb: &mut <$TIM as RccBus>::Bus) -> Self {
                     // enable and reset peripheral to a clean slate state
                     <$TIM>::enable(apb);
                     <$TIM>::reset(apb);
 
                     let mut timer = Timer {
-                        clocks,
+                        clk: <$TIM as BusTimerClock>::timer_clock(&clocks),
                         tim,
                         timeout: 0.Hz(),
                     };
@@ -156,14 +156,15 @@ macro_rules! hal {
                     clocks: Clocks,
                     frequency: Hertz,
                     event_on_overflow: bool,
-                    apb: &mut $apb,
+                    apb: &mut <$TIM as RccBus>::Bus,
                 ) -> Self {
                     <$TIM>::enable(apb);
                     <$TIM>::reset(apb);
 
-                    let psc = clocks.pclk1() / frequency - 1;
+                    let clk = <$TIM as BusTimerClock>::timer_clock(&clocks);
+                    let psc = clk / frequency - 1;
 
-                    debug_assert!(clocks.pclk1() >= frequency);
+                    debug_assert!(clk >= frequency);
                     debug_assert!(frequency.raw() > 0);
                     debug_assert!(psc <= core::u16::MAX.into());
 
@@ -194,7 +195,7 @@ macro_rules! hal {
                     });
 
                     Timer {
-                        clocks,
+                        clk,
                         tim,
                         timeout: frequency,
                     }
@@ -258,11 +259,11 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM2:  (tim2, free_running_tim2, APB1R1, u32),
-    TIM6:  (tim6, free_running_tim6, APB1R1, u16),
-    //TIM7:  (tim7, free_running_tim7, APB1R1, u16),
-    TIM15: (tim15, free_running_tim15, APB2, u16),
-    TIM16: (tim16, free_running_tim16, APB2, u16),
+    TIM2:  (tim2, free_running_tim2, u32),
+    TIM6:  (tim6, free_running_tim6, u16),
+    //TIM7:  (tim7, free_running_tim7, u16),
+    TIM15: (tim15, free_running_tim15, u16),
+    TIM16: (tim16, free_running_tim16, u16),
 }
 
 // missing PAC support
@@ -289,7 +290,7 @@ hal! {
     feature = "stm32l4s9",
 ))]
 hal! {
-    TIM3:  (tim3, free_running_tim3, tim3en, tim3rst, APB1R1, u32),
+    TIM3:  (tim3, free_running_tim3, u32),
 }
 */
 
@@ -301,7 +302,7 @@ hal! {
     feature = "stm32l462",
 )))]
 hal! {
-    TIM7:  (tim7, free_running_tim7, APB1R1, u16),
+    TIM7:  (tim7, free_running_tim7, u16),
 }
 
 #[cfg(any(
@@ -321,7 +322,7 @@ hal! {
     feature = "stm32l4s9",
 ))]
 hal! {
-    TIM4:  (tim4, free_running_tim4, APB1R1, u16),
-    TIM5:  (tim5, free_running_tim5, APB1R1, u32),
-    TIM17: (tim17, free_running_tim17, APB2, u16),
+    TIM4:  (tim4, free_running_tim4, u16),
+    TIM5:  (tim5, free_running_tim5, u32),
+    TIM17: (tim17, free_running_tim17, u16),
 }

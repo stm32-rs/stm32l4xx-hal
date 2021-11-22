@@ -9,7 +9,7 @@ use crate::stm32::{TIM1, TIM15, TIM2};
 use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA15, PA2, PA3, PA8, PA9};
 use crate::gpio::gpiob::{PB10, PB11, PB14, PB3};
 use crate::gpio::Alternate;
-use crate::rcc::{Clocks, Enable, Reset, APB1R1, APB2};
+use crate::rcc::{BusTimerClock, Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
 
 // NB: REMAP is not implemented!
@@ -103,26 +103,26 @@ pins_to_channels_mapping! {
     // TIM15: (PA2, PA3), (C1, C2), (14, 14);
 }
 
-pub trait PwmExt1: Sized {
-    fn pwm<PINS>(self, _: PINS, frequency: Hertz, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
-    where
-        PINS: Pins<Self>;
-}
-
-pub trait PwmExt2: Sized {
+pub trait PwmExt: Sized + RccBus {
     fn pwm<PINS>(
         self,
         _: PINS,
         frequency: Hertz,
         clocks: Clocks,
-        apb: &mut APB1R1,
+        apb: &mut Self::Bus,
     ) -> PINS::Channels
     where
         PINS: Pins<Self>;
 }
 
-impl PwmExt1 for TIM1 {
-    fn pwm<PINS>(self, _pins: PINS, freq: Hertz, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+impl PwmExt for TIM1 {
+    fn pwm<PINS>(
+        self,
+        _pins: PINS,
+        freq: Hertz,
+        clocks: Clocks,
+        apb: &mut Self::Bus,
+    ) -> PINS::Channels
     where
         PINS: Pins<Self>,
     {
@@ -130,8 +130,14 @@ impl PwmExt1 for TIM1 {
     }
 }
 
-impl PwmExt1 for TIM15 {
-    fn pwm<PINS>(self, _pins: PINS, freq: Hertz, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+impl PwmExt for TIM15 {
+    fn pwm<PINS>(
+        self,
+        _pins: PINS,
+        freq: Hertz,
+        clocks: Clocks,
+        apb: &mut Self::Bus,
+    ) -> PINS::Channels
     where
         PINS: Pins<Self>,
     {
@@ -139,8 +145,14 @@ impl PwmExt1 for TIM15 {
     }
 }
 
-impl PwmExt2 for TIM2 {
-    fn pwm<PINS>(self, _pins: PINS, freq: Hertz, clocks: Clocks, apb: &mut APB1R1) -> PINS::Channels
+impl PwmExt for TIM2 {
+    fn pwm<PINS>(
+        self,
+        _pins: PINS,
+        freq: Hertz,
+        clocks: Clocks,
+        apb: &mut Self::Bus,
+    ) -> PINS::Channels
     where
         PINS: Pins<Self>,
     {
@@ -165,14 +177,14 @@ pub struct C3;
 pub struct C4;
 
 macro_rules! advanced_timer {
-    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX<PINS>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
                 clocks: Clocks,
-                apb: &mut $apb,
+                apb: &mut <$TIMX as RccBus>::Bus,
             ) -> PINS::Channels
             where
                 PINS: Pins<$TIMX>,
@@ -196,7 +208,7 @@ macro_rules! advanced_timer {
                     tim.ccmr2_output().modify(|_, w| w.oc4pe().set_bit().oc4m().bits(6));
                 }
 
-                let clk = clocks.pclk2();
+                let clk = <$TIMX as BusTimerClock>::timer_clock(&clocks);
                 let ticks = clk / freq;
 
                 // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
@@ -233,14 +245,14 @@ macro_rules! advanced_timer {
 }
 
 macro_rules! standard_timer {
-    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX<PINS>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
                 clocks: Clocks,
-                apb: &mut $apb,
+                apb: &mut <$TIMX as RccBus>::Bus,
             ) -> PINS::Channels
             where
                 PINS: Pins<$TIMX>,
@@ -264,7 +276,7 @@ macro_rules! standard_timer {
                     tim.ccmr2_output().modify(|_, w| w.oc4pe().set_bit().oc4m().bits(6));
                 }
 
-                let clk = clocks.pclk1();
+                let clk = <$TIMX as BusTimerClock>::timer_clock(&clocks);
                 let ticks = clk / freq;
 
                 // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
@@ -297,14 +309,14 @@ macro_rules! standard_timer {
 }
 
 macro_rules! small_timer {
-    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX<PINS>(
                 tim: $TIMX,
                 _pins: PINS,
                 freq: Hertz,
                 clocks: Clocks,
-                apb: &mut $apb,
+                apb: &mut <$TIMX as RccBus>::Bus,
             ) -> PINS::Channels
             where
                 PINS: Pins<$TIMX>,
@@ -321,7 +333,7 @@ macro_rules! small_timer {
                 //     tim.ccmr1_output().modify(|_, w| w.oc2pe().set_bit().oc2m().bits(6));
                 // }
 
-                let clk = clocks.pclk1();
+                let clk = <$TIMX as BusTimerClock>::timer_clock(&clocks);
                 let ticks = clk / freq;
 
                 // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
@@ -388,13 +400,13 @@ macro_rules! pwm_channels {
 }
 
 advanced_timer! {
-    TIM1: (tim1, APB2, u16, u16),
+    TIM1: (tim1, u16, u16),
 }
 
 standard_timer! {
-    TIM2: (tim2, APB1R1, u16, u32),
+    TIM2: (tim2, u16, u32),
 }
 
 small_timer! {
-    TIM15: (tim15, APB2, u16, u16),
+    TIM15: (tim15, u16, u16),
 }

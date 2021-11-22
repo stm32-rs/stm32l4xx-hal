@@ -14,7 +14,7 @@ use crate::dma::dma2;
 use crate::dma::{self, dma1, TransferPayload};
 use crate::gpio::{Alternate, PushPull};
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
-use crate::rcc::{Clocks, Enable, RccBus, Reset};
+use crate::rcc::{BusClock, Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
 
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
@@ -67,7 +67,7 @@ pub struct Spi<SPI, PINS> {
 }
 
 macro_rules! hal {
-    ($($SPIX:ident: ($spiX:ident, $spiX_slave:ident, $pclkX:ident),)+) => {
+    ($($SPIX:ident: ($spiX:ident, $spiX_slave:ident),)+) => {
         $(
             impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
@@ -97,7 +97,7 @@ macro_rules! hal {
                             w.frxth().set_bit().ds().bits(0b111).ssoe().clear_bit()
                         });
 
-                    let br = Self::compute_baud_rate(clocks.$pclkX(), freq);
+                    let br = Self::compute_baud_rate(<$SPIX as BusClock>::clock(&clocks), freq);
 
                     // CPHA: phase
                     // CPOL: polarity
@@ -191,7 +191,7 @@ macro_rules! hal {
                 pub fn reclock(&mut self, freq: Hertz, clocks: Clocks) {
                     self.spi.cr1.modify(|_, w| w.spe().clear_bit());
                     self.spi.cr1.modify(|_, w| {
-                        w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq));
+                        w.br().bits(Self::compute_baud_rate(<$SPIX as BusClock>::clock(&clocks), freq));
                         w.spe().set_bit()
                     });
                 }
@@ -288,7 +288,7 @@ use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
 
 use crate::stm32::SPI1;
 hal! {
-    SPI1: (spi1, spi1_slave, pclk2),
+    SPI1: (spi1, spi1_slave),
 }
 
 pins!(SPI1, 5,
@@ -320,7 +320,7 @@ use crate::stm32::SPI3;
 
 #[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
 hal! {
-    SPI3: (spi3, spi3_slave, pclk1),
+    SPI3: (spi3, spi3_slave),
 }
 
 #[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
@@ -351,7 +351,7 @@ pins!(SPI3, 6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 use crate::stm32::SPI2;
 
 hal! {
-    SPI2: (spi2, spi2_slave, pclk1),
+    SPI2: (spi2, spi2_slave),
 }
 
 pins!(SPI2, 5,
