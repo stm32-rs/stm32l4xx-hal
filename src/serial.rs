@@ -843,6 +843,10 @@ macro_rules! hal {
 hal! {
     USART1: (usart1, pclk2, tx: (TxDma1, c4s, dma1::C4), rx: (RxDma1, c5s, dma1::C5)),
     USART2: (usart2, pclk1, tx: (TxDma2, c7s, dma1::C7), rx: (RxDma2, c6s, dma1::C6)),
+}
+
+#[cfg(not(any(feature = "stm32l432", feature = "stm32l442")))]
+hal! {
     USART3: (usart3, pclk1, tx: (TxDma3, c2s, dma1::C2), rx: (RxDma3, c3s, dma1::C3)),
 }
 
