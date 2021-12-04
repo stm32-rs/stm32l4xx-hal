@@ -1,5 +1,6 @@
 //! Power management
 
+use cortex_m::peripheral::SCB;
 use crate::rcc::{Enable, APB1R1, Clocks};
 use crate::stm32::{pwr, PWR};
 use crate::time::U32Ext;
@@ -12,11 +13,28 @@ pub enum VosRange {
     LowPower = 0b10
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WakeUpSource {
+    #[doc = "Internal wake-up source, RTC, IWDG etc"]
+    Internal,
+    #[doc = "Wake-up button 1"]
+    WKUP1,
+    #[doc = "Wake-up button 2"]
+    WKUP2,
+    #[doc = "Wake-up button 3"]
+    WKUP3,
+    #[doc = "Wake-up button 4"]
+    WKUP4,
+    #[doc = "Wake-up button 5"]
+    WKUP5,
+}
+
 pub struct Pwr {
     pub cr1: CR1,
     pub cr2: CR2,
     pub cr3: CR3,
     pub cr4: CR4,
+    pub scr: SCR,
 }
 
 impl Pwr {
@@ -41,6 +59,26 @@ impl Pwr {
         }
         self.cr1.reg().modify(|_, w| w.lpr().set_bit())
     }
+
+    /// Enters 'Shutdown' low power mode.
+    pub fn shutdown(&mut self, wkup: &[WakeUpSource], scb: &mut SCB) -> ! {
+        for source in wkup {
+            match source {
+                WakeUpSource::Internal => {self.cr3.reg().modify(|_,w| w.ewf().set_bit())}
+                WakeUpSource::WKUP1 => {self.cr3.reg().modify(|_,w| w.ewup1().set_bit())}
+                WakeUpSource::WKUP2 => {self.cr3.reg().modify(|_,w| w.ewup2().set_bit())}
+                WakeUpSource::WKUP3 => {self.cr3.reg().modify(|_,w| w.ewup3().set_bit())}
+                WakeUpSource::WKUP4 => {self.cr3.reg().modify(|_,w| w.ewup4().set_bit())}
+                WakeUpSource::WKUP5 => {self.cr3.reg().modify(|_,w| w.ewup5().set_bit())}
+            }
+        }
+        scb.set_sleepdeep();
+        self.scr.reg().write(|w| w.wuf1().set_bit().wuf2().set_bit().wuf3().set_bit().wuf4().set_bit().wuf5().set_bit().sbf().set_bit());
+        unsafe {self.cr1.reg().modify(|_, w| w.lpms().bits(0b111))};
+        cortex_m::asm::dsb();
+        cortex_m::asm::wfi();
+        loop{}
+    }
 }
 
 /// Extension trait that constrains the `PWR` peripheral
@@ -58,6 +96,7 @@ impl PwrExt for PWR {
             cr2: CR2 { _0: () },
             cr3: CR3 { _0: () },
             cr4: CR4 { _0: () },
+            scr: SCR { _0: () }
         }
     }
 }
@@ -112,5 +151,19 @@ impl CR4 {
     pub(crate) fn reg(&mut self) -> &pwr::CR4 {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*PWR::ptr()).cr4 }
+    }
+}
+
+/// SCR
+pub struct SCR {
+    _0: (),
+}
+
+impl SCR {
+    // TODO remove `allow`
+    #[allow(dead_code)]
+    pub(crate) fn reg(&mut self) -> &pwr::SCR {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*PWR::ptr()).scr }
     }
 }
