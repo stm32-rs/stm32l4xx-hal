@@ -1,13 +1,46 @@
 //! Power management
 
-use crate::rcc::{Enable, APB1R1};
+use crate::rcc::{Enable, APB1R1, Clocks};
 use crate::stm32::{pwr, PWR};
+use crate::time::U32Ext;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VosRange {
+    #[doc = "High-Performance range, 1.2V, up to 80 MHz"]
+    HighPerformance = 0b01,
+    #[doc = "Low-power range, 1.0V, up to 26MHz"]
+    LowPower = 0b10
+}
 
 pub struct Pwr {
     pub cr1: CR1,
     pub cr2: CR2,
     pub cr3: CR3,
     pub cr4: CR4,
+}
+
+impl Pwr {
+    /// Configures dynamic voltage regulator range
+    ///
+    /// Will panic if low-power range is selected for higher system clock
+    pub fn set_power_range(&mut self, range: VosRange, clocks: &Clocks) {
+        match range {
+            VosRange::HighPerformance => {unsafe {self.cr1.reg().modify(|_,w| w.vos().bits(VosRange::HighPerformance as u8))}}
+            VosRange::LowPower => {if clocks.sysclk() > 26.mhz().into() {
+                panic!("Unable to switch power regulator to low-power voltage due to the too high system clock frequency")
+            } else {
+                unsafe {self.cr1.reg().modify(|_,w| w.vos().bits(VosRange::LowPower as u8))}
+            }}
+        }
+    }
+
+    /// Switches the system into low power run mode
+    pub fn low_power_run(&mut self, clocks: &Clocks) {
+        if clocks.sysclk() > 2.mhz().into() {
+            panic!("Unable to switch to lower power run due to the too high system clock frequency")
+        }
+        self.cr1.reg().modify(|_, w| w.lpr().set_bit())
+    }
 }
 
 /// Extension trait that constrains the `PWR` peripheral
