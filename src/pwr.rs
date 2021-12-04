@@ -1,16 +1,16 @@
 //! Power management
 
-use cortex_m::peripheral::SCB;
-use crate::rcc::{Enable, APB1R1, Clocks};
+use crate::rcc::{Clocks, Enable, APB1R1};
 use crate::stm32::{pwr, PWR};
 use crate::time::U32Ext;
+use cortex_m::peripheral::SCB;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VosRange {
     #[doc = "High-Performance range, 1.2V, up to 80 MHz"]
     HighPerformance = 0b01,
     #[doc = "Low-power range, 1.0V, up to 26MHz"]
-    LowPower = 0b10
+    LowPower = 0b10,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,6 +35,7 @@ pub struct Pwr {
     pub cr3: CR3,
     pub cr4: CR4,
     pub scr: SCR,
+    pub sr1: SR1,
 }
 
 impl Pwr {
@@ -43,12 +44,22 @@ impl Pwr {
     /// Will panic if low-power range is selected for higher system clock
     pub fn set_power_range(&mut self, range: VosRange, clocks: &Clocks) {
         match range {
-            VosRange::HighPerformance => {unsafe {self.cr1.reg().modify(|_,w| w.vos().bits(VosRange::HighPerformance as u8))}}
-            VosRange::LowPower => {if clocks.sysclk() > 26.mhz().into() {
-                panic!("Unable to switch power regulator to low-power voltage due to the too high system clock frequency")
-            } else {
-                unsafe {self.cr1.reg().modify(|_,w| w.vos().bits(VosRange::LowPower as u8))}
-            }}
+            VosRange::HighPerformance => unsafe {
+                self.cr1
+                    .reg()
+                    .modify(|_, w| w.vos().bits(VosRange::HighPerformance as u8))
+            },
+            VosRange::LowPower => {
+                if clocks.sysclk() > 26.mhz().into() {
+                    panic!("Unable to switch power regulator to low-power voltage due to the too high system clock frequency")
+                } else {
+                    unsafe {
+                        self.cr1
+                            .reg()
+                            .modify(|_, w| w.vos().bits(VosRange::LowPower as u8))
+                    }
+                }
+            }
         }
     }
 
@@ -64,20 +75,54 @@ impl Pwr {
     pub fn shutdown(&mut self, wkup: &[WakeUpSource], scb: &mut SCB) -> ! {
         for source in wkup {
             match source {
-                WakeUpSource::Internal => {self.cr3.reg().modify(|_,w| w.ewf().set_bit())}
-                WakeUpSource::WKUP1 => {self.cr3.reg().modify(|_,w| w.ewup1().set_bit())}
-                WakeUpSource::WKUP2 => {self.cr3.reg().modify(|_,w| w.ewup2().set_bit())}
-                WakeUpSource::WKUP3 => {self.cr3.reg().modify(|_,w| w.ewup3().set_bit())}
-                WakeUpSource::WKUP4 => {self.cr3.reg().modify(|_,w| w.ewup4().set_bit())}
-                WakeUpSource::WKUP5 => {self.cr3.reg().modify(|_,w| w.ewup5().set_bit())}
+                WakeUpSource::Internal => self.cr3.reg().modify(|_, w| w.ewf().set_bit()),
+                WakeUpSource::WKUP1 => self.cr3.reg().modify(|_, w| w.ewup1().set_bit()),
+                WakeUpSource::WKUP2 => self.cr3.reg().modify(|_, w| w.ewup2().set_bit()),
+                WakeUpSource::WKUP3 => self.cr3.reg().modify(|_, w| w.ewup3().set_bit()),
+                WakeUpSource::WKUP4 => self.cr3.reg().modify(|_, w| w.ewup4().set_bit()),
+                WakeUpSource::WKUP5 => self.cr3.reg().modify(|_, w| w.ewup5().set_bit()),
             }
         }
         scb.set_sleepdeep();
-        self.scr.reg().write(|w| w.wuf1().set_bit().wuf2().set_bit().wuf3().set_bit().wuf4().set_bit().wuf5().set_bit().sbf().set_bit());
-        unsafe {self.cr1.reg().modify(|_, w| w.lpms().bits(0b111))};
+        self.scr.reg().write(|w| {
+            w.wuf1()
+                .set_bit()
+                .wuf2()
+                .set_bit()
+                .wuf3()
+                .set_bit()
+                .wuf4()
+                .set_bit()
+                .wuf5()
+                .set_bit()
+                .sbf()
+                .set_bit()
+        });
+        unsafe { self.cr1.reg().modify(|_, w| w.lpms().bits(0b111)) };
         cortex_m::asm::dsb();
         cortex_m::asm::wfi();
-        loop{}
+        loop {}
+    }
+
+    /// Returns the reason, why wakeup from shutdown happened. In case there is more then one,
+    /// a single random reason will be returned
+    pub fn read_wakeup_reason(&mut self) -> Option<WakeUpSource> {
+        let status = self.sr1.reg().read();
+        if status.wufi().bit_is_set() {
+            Some(WakeUpSource::Internal)
+        } else if status.cwuf5().bit_is_set() {
+            Some(WakeUpSource::WKUP5)
+        } else if status.cwuf4().bit_is_set() {
+            Some(WakeUpSource::WKUP4)
+        } else if status.cwuf3().bit_is_set() {
+            Some(WakeUpSource::WKUP3)
+        } else if status.cwuf2().bit_is_set() {
+            Some(WakeUpSource::WKUP2)
+        } else if status.cwuf1().bit_is_set() {
+            Some(WakeUpSource::WKUP1)
+        } else {
+            None
+        }
     }
 }
 
@@ -96,7 +141,8 @@ impl PwrExt for PWR {
             cr2: CR2 { _0: () },
             cr3: CR3 { _0: () },
             cr4: CR4 { _0: () },
-            scr: SCR { _0: () }
+            scr: SCR { _0: () },
+            sr1: SR1 { _0: () },
         }
     }
 }
@@ -165,5 +211,19 @@ impl SCR {
     pub(crate) fn reg(&mut self) -> &pwr::SCR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*PWR::ptr()).scr }
+    }
+}
+
+/// SCR
+pub struct SR1 {
+    _0: (),
+}
+
+impl SR1 {
+    // TODO remove `allow`
+    #[allow(dead_code)]
+    pub(crate) fn reg(&mut self) -> &pwr::SR1 {
+        // NOTE(unsafe) this proxy grants exclusive access to this register
+        unsafe { &(*PWR::ptr()).sr1 }
     }
 }
