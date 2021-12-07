@@ -709,7 +709,23 @@ gpio!(GPIOE, gpioe, PEx, 'E', 4, [
     PE15: (pe15, 15, Input<Floating>, H8, exticr4),
 ]);
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(
+    // feature = "stm32l471",  // missing PAC support for Port G
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 gpio!(GPIOF, gpiof, PFx, 'F', 5, [
     PF0: (pf0, 0, Input<Floating>, L8, exticr1),
     PF1: (pf1, 1, Input<Floating>, L8, exticr1),
@@ -728,8 +744,23 @@ gpio!(GPIOF, gpiof, PFx, 'F', 5, [
     PF14: (pf14, 14, Input<Floating>, H8, exticr4),
     PF15: (pf15, 15, Input<Floating>, H8, exticr4),
 ]);
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(
+    // feature = "stm32l471",  // missing PAC support for Port G
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 gpio!(GPIOG, gpiog, PGx, 'G', 6, [
     PG0: (pg0, 0, Input<Floating>, L8, exticr1),
     PG1: (pg1, 1, Input<Floating>, L8, exticr1),
@@ -758,9 +789,41 @@ impl<const P: char> Gpio<P> {
             'C' => crate::pac::GPIOC::ptr() as _,
             'D' => crate::pac::GPIOD::ptr() as _,
             'E' => crate::pac::GPIOE::ptr() as _,
-            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+            #[cfg(any(
+                // feature = "stm32l471",  // missing PAC support for Port F
+                feature = "stm32l475",
+                feature = "stm32l476",
+                feature = "stm32l485",
+                feature = "stm32l486",
+                feature = "stm32l496",
+                feature = "stm32l4a6",
+                // feature = "stm32l4p5",
+                // feature = "stm32l4q5",
+                // feature = "stm32l4r5",
+                // feature = "stm32l4s5",
+                // feature = "stm32l4r7",
+                // feature = "stm32l4s7",
+                feature = "stm32l4r9",
+                feature = "stm32l4s9",
+            ))]
             'F' => crate::pac::GPIOF::ptr() as _,
-            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+            #[cfg(any(
+                // feature = "stm32l471",  // missing PAC support for Port G
+                feature = "stm32l475",
+                feature = "stm32l476",
+                feature = "stm32l485",
+                feature = "stm32l486",
+                feature = "stm32l496",
+                feature = "stm32l4a6",
+                // feature = "stm32l4p5",
+                // feature = "stm32l4q5",
+                // feature = "stm32l4r5",
+                // feature = "stm32l4s5",
+                // feature = "stm32l4r7",
+                // feature = "stm32l4s7",
+                feature = "stm32l4r9",
+                feature = "stm32l4s9",
+            ))]
             'G' => crate::pac::GPIOG::ptr() as _,
             _ => crate::pac::GPIOA::ptr(),
         }

@@ -142,7 +142,23 @@ bus! {
     SAI1 => (APB2, sai1en, sai1smen, sai1rst), // 21
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+// L4x5 or L4x6
+#[cfg(any(
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 bus! {
     GPIOF => (AHB2, gpiofen, gpiofsmen, gpiofrst), // 5
     GPIOG => (AHB2, gpiogen, gpiogsmen, gpiogrst), // 6
@@ -160,18 +176,38 @@ bus! {
     SAI2 => (APB2, sai2en, sai2smen, sai2rst), // 22
 }
 
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2"))]
+// L4x1 or L4x2
+#[cfg(any(
+    feature = "stm32l431",
+    feature = "stm32l451",
+    feature = "stm32l471",
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+))]
 bus! {
     UART4 => (APB1R1, uart4en, uart4smen, usart4rst), // 19 // TODO: fix typo
 
     I2C4 => (APB1R2, i2c4en,, i2c4rst), // 1 // TODO: fix absent
 }
 
+// L4x1, L4x2, L4x3, or L4x5
 #[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5"
+    feature = "stm32l431",
+    feature = "stm32l451",
+    feature = "stm32l471",
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+    feature = "stm32l433",
+    feature = "stm32l443",
+    feature = "stm32l475",
 ))]
 bus! {
     DAC1 => (APB1R1, dac1en, dac1smen, dac1rst), // 29
@@ -179,48 +215,76 @@ bus! {
     SDMMC => (APB2, sdmmcen, sdmmcsmen, sdmmcrst), // 10
 }
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
+// L4x1, L4x2, L4x5, or L4x6 (L4+ assumed)
+
+#[cfg(not(any(feature = "stm32l433", feature = "stm32l443")))]
 bus! {
     ADC2 => (AHB2, adcen, adcfssmen, adcrst), // 13
     QUADSPI => (AHB3, qspien, qspismen, qspirst), // 8
 }
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x6"
-))]
+// L4x1, L4x2, L4x3, or L4x6 (L4+ assumed)
+#[cfg(not(any(feature = "stm32l475",)))]
 bus! {
     CRS => (APB1R1, crsen,,), // 24 // TODO: fix absent
 }
 
-#[cfg(any(feature = "stm32l4x2", feature = "stm32l4x3"))]
+// L4x1, or L4x3
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+    feature = "stm32l433",
+    feature = "stm32l443",
+))]
 bus! {
     USB => (APB1R1, usbfsen, usbfssmen, usbfsrst), // 26
 }
-#[cfg(feature = "stm32l4x1")]
+
+// L4x1
+#[cfg(any(feature = "stm32l431", feature = "stm32l451", feature = "stm32l471",))]
 bus! {
     TIM3 => (APB1R1, tim3en,,), // 1 // TODO: absent smen, rst
     USB_FS => (APB1R1, usbf, usbfssmen, usbfsrst), // 26 // TODO: fix typo
 }
 
-#[cfg(feature = "stm32l4x2")]
+// L4x2
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+))]
 bus! {
     TIM3 => (APB1R1, tim3en,, tim3rst), // 1 // TODO: fix absent
 }
 
-#[cfg(feature = "stm32l4x5")]
+// L4x5
+#[cfg(any(feature = "stm32l475"))]
 bus! {
     DFSDM => (APB2, dfsdmen, dfsdmsmen, dfsdmrst), // 24
 }
 
-#[cfg(feature = "stm32l4x6")]
+// L4x6 (L4+ assumed)
+#[cfg(any(
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 bus! {
     DMA2D => (AHB1, dma2den, dma2dsmen, dma2drst), // 17
 
