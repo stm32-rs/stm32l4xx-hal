@@ -50,6 +50,36 @@ This crate requires one of the following features enabled:
 "
 );
 
+// the common lists of features to spec what a MCU is capable of
+// lists are split by 3rd digit and 2nd digit groups
+
+// L4x1
+// any(feature = "stm32l431", feature = "stm32l451", feature = "stm32l471")
+// L4x2
+// any(feature = "stm32l412", feature = "stm32l422", feature = "stm32l432", feature = "stm32l442", feature = "stm32l452", feature = "stm32l462")
+// L4x3
+// any(feature = "stm32l433", feature = "stm32l443")
+// L4x5
+// any(feature = "stm32l475")
+// L4x6
+// any(feature = "stm32l476", feature = "stm32l486", feature = "stm32l496", , feature = "stm32l4a6")
+// L4+x9
+// any(feature = "stm32l4r9", feature = "stm32l4s9")
+
+// NOTE: The even member of the pair has additional hashing peripheral(s)
+// L41 / L42
+// any(feature = "stm32l412", feature = "stm32l422")
+// L43 / L44
+// any(feature = "stm32l431", feature = "stm32l432", feature = "stm32l433", feature = "stm32l442", feature = "stm32l443")
+// L45 / L46
+// any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462")
+// L47 / L48
+// any(feature = "stm32l471", feature = "stm32l475", feature = "stm32l476", feature = "stm32l486")
+// L49 / L4a
+// any(feature = "stm32l496", feature = "stm32l4a6")
+// L4r / L4s
+// any(feature = "stm32l4r9", feature = "stm32l4s9")
+
 pub use embedded_hal as hal;
 
 pub use stm32l4;
