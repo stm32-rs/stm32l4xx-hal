@@ -96,10 +96,10 @@ impl VrefCal {
 /// aka TS_CAL1 in reference manual
 #[derive(Debug)]
 #[repr(C)]
-pub struct VtempCal30(u16);
-define_ptr_type!(VtempCal30, 0x1FFF_75A8);
+pub struct VtempCalLow(u16);
+define_ptr_type!(VtempCalLow, 0x1FFF_75A8);
 
-impl VtempCal30 {
+impl VtempCalLow {
     /// aka TS_CAL1_TEMP in reference manual
     pub const TEMP_DEGREES: u16 = 30;
     /// Read calibration value
@@ -112,13 +112,29 @@ impl VtempCal30 {
 /// aka TS_CAL2 in reference manual
 #[derive(Debug)]
 #[repr(C)]
-pub struct VtempCal130(u16);
-define_ptr_type!(VtempCal130, 0x1FFF_75CA);
+pub struct VtempCalHigh(u16);
+define_ptr_type!(VtempCalHigh, 0x1FFF_75CA);
 
-impl VtempCal130 {
+impl VtempCalHigh {
     /// aka TS_CAL2_TEMP in reference manual
     /// Feature gate Required: this is 110 for L47x/L48x, 130 for other L4s according to
     /// https://github.com/STMicroelectronics/STM32CubeL4/blob/5e1553e07706491bd11f4edd304e093b6e4b83a4/Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_ll_adc.h#L352-L356
+
+    // L47/L48
+    #[cfg(any(
+        feature = "stm32l471",
+        feature = "stm32l475",
+        feature = "stm32l476",
+        feature = "stm32l486"
+    ))]
+    pub const TEMP_DEGREES: u16 = 110;
+    // else
+    #[cfg(not(any(
+        feature = "stm32l471",
+        feature = "stm32l475",
+        feature = "stm32l476",
+        feature = "stm32l486"
+    )))]
     pub const TEMP_DEGREES: u16 = 130;
     /// Read calibration value
     pub fn read(&self) -> u16 {

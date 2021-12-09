@@ -15,7 +15,7 @@ use crate::{
     },
     pac,
     rcc::{Enable, Reset, AHB2, CCIPR},
-    signature::{VrefCal, VtempCal130, VtempCal30, VDDA_CALIB_MV},
+    signature::{VrefCal, VtempCalHigh, VtempCalLow, VDDA_CALIB_MV},
 };
 
 use pac::{ADC1, ADC_COMMON};
@@ -201,6 +201,7 @@ impl ADC {
     pub fn enable_temperature(&mut self, delay: &mut impl DelayUs<u32>) -> Temperature {
         self.common.ccr.modify(|_, w| w.ch17sel().set_bit());
 
+        // FIXME: This note from the reference manual is currently not possible
         // rm0351 section 18.4.32 pg580 (L47/L48/L49/L4A models)
         // Note:
         // The sensor has a startup time after waking from power-down mode before it can output VTS
@@ -278,12 +279,14 @@ impl ADC {
     /// Convert a raw sample from the `Temperature` to deg C
     pub fn to_degrees_centigrade(&self, sample: u16) -> f32 {
         let sample = (u32::from(sample) * self.calibrated_vdda) / VDDA_CALIB_MV;
-        (VtempCal130::TEMP_DEGREES - VtempCal30::TEMP_DEGREES) as f32
+        (VtempCalHigh::TEMP_DEGREES - VtempCalLow::TEMP_DEGREES) as f32
             // as signed because RM0351 doesn't specify against this being an
             // inverse relation (which would result in a negative differential)
-            / (VtempCal130::get().read() as i32 - VtempCal30::get().read() as i32) as f32
+            / (VtempCalHigh::get().read() as i32 - VtempCalLow::get().read() as i32) as f32
             // this can definitely be negative so must be done as a signed value
-            * (sample as i32 - VtempCal30::get().read() as i32) as f32
+            * (sample as i32 - VtempCalLow::get().read() as i32) as f32
+            // while it would make sense for this to be `VtempCalLow::TEMP_DEGREES` (which is 30*C),
+            // the RM specifically uses 30*C so this will too
             + 30.0
     }
 
