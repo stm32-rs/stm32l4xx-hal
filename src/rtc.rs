@@ -502,8 +502,10 @@ impl Rtc {
 
 /// RTC type 2 is used for most of the L4 and L4+ series
 #[cfg(not(any(
-    feature = "private_product_L41_L42",
-    feature = "private_product_L4P_L4Q"
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5",
 )))]
 impl RtcIsr for Rtc {
     /// true if initf bit indicates RTC peripheral is in init mode
@@ -576,8 +578,10 @@ impl RtcIsr for Rtc {
 
 /// RTC type 3 is used for the L41/2 and L4P/Q
 #[cfg(any(
-    feature = "private_product_L41_L42",
-    feature = "private_product_L4P_L4Q"
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5",
 ))]
 impl RtcIsr for Rtc {
     /// true if initf bit indicates RTC peripheral is in init mode
@@ -652,8 +656,10 @@ impl RtcIsr for Rtc {
 
 /// RTC type 2
 #[cfg(not(any(
-    feature = "private_product_L41_L42",
-    feature = "private_product_L4P_L4Q"
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5",
 )))]
 impl RtcGpio for Rtc {
     fn reset_gpio(rtc: &RTC) {
@@ -664,8 +670,10 @@ impl RtcGpio for Rtc {
 
 /// RTC3 type 3
 #[cfg(any(
-    feature = "private_product_L41_L42",
-    feature = "private_product_L4P_L4Q"
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5",
 ))]
 impl RtcGpio for Rtc {
     fn reset_gpio(rtc: &RTC) {
