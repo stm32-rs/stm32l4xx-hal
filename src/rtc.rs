@@ -1,5 +1,37 @@
 //! RTC peripheral abstraction
 
+/// refer to AN4759 to compare features of RTC2 and RTC3
+#[cfg(not(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+)))]
+pub mod rtc2;
+#[cfg(not(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+)))]
+pub use rtc2 as rtc_registers;
+
+/// refer to AN4759 to compare features of RTC2 and RTC3
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+))]
+pub mod rtc3;
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+))]
+pub use rtc3 as rtc_registers;
+
 use void::Void;
 
 use crate::{
@@ -8,7 +40,6 @@ use crate::{
     pwr,
     rcc::{APB1R1, BDCR},
     stm32::{EXTI, RTC},
-    traits::rtc::{RtcGpio, RtcIsr},
 };
 
 /// Interrupt event
@@ -216,8 +247,8 @@ impl Rtc {
         self.write(false, |rtc| match alarm {
             Alarm::AlarmA => {
                 rtc.cr.modify(|_, w| w.alrae().clear_bit()); // Disable Alarm A
-                Rtc::clear_alarm_a_flag(rtc);
-                while !Rtc::is_alarm_a_accessible(rtc) {}
+                rtc_registers::clear_alarm_a_flag(rtc);
+                while !rtc_registers::is_alarm_a_accessible(rtc) {}
 
                 rtc.alrmar.modify(|_, w| unsafe {
                     w.dt()
@@ -252,8 +283,8 @@ impl Rtc {
             Alarm::AlarmB => {
                 rtc.cr.modify(|_, w| w.alrbe().clear_bit());
 
-                Rtc::clear_alarm_b_flag(rtc);
-                while !Rtc::is_alarm_b_accessible(rtc) {}
+                rtc_registers::clear_alarm_b_flag(rtc);
+                while !rtc_registers::is_alarm_b_accessible(rtc) {}
 
                 rtc.alrmbr.modify(|_, w| unsafe {
                     w.dt()
@@ -345,27 +376,27 @@ impl Rtc {
     /// Checks for an interrupt event
     pub fn check_interrupt(&mut self, event: Event, clear: bool) -> bool {
         let result = match event {
-            Event::WakeupTimer => Rtc::wakeup_timer_flag(&self.rtc),
-            Event::AlarmA => Rtc::alarm_a_flag(&self.rtc),
-            Event::AlarmB => Rtc::alarm_b_flag(&self.rtc),
-            Event::Timestamp => Rtc::timestamp_flag(&self.rtc),
+            Event::WakeupTimer => rtc_registers::is_wakeup_timer_flag_set(&self.rtc),
+            Event::AlarmA => rtc_registers::is_alarm_a_flag_set(&self.rtc),
+            Event::AlarmB => rtc_registers::is_alarm_b_flag_set(&self.rtc),
+            Event::Timestamp => rtc_registers::is_timestamp_flag_set(&self.rtc),
         };
         if clear {
             self.write(false, |rtc| match event {
                 Event::WakeupTimer => {
-                    Rtc::clear_wakeup_timer_flag(rtc);
+                    rtc_registers::clear_wakeup_timer_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 20)) };
                 }
                 Event::AlarmA => {
-                    Rtc::clear_alarm_a_flag(rtc);
+                    rtc_registers::clear_alarm_a_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::AlarmB => {
-                    Rtc::clear_alarm_b_flag(rtc);
+                    rtc_registers::clear_alarm_b_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::Timestamp => {
-                    Rtc::clear_timestamp_flag(rtc);
+                    rtc_registers::clear_timestamp_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 19)) };
                 }
             })
@@ -438,7 +469,7 @@ impl Rtc {
             });
 
             // TODO configuration for output pins
-            Rtc::reset_gpio(rtc);
+            rtc_registers::reset_gpio(rtc);
         });
 
         self.rtc_config = rtc_config;
@@ -458,16 +489,16 @@ impl Rtc {
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0xca) });
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0x53) });
 
-        if init_mode && !Rtc::is_init_mode(&self.rtc) {
-            Rtc::enter_init_mode(&self.rtc);
+        if init_mode && !rtc_registers::is_init_mode(&self.rtc) {
+            rtc_registers::enter_init_mode(&self.rtc);
             // wait till init state entered
             // ~2 RTCCLK cycles
-            while !Rtc::is_init_mode(&self.rtc) {}
+            while !rtc_registers::is_init_mode(&self.rtc) {}
         }
 
         let result = f(&self.rtc);
         if init_mode {
-            Rtc::exit_init_mode(&self.rtc);
+            rtc_registers::exit_init_mode(&self.rtc);
         }
 
         // Re-enable write protection.
@@ -477,12 +508,42 @@ impl Rtc {
         result
     }
 
+    // AN7459
+    // L4 series except L41/2 has 20 backup registers
+    // L41/2, L4P/Q and L4R/S have 32 backup registers
+    #[cfg(not(any(
+        feature = "stm32l412",
+        feature = "stm32l422",
+        feature = "stm32l4p5",
+        feature = "stm32l4q5",
+        feature = "stm32l4r5",
+        feature = "stm32l4s5",
+        feature = "stm32l4r7",
+        feature = "stm32l4s7",
+        feature = "stm32l4r9",
+        feature = "stm32l4s9"
+    )))]
+    pub const BACKUP_REGISTER_COUNT: usize = 20;
+    #[cfg(any(
+        feature = "stm32l412",
+        feature = "stm32l422",
+        feature = "stm32l4p5",
+        feature = "stm32l4q5",
+        feature = "stm32l4r5",
+        feature = "stm32l4s5",
+        feature = "stm32l4r7",
+        feature = "stm32l4s7",
+        feature = "stm32l4r9",
+        feature = "stm32l4s9"
+    ))]
+    pub const BACKUP_REGISTER_COUNT: usize = 32;
+
     /// Read content of the backup register.
     ///
     /// The registers retain their values during wakes from standby mode or system resets. They also
     /// retain their value when Vdd is switched off as long as V_BAT is powered.
     pub fn read_backup_register(&self, register: usize) -> Option<u32> {
-        if register < 32 {
+        if register < Self::BACKUP_REGISTER_COUNT {
             Some(self.rtc.bkpr[register].read().bits())
         } else {
             None
@@ -494,197 +555,9 @@ impl Rtc {
     /// The registers retain their values during wakes from standby mode or system resets. They also
     /// retain their value when Vdd is switched off as long as V_BAT is powered.
     pub fn write_backup_register(&self, register: usize, value: u32) {
-        if register < 32 {
+        if register < Self::BACKUP_REGISTER_COUNT {
             unsafe { self.rtc.bkpr[register].write(|w| w.bits(value)) }
         }
-    }
-}
-
-/// RTC type 2 is used for most of the L4 and L4+ series
-#[cfg(not(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l4p5",
-    feature = "stm32l4q5",
-)))]
-impl RtcIsr for Rtc {
-    /// true if initf bit indicates RTC peripheral is in init mode
-    fn is_init_mode(rtc: &RTC) -> bool {
-        rtc.isr.read().initf().bit_is_set()
-    }
-
-    /// to update calendar date/time, time format, and prescaler configuration, RTC must be in init mode
-    fn enter_init_mode(rtc: &RTC) {
-        rtc.isr.modify(|_, w| w.init().set_bit());
-    }
-
-    /// counting will restart in 4 RTCCLK cycles
-    fn exit_init_mode(rtc: &RTC) {
-        rtc.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-    }
-
-    /// has wakeup timer expired?
-    fn wakeup_timer_flag(rtc: &RTC) -> bool {
-        rtc.isr.read().wutf().bit_is_set()
-    }
-
-    fn wakeup_timer_write_flag(rtc: &RTC) -> bool {
-        rtc.isr.read().wutwf().bit_is_set()
-    }
-
-    /// clear the wakeup timer flag
-    fn clear_wakeup_timer_flag(rtc: &RTC) {
-        rtc.isr.modify(|_, w| w.wutf().clear_bit());
-    }
-
-    /// has alarm A been triggered
-    fn alarm_a_flag(rtc: &RTC) -> bool {
-        rtc.isr.read().alraf().bit_is_set()
-    }
-
-    /// clear the alarm A flag
-    fn clear_alarm_a_flag(rtc: &RTC) {
-        rtc.isr.modify(|_, w| w.alraf().clear_bit());
-    }
-
-    /// has alarm B been triggered?
-    fn alarm_b_flag(rtc: &RTC) -> bool {
-        rtc.isr.read().alrbf().bit_is_set()
-    }
-
-    /// clear the alarm B flag
-    fn clear_alarm_b_flag(rtc: &RTC) {
-        rtc.isr.modify(|_, w| w.alrbf().clear_bit());
-    }
-
-    /// has timestamp event triggered
-    fn timestamp_flag(rtc: &RTC) -> bool {
-        rtc.isr.read().tsf().bit_is_set()
-    }
-
-    /// clear the timestamp event flag
-    fn clear_timestamp_flag(rtc: &RTC) {
-        rtc.isr.modify(|_, w| w.tsf().clear_bit());
-    }
-
-    fn is_alarm_a_accessible(rtc: &RTC) -> bool {
-        rtc.isr.read().alrawf().bit_is_clear()
-    }
-
-    fn is_alarm_b_accessible(rtc: &RTC) -> bool {
-        rtc.isr.read().alrbwf().bit_is_clear()
-    }
-}
-
-/// RTC type 3 is used for the L41/2 and L4P/Q
-#[cfg(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l4p5",
-    feature = "stm32l4q5",
-))]
-impl RtcIsr for Rtc {
-    /// true if initf bit indicates RTC peripheral is in init mode
-    fn is_init_mode(rtc: &RTC) -> bool {
-        rtc.icsr.read().initf().bit_is_set()
-    }
-
-    /// to update calendar date/time, time format, and prescaler configuration, RTC must be in init mode
-    fn enter_init_mode(rtc: &RTC) {
-        rtc.icsr.modify(|_, w| w.init().set_bit());
-    }
-
-    /// counting will restart in 4 RTCCLK cycles
-    fn exit_init_mode(rtc: &RTC) {
-        rtc.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-    }
-
-    /// has wakeup timer expired?
-    fn wakeup_timer_flag(rtc: &RTC) -> bool {
-        rtc.sr.read().wutf().bit_is_set()
-    }
-
-    fn wakeup_timer_write_flag(rtc: &RTC) -> bool {
-        rtc.icsr.read().wutwf().bit_is_set()
-    }
-
-    /// clear the wakeup timer flag
-    fn clear_wakeup_timer_flag(rtc: &RTC) {
-        rtc.scr.write(|w| w.cwutf().set_bit());
-    }
-
-    /// has alarm A been triggered
-    fn alarm_a_flag(rtc: &RTC) -> bool {
-        rtc.sr.read().alraf().bit_is_set()
-    }
-
-    /// clear the alarm A flag
-    fn clear_alarm_a_flag(rtc: &RTC) {
-        rtc.scr.write(|w| w.calraf().set_bit());
-    }
-
-    /// has alarm B been triggered?
-    fn alarm_b_flag(rtc: &RTC) -> bool {
-        rtc.sr.read().alrbf().bit_is_set()
-    }
-
-    /// clear the alarm B flag
-    fn clear_alarm_b_flag(rtc: &RTC) {
-        rtc.scr.write(|w| w.calrbf().set_bit());
-    }
-
-    /// has timestamp event triggered
-    fn timestamp_flag(rtc: &RTC) -> bool {
-        rtc.sr.read().tsf().bit_is_set()
-    }
-
-    /// clear the timestamp event flag
-    fn clear_timestamp_flag(rtc: &RTC) {
-        rtc.scr.write(|w| w.ctsf().set_bit());
-    }
-
-    fn is_alarm_a_accessible(_rtc: &RTC) -> bool {
-        // RTC type 3 has no wait after disabling the alarm (AN4759 - Rev 7, Table 8)
-        true
-    }
-
-    fn is_alarm_b_accessible(_rtc: &RTC) -> bool {
-        // RTC type 3 has no wait after disabling the alarm (AN4759 - Rev 7, Table 8)
-        true
-    }
-}
-
-/// RTC type 2
-#[cfg(not(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l4p5",
-    feature = "stm32l4q5",
-)))]
-impl RtcGpio for Rtc {
-    fn reset_gpio(rtc: &RTC) {
-        rtc.or
-            .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
-    }
-}
-
-/// RTC3 type 3
-#[cfg(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l4p5",
-    feature = "stm32l4q5",
-))]
-impl RtcGpio for Rtc {
-    fn reset_gpio(rtc: &RTC) {
-        rtc.cr.modify(|_, w| {
-            w.out2en()
-                .clear_bit()
-                .tampalrm_type()
-                .clear_bit()
-                .tampalrm_pu()
-                .clear_bit()
-        });
     }
 }
 
@@ -770,7 +643,7 @@ impl timer::CountDown for WakeupTimer<'_> {
 
         // Let's wait for WUTWF to clear. Otherwise we might run into a race
         // condition, if the user calls this method again really quickly.
-        while Rtc::wakeup_timer_write_flag(&self.rtc.rtc) {}
+        while rtc_registers::is_wakeup_timer_write_flag_set(&self.rtc.rtc) {}
     }
 
     fn wait(&mut self) -> nb::Result<(), Void> {
@@ -789,8 +662,8 @@ impl timer::Cancel for WakeupTimer<'_> {
         self.rtc.write(false, |rtc| {
             // Disable the wakeup timer
             rtc.cr.modify(|_, w| w.wute().clear_bit());
-            while Rtc::wakeup_timer_write_flag(&rtc) {}
-            Rtc::clear_wakeup_timer_flag(rtc);
+            while rtc_registers::is_wakeup_timer_write_flag_set(&rtc) {}
+            rtc_registers::clear_wakeup_timer_flag(rtc);
 
             // According to the reference manual, section 26.7.4, the WUTF flag
             // must be cleared at least 1.5 RTCCLK periods "before WUTF is set
