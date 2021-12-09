@@ -69,9 +69,11 @@ stm32l431 = [ "stm32l4/stm32l4x1" ]
 stm32l451 = [ "stm32l4/stm32l4x1" ]
 stm32l471 = [ "stm32l4/stm32l4x1" ]
 
+# L412
+stm32l412 = [ "stm32l4/stm32l412" ]
+stm32l422 = [ "stm32l4/stm32l412" ]
+
 # L4x2
-stm32l412 = [ "stm32l4/stm32l4x2" ]
-stm32l422 = [ "stm32l4/stm32l4x2" ]
 stm32l432 = [ "stm32l4/stm32l4x2" ]
 stm32l442 = [ "stm32l4/stm32l4x2" ]
 stm32l452 = [ "stm32l4/stm32l4x2" ]
