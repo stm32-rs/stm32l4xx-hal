@@ -1,3 +1,5 @@
+use crate::pac::RTC;
+
 pub fn reset_gpio(rtc: &RTC) {
     rtc.or
         .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
@@ -68,4 +70,48 @@ pub fn is_alarm_a_accessible(rtc: &RTC) -> bool {
 
 pub fn is_alarm_b_accessible(rtc: &RTC) -> bool {
     rtc.isr.read().alrbwf().bit_is_clear()
+}
+
+// AN7459
+// L4 series except L41/2 has 20 backup registers
+// L41/2, L4P/Q and L4R/S have 32 backup registers
+#[cfg(not(any(
+    feature = "stm32l4r5",
+    feature = "stm32l4s5",
+    feature = "stm32l4r7",
+    feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9"
+)))]
+pub const BACKUP_REGISTER_COUNT: usize = 20;
+#[cfg(any(
+    feature = "stm32l4r5",
+    feature = "stm32l4s5",
+    feature = "stm32l4r7",
+    feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9"
+))]
+pub const BACKUP_REGISTER_COUNT: usize = 32;
+
+/// Read content of the backup register.
+///
+/// The registers retain their values during wakes from standby mode or system resets. They also
+/// retain their value when Vdd is switched off as long as V_BAT is powered.
+pub fn read_backup_register(rtc: &RTC, register: usize) -> Option<u32> {
+    if register < BACKUP_REGISTER_COUNT {
+        Some(rtc.bkpr[register].read().bits())
+    } else {
+        None
+    }
+}
+
+/// Set content of the backup register.
+///
+/// The registers retain their values during wakes from standby mode or system resets. They also
+/// retain their value when Vdd is switched off as long as V_BAT is powered.
+pub fn write_backup_register(rtc: &RTC, register: usize, value: u32) {
+    if register < BACKUP_REGISTER_COUNT {
+        unsafe { rtc.bkpr[register].write(|w| w.bits(value)) }
+    }
 }

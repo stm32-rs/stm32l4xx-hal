@@ -80,3 +80,32 @@ pub fn is_alarm_b_accessible(_rtc: &RTC) -> bool {
     // RTC type 3 has no wait after disabling the alarm (AN4759 - Rev 7, Table 8)
     true
 }
+
+// AN7459
+// L4 series except L41/2 has 20 backup registers
+// L41/2, L4P/Q and L4R/S have 32 backup registers
+pub const BACKUP_REGISTER_COUNT: usize = 32;
+
+/// Read content of the backup register.
+///
+/// The registers retain their values during wakes from standby mode or system resets. They also
+/// retain their value when Vdd is switched off as long as V_BAT is powered.
+pub fn read_backup_register(_rtc: &RTC, register: usize) -> Option<u32> {
+    if register < BACKUP_REGISTER_COUNT {
+        //Some(rtc.bkpr[register].read().bits())
+        None // RTC3 backup registers come from the TAMP peripe=heral, not RTC. Not even in the L412 PAC
+    } else {
+        None
+    }
+}
+
+/// Set content of the backup register.
+///
+/// The registers retain their values during wakes from standby mode or system resets. They also
+/// retain their value when Vdd is switched off as long as V_BAT is powered.
+pub fn write_backup_register(_rtc: &RTC, register: usize, _value: u32) {
+    if register < BACKUP_REGISTER_COUNT {
+        // RTC3 backup registers come from the TAMP peripe=heral, not RTC. Not even in the L412 PAC
+        //unsafe { self.rtc.bkpr[register].write(|w| w.bits(value)) }
+    }
+}
