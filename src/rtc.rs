@@ -369,6 +369,24 @@ impl Rtc {
 
     /// Checks for an interrupt event
     pub fn check_interrupt(&mut self, event: Event, clear: bool) -> bool {
+        #[cfg(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l4p5",
+            feature = "stm32l4q5",
+        ))]
+        let result = match event {
+            Event::WakeupTimer => self.rtc.sr.read().wutf().bit_is_set(),
+            Event::AlarmA => self.rtc.sr.read().alraf().bit_is_set(),
+            Event::AlarmB => self.rtc.sr.read().alrbf().bit_is_set(),
+            Event::Timestamp => self.rtc.sr.read().tsf().bit_is_set(),
+        };
+        #[cfg(not(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l4p5",
+            feature = "stm32l4q5",
+        )))]
         let result = match event {
             Event::WakeupTimer => self.rtc.isr.read().wutf().bit_is_set(),
             Event::AlarmA => self.rtc.isr.read().alraf().bit_is_set(),
@@ -378,18 +396,70 @@ impl Rtc {
         if clear {
             self.write(false, |rtc| match event {
                 Event::WakeupTimer => {
+                    #[cfg(any(
+                        feature = "stm32l412",
+                        feature = "stm32l422",
+                        feature = "stm32l4p5",
+                        feature = "stm32l4q5",
+                    ))]
+                    rtc.scr.write(|w| w.cwutf().set_bit());
+                    #[cfg(not(any(
+                        feature = "stm32l412",
+                        feature = "stm32l422",
+                        feature = "stm32l4p5",
+                        feature = "stm32l4q5",
+                    )))]
                     rtc.isr.modify(|_, w| w.wutf().clear_bit());
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 20)) };
                 }
                 Event::AlarmA => {
+                    #[cfg(any(
+                        feature = "stm32l412",
+                        feature = "stm32l422",
+                        feature = "stm32l4p5",
+                        feature = "stm32l4q5",
+                    ))]
+                    rtc.scr.write(|w| w.calraf().set_bit());
+                    #[cfg(not(any(
+                        feature = "stm32l412",
+                        feature = "stm32l422",
+                        feature = "stm32l4p5",
+                        feature = "stm32l4q5",
+                    )))]
                     rtc.isr.modify(|_, w| w.alraf().clear_bit());
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::AlarmB => {
+                    #[cfg(any(
+                        feature = "stm32l412",
+                        feature = "stm32l422",
+                        feature = "stm32l4p5",
+                        feature = "stm32l4q5",
+                    ))]
+                    rtc.scr.write(|w| w.calrbf().set_bit());
+                    #[cfg(not(any(
+                        feature = "stm32l412",
+                        feature = "stm32l422",
+                        feature = "stm32l4p5",
+                        feature = "stm32l4q5",
+                    )))]
                     rtc.isr.modify(|_, w| w.alrbf().clear_bit());
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::Timestamp => {
+                    #[cfg(any(
+                        feature = "stm32l412",
+                        feature = "stm32l422",
+                        feature = "stm32l4p5",
+                        feature = "stm32l4q5",
+                    ))]
+                    rtc.scr.write(|w| w.ctsf().set_bit());
+                    #[cfg(not(any(
+                        feature = "stm32l412",
+                        feature = "stm32l422",
+                        feature = "stm32l4p5",
+                        feature = "stm32l4q5",
+                    )))]
                     rtc.isr.modify(|_, w| w.tsf().clear_bit());
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 19)) };
                 }
