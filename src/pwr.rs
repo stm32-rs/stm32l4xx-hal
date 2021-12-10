@@ -5,6 +5,16 @@ use crate::stm32::{pwr, PWR};
 use crate::time::U32Ext;
 use cortex_m::peripheral::SCB;
 
+/// PWR error
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum Error {
+    /// Power regulator con not be switched to the low-power voltage due to the system clock frequency being higher than 26MHz
+    SysClkTooHighVos,
+    /// System can not be switched to the low-power run mode due to the system clock frequency being higher than 2MHz
+    SysClkTooHighLpr,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VosRange {
     #[doc = "High-Performance range, 1.2V, up to 80 MHz"]
@@ -42,33 +52,39 @@ impl Pwr {
     /// Configures dynamic voltage regulator range
     ///
     /// Will panic if low-power range is selected for higher system clock
-    pub fn set_power_range(&mut self, range: VosRange, clocks: &Clocks) {
+    pub fn set_power_range(&mut self, range: VosRange, clocks: &Clocks) -> Result<(), Error> {
         match range {
             VosRange::HighPerformance => unsafe {
-                self.cr1
-                    .reg()
-                    .modify(|_, w| w.vos().bits(VosRange::HighPerformance as u8))
+                {
+                    self.cr1
+                        .reg()
+                        .modify(|_, w| w.vos().bits(VosRange::HighPerformance as u8))
+                }
+                Ok(())
             },
             VosRange::LowPower => {
                 if clocks.sysclk() > 26.mhz().into() {
-                    panic!("Unable to switch power regulator to low-power voltage due to the too high system clock frequency")
+                    Err(Error::SysClkTooHighVos)
                 } else {
                     unsafe {
                         self.cr1
                             .reg()
                             .modify(|_, w| w.vos().bits(VosRange::LowPower as u8))
                     }
+                    Ok(())
                 }
             }
         }
     }
 
     /// Switches the system into low power run mode
-    pub fn low_power_run(&mut self, clocks: &Clocks) {
+    pub fn low_power_run(&mut self, clocks: &Clocks) -> Result<(), Error> {
         if clocks.sysclk() > 2.mhz().into() {
-            panic!("Unable to switch to lower power run due to the too high system clock frequency")
+            Err(Error::SysClkTooHighLpr)
+        } else {
+            self.cr1.reg().modify(|_, w| w.lpr().set_bit());
+            Ok(())
         }
-        self.cr1.reg().modify(|_, w| w.lpr().set_bit())
     }
 
     /// Enters 'Shutdown' low power mode.
