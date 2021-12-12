@@ -8,6 +8,7 @@ use core::{
 
 use crate::{
     dma::{dma1, Event as DMAEvent, RxDma, Transfer, TransferPayload, W},
+    dmamux::{DmaInput, DmaMux},
     gpio::{self, Analog},
     hal::{
         adc::{Channel as EmbeddedHalChannel, OneShot},
@@ -526,7 +527,7 @@ where
         channel.set_memory_address(buffer.as_ptr() as u32, true);
         channel.set_transfer_length(N as u16);
 
-        channel.cselr().modify(|_, w| w.c1s().bits(0b0000));
+        channel.set_request_line(DmaInput::Adc1).unwrap();
 
         channel.ccr().modify(|_, w| unsafe {
             w.mem2mem()
