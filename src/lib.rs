@@ -134,6 +134,8 @@ pub mod delay;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod dma;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
+pub mod dmamux;
+#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod flash;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod gpio;
