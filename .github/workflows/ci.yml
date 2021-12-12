@@ -76,6 +76,7 @@ jobs:
           use-cross: true
           command: build
           args: --verbose --release --target thumbv7em-none-eabihf --features rt,unproven,${{ matrix.mcu }}
+      # note that examples were not built
       - name: test
         uses: actions-rs/cargo@v1
         with:
