@@ -317,8 +317,8 @@ hal! {
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9",
+    // feature = "stm32l4r9",
+    // feature = "stm32l4s9",
 ))]
 hal! {
     TIM4:  (tim4, free_running_tim4, APB1R1, u16),
