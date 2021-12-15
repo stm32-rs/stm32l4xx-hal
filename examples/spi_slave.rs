@@ -1,6 +1,4 @@
 //! Interfacing the on-board L3GD20 (gyroscope)
-#![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -47,13 +45,13 @@ fn main() -> ! {
     // different pin configuration will result in a compiler error.
     let sck = gpioa
         .pa5
-        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let miso = gpioa
         .pa6
-        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let mosi = gpioa
         .pa7
-        .into_af5_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
     // clock speed is determined by the master
     let mut spi = Spi::spi1_slave(p.SPI1, (sck, miso, mosi), MODE, &mut rcc.apb2);
@@ -72,6 +70,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

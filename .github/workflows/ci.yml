@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
 
 name: Continuous integration
@@ -9,15 +9,28 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     strategy:
-      matrix:                   # All permutations of {rust, mcu}
+      matrix: # All permutations of {rust, mcu}
         rust:
           - stable
         mcu:
-          - stm32l4x1
-          - stm32l4x2
-          - stm32l4x3
-          - stm32l4x5
-          - stm32l4x6
+          - stm32l412
+          - stm32l422
+          - stm32l431
+          - stm32l432
+          - stm32l433
+          - stm32l442
+          - stm32l443
+          - stm32l451
+          - stm32l452
+          - stm32l462
+          - stm32l471
+          - stm32l475
+          - stm32l476
+          - stm32l486
+          - stm32l496
+          - stm32l4a6
+          #- stm32l4r9
+          #- stm32l4s9
 
     steps:
       - uses: actions/checkout@v2
@@ -27,12 +40,45 @@ jobs:
           toolchain: ${{ matrix.rust }}
           target: thumbv7em-none-eabihf
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: build
+        uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
           args: --verbose --release --examples --target thumbv7em-none-eabihf --features rt,unproven,${{ matrix.mcu }}
-      - uses: actions-rs/cargo@v1
+      - name: test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --target x86_64-unknown-linux-gnu --features rt,unproven,${{ matrix.mcu }}
+
+  ci-r9:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+        mcu:
+          - stm32l4r9
+          - stm32l4s9
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          target: thumbv7em-none-eabihf
+          override: true
+      - name: build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --verbose --release --target thumbv7em-none-eabihf --features rt,unproven,${{ matrix.mcu }}
+      # note that examples were not built
+      - name: test
+        uses: actions-rs/cargo@v1
         with:
           command: test
           args: --lib --target x86_64-unknown-linux-gnu --features rt,unproven,${{ matrix.mcu }}

@@ -3,7 +3,6 @@
 //! This example requires you to hook-up a pullup resistor on the TX pin. RX pin is not used.
 //! Resistor value depends on the baurate and line caracteristics, 1KOhms works well in most cases.
 //! Half-Duplex mode internally connect TX to RX, meaning that bytes sent will also be received.
-#![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -48,10 +47,11 @@ fn main() -> ! {
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
     // let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh).set_open_drain();
-    let tx = gpioa
-        .pa2
-        .into_af7_opendrain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
-    // let tx = gpiob.pb6.into_af7_opendrain(&mut gpiob.moder, &mut gpioa.otyper, &mut gpiob.afrl);
+    let tx =
+        gpioa
+            .pa2
+            .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    // let tx = gpiob.pb6.into_alternate_open_drain(&mut gpiob.moder, &mut gpioa.otyper, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart2(
@@ -83,6 +83,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

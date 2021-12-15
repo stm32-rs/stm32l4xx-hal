@@ -1,7 +1,5 @@
 //! Test the serial interface
 //!
-#![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -28,26 +26,26 @@ fn main() -> ! {
     let mut flash = p.FLASH.constrain();
     let mut rcc = p.RCC.constrain();
     let mut pwr = p.PWR.constrain(&mut rcc.apb1r1);
-    let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
+    //let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
     // let mut gpiob = p.GPIOB.split(&mut rcc.ahb2);
-    // let mut gpiod = p.GPIOD.split(&mut rcc.ahb2);
+    let mut gpiod = p.GPIOD.split(&mut rcc.ahb2);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
     let clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
 
-    let tx = gpioa
-        .pa2
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
-    //let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
-    //let tx = gpiod.pd5.into_af7_pushpull(&mut gpiod.moder, &mut gpiod.otyper, &mut gpiod.afrl);
+    //let tx = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
+    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let tx = gpiod
+        .pd5
+        .into_alternate(&mut gpiod.moder, &mut gpiod.otyper, &mut gpiod.afrl);
 
-    let rx = gpioa
-        .pa3
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
-    //let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
-    //let rx = gpiod.pd6.into_af7_pushpull(&mut gpiod.moder, &mut gpiod.otyper, &mut gpiod.afrl);
+    // let rx = gpioa.pa3.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
+    // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let rx = gpiod
+        .pd6
+        .into_alternate(&mut gpiod.moder, &mut gpiod.otyper, &mut gpiod.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart2(
@@ -85,6 +83,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

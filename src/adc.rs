@@ -14,8 +14,8 @@ use crate::{
         blocking::delay::DelayUs,
     },
     pac,
-    rcc::{AHB2, CCIPR},
-    signature::{VrefCal, VtempCal130, VtempCal30, VDDA_CALIB_MV},
+    rcc::{Enable, Reset, AHB2, CCIPR},
+    signature::{VrefCal, VtempCalHigh, VtempCalLow, VDDA_CALIB_MV},
 };
 
 use pac::{ADC1, ADC_COMMON};
@@ -130,11 +130,10 @@ impl ADC {
         delay: &mut impl DelayUs<u32>,
     ) -> Self {
         // Enable peripheral
-        ahb.enr().modify(|_, w| w.adcen().set_bit());
+        ADC1::enable(ahb);
 
         // Reset peripheral
-        ahb.rstr().modify(|_, w| w.adcrst().set_bit());
-        ahb.rstr().modify(|_, w| w.adcrst().clear_bit());
+        ADC1::reset(ahb);
 
         // Select system clock as ADC clock source
         ccipr.ccipr().modify(|_, w| {
@@ -199,8 +198,19 @@ impl ADC {
     }
 
     /// Enable and get the `Temperature`
-    pub fn enable_temperature(&mut self) -> Temperature {
+    pub fn enable_temperature(&mut self, delay: &mut impl DelayUs<u32>) -> Temperature {
         self.common.ccr.modify(|_, w| w.ch17sel().set_bit());
+
+        // FIXME: This note from the reference manual is currently not possible
+        // rm0351 section 18.4.32 pg580 (L47/L48/L49/L4A models)
+        // Note:
+        // The sensor has a startup time after waking from power-down mode before it can output VTS
+        // at the correct level. The ADC also has a startup time after power-on, so to minimize the
+        // delay, the ADEN and CH17SEL bits should be set at the same time.
+        //
+        // https://github.com/STMicroelectronics/STM32CubeL4/blob/master/Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_ll_adc.h#L1363
+        // 120us is used in the ST HAL code
+        delay.delay_us(150);
 
         Temperature {}
     }
@@ -267,9 +277,16 @@ impl ADC {
     }
 
     /// Convert a raw sample from the `Temperature` to deg C
-    pub fn to_degrees_centigrade(sample: u16) -> f32 {
-        (130.0 - 30.0) / (VtempCal130::get().read() as f32 - VtempCal30::get().read() as f32)
-            * (sample as f32 - VtempCal30::get().read() as f32)
+    pub fn to_degrees_centigrade(&self, sample: u16) -> f32 {
+        let sample = (u32::from(sample) * self.calibrated_vdda) / VDDA_CALIB_MV;
+        (VtempCalHigh::TEMP_DEGREES - VtempCalLow::TEMP_DEGREES) as f32
+            // as signed because RM0351 doesn't specify against this being an
+            // inverse relation (which would result in a negative differential)
+            / (VtempCalHigh::get().read() as i32 - VtempCalLow::get().read() as i32) as f32
+            // this can definitely be negative so must be done as a signed value
+            * (sample as i32 - VtempCalLow::get().read() as i32) as f32
+            // while it would make sense for this to be `VtempCalLow::TEMP_DEGREES` (which is 30*C),
+            // the RM specifically uses 30*C so this will too
             + 30.0
     }
 
@@ -333,27 +350,13 @@ impl ADC {
 
     /// Get the configured sequence length (= `actual sequence length - 1`)
     pub(crate) fn get_sequence_length(&self) -> u8 {
-        #[cfg(not(feature = "stm32l4x6"))]
-        {
-            self.adc.sqr1.read().l3().bits()
-        }
-        #[cfg(feature = "stm32l4x6")]
-        {
-            self.adc.sqr1.read().l().bits()
-        }
+        self.adc.sqr1.read().l().bits()
     }
 
     /// Private: length must be `actual sequence length - 1`, so not API-friendly.
     /// Use [`ADC::reset_sequence`] and [`ADC::configure_sequence`] instead
     fn set_sequence_length(&mut self, length: u8) {
-        #[cfg(not(feature = "stm32l4x6"))]
-        {
-            self.adc.sqr1.modify(|_, w| unsafe { w.l3().bits(length) });
-        }
-        #[cfg(feature = "stm32l4x6")]
-        {
-            self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(length) });
-        }
+        self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(length) });
     }
 
     /// Reset the sequence length to 1
@@ -361,14 +364,7 @@ impl ADC {
     /// Does *not* erase previously configured sequence settings, only
     /// changes the sequence length
     pub fn reset_sequence(&mut self) {
-        #[cfg(not(feature = "stm32l4x6"))]
-        {
-            self.adc.sqr1.modify(|_, w| unsafe { w.l3().bits(0b0000) })
-        }
-        #[cfg(feature = "stm32l4x6")]
-        {
-            self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(0b0000) })
-        }
+        self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(0b0000) })
     }
 
     pub fn has_completed_conversion(&self) -> bool {

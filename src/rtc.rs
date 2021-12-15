@@ -1,5 +1,37 @@
 //! RTC peripheral abstraction
 
+/// refer to AN4759 to compare features of RTC2 and RTC3
+#[cfg(not(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+)))]
+pub mod rtc2;
+#[cfg(not(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+)))]
+pub use rtc2 as rtc_registers;
+
+/// refer to AN4759 to compare features of RTC2 and RTC3
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+))]
+pub mod rtc3;
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+))]
+pub use rtc3 as rtc_registers;
+
 use void::Void;
 
 use crate::{
@@ -214,10 +246,9 @@ impl Rtc {
 
         self.write(false, |rtc| match alarm {
             Alarm::AlarmA => {
-                rtc.cr.modify(|_, w| w.alrae().clear_bit());
-
-                // Wait until we're allowed to update the alarm b configuration
-                while rtc.isr.read().alrawf().bit_is_clear() {}
+                rtc.cr.modify(|_, w| w.alrae().clear_bit()); // Disable Alarm A
+                rtc_registers::clear_alarm_a_flag(rtc);
+                while !rtc_registers::is_alarm_a_accessible(rtc) {}
 
                 rtc.alrmar.modify(|_, w| unsafe {
                     w.dt()
@@ -241,13 +272,19 @@ impl Rtc {
                         .wdsel()
                         .clear_bit()
                 });
+                // binary mode alarm not implemented (RTC3 only)
+                // subsecond alarm not implemented
+                // would need a conversion method between `time.micros` and RTC ticks
+                // write the SS value and mask to `rtc.alrmassr`
+
+                // enable alarm and reenable interrupt if it was enabled
                 rtc.cr.modify(|_, w| w.alrae().set_bit());
             }
             Alarm::AlarmB => {
                 rtc.cr.modify(|_, w| w.alrbe().clear_bit());
 
-                // Wait until we're allowed to update the alarm b configuration
-                while rtc.isr.read().alrbwf().bit_is_clear() {}
+                rtc_registers::clear_alarm_b_flag(rtc);
+                while !rtc_registers::is_alarm_b_accessible(rtc) {}
 
                 rtc.alrmbr.modify(|_, w| unsafe {
                     w.dt()
@@ -271,10 +308,15 @@ impl Rtc {
                         .wdsel()
                         .clear_bit()
                 });
+                // binary mode alarm not implemented (RTC3 only)
+                // subsecond alarm not implemented
+                // would need a conversion method between `time.micros` and RTC ticks
+                // write the SS value and mask to `rtc.alrmbssr`
+
+                // enable alarm and reenable interrupt if it was enabled
                 rtc.cr.modify(|_, w| w.alrbe().set_bit());
             }
         });
-        self.check_interrupt(alarm.into(), true);
     }
 
     /// Starts listening for an interrupt event
@@ -334,27 +376,27 @@ impl Rtc {
     /// Checks for an interrupt event
     pub fn check_interrupt(&mut self, event: Event, clear: bool) -> bool {
         let result = match event {
-            Event::WakeupTimer => self.rtc.isr.read().wutf().bit_is_set(),
-            Event::AlarmA => self.rtc.isr.read().alraf().bit_is_set(),
-            Event::AlarmB => self.rtc.isr.read().alrbf().bit_is_set(),
-            Event::Timestamp => self.rtc.isr.read().tsf().bit_is_set(),
+            Event::WakeupTimer => rtc_registers::is_wakeup_timer_flag_set(&self.rtc),
+            Event::AlarmA => rtc_registers::is_alarm_a_flag_set(&self.rtc),
+            Event::AlarmB => rtc_registers::is_alarm_b_flag_set(&self.rtc),
+            Event::Timestamp => rtc_registers::is_timestamp_flag_set(&self.rtc),
         };
         if clear {
             self.write(false, |rtc| match event {
                 Event::WakeupTimer => {
-                    rtc.isr.modify(|_, w| w.wutf().clear_bit());
+                    rtc_registers::clear_wakeup_timer_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 20)) };
                 }
                 Event::AlarmA => {
-                    rtc.isr.modify(|_, w| w.alraf().clear_bit());
+                    rtc_registers::clear_alarm_a_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::AlarmB => {
-                    rtc.isr.modify(|_, w| w.alrbf().clear_bit());
+                    rtc_registers::clear_alarm_b_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::Timestamp => {
-                    rtc.isr.modify(|_, w| w.tsf().clear_bit());
+                    rtc_registers::clear_timestamp_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 19)) };
                 }
             })
@@ -427,8 +469,7 @@ impl Rtc {
             });
 
             // TODO configuration for output pins
-            rtc.or
-                .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
+            rtc_registers::reset_gpio(rtc);
         });
 
         self.rtc_config = rtc_config;
@@ -448,16 +489,16 @@ impl Rtc {
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0xca) });
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0x53) });
 
-        if init_mode && self.rtc.isr.read().initf().bit_is_clear() {
-            // are we already in init mode?
-            self.rtc.isr.modify(|_, w| w.init().set_bit());
-            while self.rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
+        if init_mode && !rtc_registers::is_init_mode(&self.rtc) {
+            rtc_registers::enter_init_mode(&self.rtc);
+            // wait till init state entered
+            // ~2 RTCCLK cycles
+            while !rtc_registers::is_init_mode(&self.rtc) {}
         }
 
         let result = f(&self.rtc);
-
         if init_mode {
-            self.rtc.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+            rtc_registers::exit_init_mode(&self.rtc);
         }
 
         // Re-enable write protection.
@@ -465,6 +506,24 @@ impl Rtc {
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0xff) });
 
         result
+    }
+
+    pub const BACKUP_REGISTER_COUNT: usize = rtc_registers::BACKUP_REGISTER_COUNT;
+
+    /// Read content of the backup register.
+    ///
+    /// The registers retain their values during wakes from standby mode or system resets. They also
+    /// retain their value when Vdd is switched off as long as V_BAT is powered.
+    pub fn read_backup_register(&self, register: usize) -> Option<u32> {
+        rtc_registers::read_backup_register(&self.rtc, register)
+    }
+
+    /// Set content of the backup register.
+    ///
+    /// The registers retain their values during wakes from standby mode or system resets. They also
+    /// retain their value when Vdd is switched off as long as V_BAT is powered.
+    pub fn write_backup_register(&self, register: usize, value: u32) {
+        rtc_registers::write_backup_register(&self.rtc, register, value)
     }
 }
 
@@ -550,7 +609,7 @@ impl timer::CountDown for WakeupTimer<'_> {
 
         // Let's wait for WUTWF to clear. Otherwise we might run into a race
         // condition, if the user calls this method again really quickly.
-        while self.rtc.rtc.isr.read().wutwf().bit_is_set() {}
+        while rtc_registers::is_wakeup_timer_write_flag_set(&self.rtc.rtc) {}
     }
 
     fn wait(&mut self) -> nb::Result<(), Void> {
@@ -569,12 +628,8 @@ impl timer::Cancel for WakeupTimer<'_> {
         self.rtc.write(false, |rtc| {
             // Disable the wakeup timer
             rtc.cr.modify(|_, w| w.wute().clear_bit());
-
-            // Wait until we're allowed to update the wakeup timer configuration
-            while rtc.isr.read().wutwf().bit_is_clear() {}
-
-            // Clear wakeup timer flag
-            rtc.isr.modify(|_, w| w.wutf().clear_bit());
+            while rtc_registers::is_wakeup_timer_write_flag_set(&rtc) {}
+            rtc_registers::clear_wakeup_timer_flag(rtc);
 
             // According to the reference manual, section 26.7.4, the WUTF flag
             // must be cleared at least 1.5 RTCCLK periods "before WUTF is set

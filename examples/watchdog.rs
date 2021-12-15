@@ -1,6 +1,4 @@
 //! Example of watchdog timer
-#![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_std]
 #![no_main]
 
@@ -57,6 +55,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

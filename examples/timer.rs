@@ -1,7 +1,5 @@
 //! Blinks an LED
 
-// #![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_std]
 #![no_main]
 
@@ -41,7 +39,7 @@ fn main() -> ! {
     // let mut led = gpiob.pb3.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
 
     unsafe { NVIC::unmask(hal::stm32::Interrupt::TIM7) };
-    let mut timer = Timer::tim7(dp.TIM7, 1.hz(), clocks, &mut rcc.apb1r1);
+    let mut timer = Timer::tim6(dp.TIM6, 1.hz(), clocks, &mut rcc.apb1r1);
     timer.listen(Event::TimeOut);
 
     loop {
@@ -58,6 +56,6 @@ fn TIM7() {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

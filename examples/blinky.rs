@@ -1,7 +1,5 @@
 //! Blinks an LED
 
-#![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_std]
 #![no_main]
 
@@ -54,14 +52,14 @@ fn main() -> ! {
     loop {
         // block!(timer.wait()).unwrap();
         timer.delay_ms(1000_u32);
-        led.set_high().ok();
+        led.set_high();
         // block!(timer.wait()).unwrap();
         timer.delay_ms(1000_u32);
-        led.set_low().ok();
+        led.set_low();
     }
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

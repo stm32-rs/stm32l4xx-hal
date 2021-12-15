@@ -66,7 +66,7 @@ const APP: () = {
             &mut delay,
         );
 
-        let mut temp_pin = adc.enable_temperature();
+        let mut temp_pin = adc.enable_temperature(&mut delay);
 
         let dma1_channel = dma_channels.1;
 

@@ -7,7 +7,7 @@ use crate::stm32::{TIM1, TIM15, TIM2};
 
 use crate::alternate_functions::{PwmCh1, PwmCh2, PwmCh3, PwmCh4};
 use crate::gpio::AlternatePP;
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, Enable, Reset, APB1R1, APB2};
 use crate::time::Hertz;
 
 /*
@@ -114,10 +114,10 @@ macro_rules! pin_tuples {
  * Old approach
  *
 macro_rules! pins_to_channels_mapping {
-    ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($AF:ident),+ ); )+ ) => {
+    ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($AF:literal),+ ); )+ ) => {
         $(
             #[allow(unused_parens)]
-            impl<OTYPE> Pins<$TIMX> for ($($PINX<Alternate<$AF, OTYPE>>),+)
+            impl<OTYPE> Pins<$TIMX> for ($($PINX<Alternate<OTYPE, $AF>>),+)
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(Pwm<$TIMX, $ENCHX>),+);
@@ -128,70 +128,70 @@ macro_rules! pins_to_channels_mapping {
 
 pins_to_channels_mapping! {
     // TIM1
-    TIM1: (PA8, PA9, PA10, PA11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
-    TIM1: (PA9, PA10, PA11), (C2, C3, C4), (AF1, AF1, AF1);
-    TIM1: (PA8, PA10, PA11), (C1, C3, C4), (AF1, AF1, AF1);
-    TIM1: (PA8, PA9, PA11), (C1, C2, C4), (AF1, AF1, AF1);
-    TIM1: (PA8, PA9, PA10), (C1, C2, C3), (AF1, AF1, AF1);
-    TIM1: (PA10, PA11), (C3, C4), (AF1, AF1);
-    TIM1: (PA9, PA11), (C2, C4), (AF1, AF1);
-    TIM1: (PA9, PA10), (C2, C3), (AF1, AF1);
-    TIM1: (PA8, PA11), (C1, C4), (AF1, AF1);
-    TIM1: (PA8, PA10), (C1, C3), (AF1, AF1);
-    TIM1: (PA8, PA9), (C1, C2), (AF1, AF1);
-    TIM1: (PA8), (C1), (AF1);
-    TIM1: (PA9), (C2), (AF1);
-    TIM1: (PA10), (C3), (AF1);
-    TIM1: (PA11), (C4), (AF1);
+    TIM1: (PA8, PA9, PA10, PA11), (C1, C2, C3, C4), (1, 1, 1, 1);
+    TIM1: (PA9, PA10, PA11), (C2, C3, C4), (1, 1, 1);
+    TIM1: (PA8, PA10, PA11), (C1, C3, C4), (1, 1, 1);
+    TIM1: (PA8, PA9, PA11), (C1, C2, C4), (1, 1, 1);
+    TIM1: (PA8, PA9, PA10), (C1, C2, C3), (1, 1, 1);
+    TIM1: (PA10, PA11), (C3, C4), (1, 1);
+    TIM1: (PA9, PA11), (C2, C4), (1, 1);
+    TIM1: (PA9, PA10), (C2, C3), (1, 1);
+    TIM1: (PA8, PA11), (C1, C4), (1, 1);
+    TIM1: (PA8, PA10), (C1, C3), (1, 1);
+    TIM1: (PA8, PA9), (C1, C2), (1, 1);
+    TIM1: (PA8), (C1), (1);
+    TIM1: (PA9), (C2), (1);
+    TIM1: (PA10), (C3), (1);
+    TIM1: (PA11), (C4), (1);
 
     // TIM2
-    TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
-    TIM2: (PA0, PA1, PA2, PB11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
-    TIM2: (PA15, PB3, PB10, PB11), (C1, C2, C3, C4), (AF1, AF1, AF1, AF1);
+    TIM2: (PA0, PA1, PA2, PA3), (C1, C2, C3, C4), (1, 1, 1, 1);
+    TIM2: (PA0, PA1, PA2, PB11), (C1, C2, C3, C4), (1, 1, 1, 1);
+    TIM2: (PA15, PB3, PB10, PB11), (C1, C2, C3, C4), (1, 1, 1, 1);
 
-    TIM2: (PA1, PA2, PA3), (C2, C3, C4), (AF1, AF1, AF1);
-    TIM2: (PA0, PA2, PA3), (C1, C3, C4), (AF1, AF1, AF1);
-    TIM2: (PA0, PA1, PA3), (C1, C2, C4), (AF1, AF1, AF1);
-    TIM2: (PA0, PA1, PA2), (C1, C2, C3), (AF1, AF1, AF1);
+    TIM2: (PA1, PA2, PA3), (C2, C3, C4), (1, 1, 1);
+    TIM2: (PA0, PA2, PA3), (C1, C3, C4), (1, 1, 1);
+    TIM2: (PA0, PA1, PA3), (C1, C2, C4), (1, 1, 1);
+    TIM2: (PA0, PA1, PA2), (C1, C2, C3), (1, 1, 1);
 
-    TIM2: (PB3, PB10, PB11), (C2, C3, C4), (AF1, AF1, AF1);
-    TIM2: (PA15, PB10, PB11), (C1, C3, C4), (AF1, AF1, AF1);
-    TIM2: (PA15, PB3, PB11), (C1, C2, C4), (AF1, AF1, AF1);
-    TIM2: (PA15, PB3, PB10), (C1, C2, C3), (AF1, AF1, AF1);
+    TIM2: (PB3, PB10, PB11), (C2, C3, C4), (1, 1, 1);
+    TIM2: (PA15, PB10, PB11), (C1, C3, C4), (1, 1, 1);
+    TIM2: (PA15, PB3, PB11), (C1, C2, C4), (1, 1, 1);
+    TIM2: (PA15, PB3, PB10), (C1, C2, C3), (1, 1, 1);
 
-    TIM2: (PA2, PA3), (C3, C4), (AF1, AF1);
-    TIM2: (PA1, PA3), (C2, C4), (AF1, AF1);
-    TIM2: (PA1, PA2), (C2, C3), (AF1, AF1);
-    TIM2: (PA0, PA3), (C1, C4), (AF1, AF1);
-    TIM2: (PA0, PA2), (C1, C3), (AF1, AF1);
-    TIM2: (PA0, PA1), (C1, C2), (AF1, AF1);
+    TIM2: (PA2, PA3), (C3, C4), (1, 1);
+    TIM2: (PA1, PA3), (C2, C4), (1, 1);
+    TIM2: (PA1, PA2), (C2, C3), (1, 1);
+    TIM2: (PA0, PA3), (C1, C4), (1, 1);
+    TIM2: (PA0, PA2), (C1, C3), (1, 1);
+    TIM2: (PA0, PA1), (C1, C2), (1, 1);
 
-    TIM2: (PB10, PB11), (C3, C4), (AF1, AF1);
-    TIM2: (PB3, PB11), (C2, C4), (AF1, AF1);
-    TIM2: (PB3, PB10), (C2, C3), (AF1, AF1);
-    TIM2: (PA15, PB11), (C1, C4), (AF1, AF1);
-    TIM2: (PA15, PB10), (C1, C3), (AF1, AF1);
-    TIM2: (PA15, PB3), (C1, C2), (AF1, AF1);
+    TIM2: (PB10, PB11), (C3, C4), (1, 1);
+    TIM2: (PB3, PB11), (C2, C4), (1, 1);
+    TIM2: (PB3, PB10), (C2, C3), (1, 1);
+    TIM2: (PA15, PB11), (C1, C4), (1, 1);
+    TIM2: (PA15, PB10), (C1, C3), (1, 1);
+    TIM2: (PA15, PB3), (C1, C2), (1, 1);
 
-    TIM2: (PA0), (C1), (AF1);
-    TIM2: (PA1), (C2), (AF1);
-    TIM2: (PA2), (C3), (AF1);
-    TIM2: (PA3), (C4), (AF1);
+    TIM2: (PA0), (C1), (1);
+    TIM2: (PA1), (C2), (1);
+    TIM2: (PA2), (C3), (1);
+    TIM2: (PA3), (C4), (1);
 
-    TIM2: (PA15), (C1), (AF1);
-    TIM2: (PB3), (C2), (AF1);
-    TIM2: (PB10), (C3), (AF1);
-    TIM2: (PB11), (C4), (AF1);
+    TIM2: (PA15), (C1), (1);
+    TIM2: (PB3), (C2), (1);
+    TIM2: (PB10), (C3), (1);
+    TIM2: (PB11), (C4), (1);
 
     // TIM15 - TODO: The uncommented lines are awaiting PAC updates to be valid.
-    TIM15: (PB14), (C1), (AF14);
-    // TIM15: (PB15), (C2), (AF14);
-    TIM15: (PA2), (C1), (AF14);
-    // TIM15: (PA3), (C2), (AF14);
-    // TIM15: (PB14, PB15), (C1, C2), (AF14, AF14);
-    // TIM15: (PB14, PA3), (C1, C2), (AF14, AF14);
-    // TIM15: (PA2, PB15), (C1, C2), (AF14, AF14);
-    // TIM15: (PA2, PA3), (C1, C2), (AF14, AF14);
+    TIM15: (PB14), (C1), (14);
+    // TIM15: (PB15), (C2), (14);
+    TIM15: (PA2), (C1), (14);
+    // TIM15: (PA3), (C2), (14);
+    // TIM15: (PB14, PB15), (C1, C2), (14, 14);
+    // TIM15: (PB14, PA3), (C1, C2), (14, 14);
+    // TIM15: (PA2, PB15), (C1, C2), (14, 14);
+    // TIM15: (PA2, PA3), (C1, C2), (14, 14);
 }
 */
 
@@ -342,7 +342,7 @@ pub struct C3;
 pub struct C4;
 
 macro_rules! advanced_timer {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX(
                 tim: $TIMX,
@@ -352,29 +352,28 @@ macro_rules! advanced_timer {
                 apb: &mut $apb,
             ) -> PwmChannels<$TIMX>
             {
-                apb.enr().modify(|_, w| w.$timXen().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                <$TIMX>::enable(apb);
+                <$TIMX>::reset(apb);
 
                 let mut pwm_channels = PwmChannels::new();
 
                 if pins.has_channel1 {
-                    tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                    tim.ccmr1_output().modify(|_, w| w.oc1pe().set_bit().oc1m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 if pins.has_channel2 {
-                    tim.ccmr1_output().modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
+                    tim.ccmr1_output().modify(|_, w| w.oc2pe().set_bit().oc2m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 if pins.has_channel3 {
-                    tim.ccmr2_output().modify(|_, w| unsafe { w.oc3pe().set_bit().oc3m().bits(6) });
+                    tim.ccmr2_output().modify(|_, w| w.oc3pe().set_bit().oc3m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 if pins.has_channel4 {
-                    tim.ccmr2_output().modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
+                    tim.ccmr2_output().modify(|_, w| w.oc4pe().set_bit().oc4m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
@@ -415,7 +414,7 @@ macro_rules! advanced_timer {
 }
 
 macro_rules! standard_timer {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX(
                 tim: $TIMX,
@@ -425,29 +424,28 @@ macro_rules! standard_timer {
                 apb: &mut $apb,
             ) -> PwmChannels<$TIMX>
             {
-                apb.enr().modify(|_, w| w.$timXen().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                <$TIMX>::enable(apb);
+                <$TIMX>::reset(apb);
 
                 let mut pwm_channels = PwmChannels::new();
 
                 if pins.has_channel1 {
-                    tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                    tim.ccmr1_output().modify(|_, w| w.oc1pe().set_bit().oc1m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 if pins.has_channel2 {
-                    tim.ccmr1_output().modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
+                    tim.ccmr1_output().modify(|_, w| w.oc2pe().set_bit().oc2m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 if pins.has_channel3 {
-                    tim.ccmr2_output().modify(|_, w| unsafe { w.oc3pe().set_bit().oc3m().bits(6) });
+                    tim.ccmr2_output().modify(|_, w| w.oc3pe().set_bit().oc3m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 if pins.has_channel4 {
-                    tim.ccmr2_output().modify(|_, w| unsafe { w.oc4pe().set_bit().oc4m().bits(6) });
+                    tim.ccmr2_output().modify(|_, w| w.oc4pe().set_bit().oc4m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
@@ -484,7 +482,7 @@ macro_rules! standard_timer {
 }
 
 macro_rules! small_timer {
-    ($($TIMX:ident: ($timX:ident, $timXen:ident, $timXrst:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
+    ($($TIMX:ident: ($timX:ident, $apb:ident, $psc_width:ident, $arr_width:ident),)+) => {
         $(
             fn $timX(
                 tim: $TIMX,
@@ -494,20 +492,19 @@ macro_rules! small_timer {
                 apb: &mut $apb,
             ) -> PwmChannels<$TIMX>
             {
-                apb.enr().modify(|_, w| w.$timXen().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                <$TIMX>::enable(apb);
+                <$TIMX>::reset(apb);
 
                 let mut pwm_channels = PwmChannels::new();
 
                 if pins.has_channel1 {
-                    tim.ccmr1_output().modify(|_, w| unsafe { w.oc1pe().set_bit().oc1m().bits(6) });
+                    tim.ccmr1_output().modify(|_, w| w.oc1pe().set_bit().oc1m().bits(6));
                     pwm_channels.channel1 = Some(Pwm::new());
                 }
 
                 // TODO: The uncommented lines are awaiting PAC updates to be valid.
                 // if PINS::C2 {
-                //     tim.ccmr1_output().modify(|_, w| unsafe { w.oc2pe().set_bit().oc2m().bits(6) });
+                //     tim.ccmr1_output().modify(|_, w| w.oc2pe().set_bit().oc2m().bits(6));
                 // }
 
                 let clk = clocks.pclk1().0;
@@ -533,7 +530,7 @@ macro_rules! small_timer {
             }
 
             pwm_channels! {
-                $TIMX:  (C1, $arr_width, cc1e, ccr1, ccr1),
+                $TIMX:  (C1, $arr_width, cc1e, ccr1, ccr),
                 // TODO: The uncommented line is awaiting PAC updates to be valid.
                 //        (C2, $arr_width, cc2e, ccr2, ccr2),
             }
@@ -577,13 +574,13 @@ macro_rules! pwm_channels {
 }
 
 advanced_timer! {
-    TIM1: (tim1, tim1en, tim1rst, APB2, u16, u16),
+    TIM1: (tim1, APB2, u16, u16),
 }
 
 standard_timer! {
-    TIM2: (tim2, tim2en, tim2rst, APB1R1, u16, u32),
+    TIM2: (tim2, APB1R1, u16, u32),
 }
 
 small_timer! {
-    TIM15: (tim15, tim15en, tim15rst, APB2, u16, u16),
+    TIM15: (tim15, APB2, u16, u16),
 }

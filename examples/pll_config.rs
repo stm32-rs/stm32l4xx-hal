@@ -1,7 +1,6 @@
 //! Test the serial interface
 //!
 //! This example requires you to short (connect) the TX and RX pins.
-#![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -46,13 +45,13 @@ fn main() -> ! {
     // TRY the commented out, different pin configurations
     let tx = gpioa
         .pa9
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
-    // let tx = gpiob.pb6.into_af7_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+    // let tx = gpiob.pb6.into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
     let rx = gpioa
         .pa10
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
-    // let rx = gpiob.pb7.into_af7_pushpull(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+    // let rx = gpiob.pb7.into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart1(
@@ -84,6 +83,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

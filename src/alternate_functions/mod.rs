@@ -62,12 +62,12 @@ use crate::pac::{
 };
 
 // Implements one of the traits above for a given Pin-AF-combination. For
-// example, `afpin!(PA0, AF1, SclPin<I2C2>);` allows PA0 in AF1 configuration
+// example, `afpin!(PA0, 1, SclPin<I2C2>);` allows PA0 in AF1 configuration
 // to be used as SclPin for I2C2.
 macro_rules! afpin {
-    ($pin:ident, $af:ty, $trait:ty) => {
-        impl<OTYPE> private::Sealed for $pin<Alternate<$af, OTYPE>> {}
-        impl<OTYPE> $trait for $pin<Alternate<$af, OTYPE>> {}
+    ($pin:ident, $af:expr, $trait:ty) => {
+        impl<OTYPE> private::Sealed for $pin<Alternate<OTYPE, $af>> {}
+        impl<OTYPE> $trait for $pin<Alternate<OTYPE, $af>> {}
     };
 }
 
@@ -93,7 +93,7 @@ macro_rules! AF1 {
         AF2!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF1, $trait);
+        afpin!($pin, { 1 }, $trait);
         AF2!($pin, $($tail)*);
     };
 }
@@ -102,7 +102,7 @@ macro_rules! AF2 {
         AF3!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF2, $trait);
+        afpin!($pin, 2, $trait);
         AF3!($pin, $($tail)*);
     };
 }
@@ -111,7 +111,7 @@ macro_rules! AF3 {
         AF4!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF3, $trait);
+        afpin!($pin, 3, $trait);
         AF4!($pin, $($tail)*);
     };
 }
@@ -120,7 +120,7 @@ macro_rules! AF4 {
         AF5!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF4, $trait);
+        afpin!($pin, 4, $trait);
         AF5!($pin, $($tail)*);
     };
 }
@@ -129,7 +129,7 @@ macro_rules! AF5 {
         AF6!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF5, $trait);
+        afpin!($pin, 5, $trait);
         AF6!($pin, $($tail)*);
     };
 }
@@ -138,14 +138,14 @@ macro_rules! AF6 {
         AF7!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF6, $trait);
+        afpin!($pin, 6, $trait);
         AF7!($pin, $($tail)*);
     };
 }
 macro_rules! AF7 {
     ($pin:ident, _) => {};
     ($pin:ident, $trait:ty) => {
-        afpin!($pin, AF7, $trait);
+        afpin!($pin, 7, $trait);
     };
 }
 
@@ -241,7 +241,7 @@ macro_rules! AF8 {
     // Implement a trait for this pin on AF0
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
         // Implement the trait
-        afpin!($pin, AF8, $trait);
+        afpin!($pin, 8, $trait);
         // Forward the rest of this row to AF1
         AF9!($pin, $($tail)*);
     };
@@ -251,7 +251,7 @@ macro_rules! AF9 {
         AF10!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF9, $trait);
+        afpin!($pin, 9, $trait);
         AF10!($pin, $($tail)*);
     };
 }
@@ -260,7 +260,7 @@ macro_rules! AF10 {
         AF11!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF10, $trait);
+        afpin!($pin, 10, $trait);
         AF11!($pin, $($tail)*);
     };
 }
@@ -269,7 +269,7 @@ macro_rules! AF11 {
         AF12!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF11, $trait);
+        afpin!($pin, 11, $trait);
         AF12!($pin, $($tail)*);
     };
 }
@@ -278,7 +278,7 @@ macro_rules! AF12 {
         AF13!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF12, $trait);
+        afpin!($pin, 12, $trait);
         AF13!($pin, $($tail)*);
     };
 }
@@ -287,7 +287,7 @@ macro_rules! AF13 {
         AF14!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF13, $trait);
+        afpin!($pin, 13, $trait);
         AF14!($pin, $($tail)*);
     };
 }
@@ -296,14 +296,14 @@ macro_rules! AF14 {
         AF15!($pin, $($tail)*);
     };
     ($pin:ident, $trait:ty | $($tail:tt)*) => {
-        afpin!($pin, AF14, $trait);
+        afpin!($pin, 14, $trait);
         AF15!($pin, $($tail)*);
     };
 }
 macro_rules! AF15 {
     ($pin:ident, _) => {};
     ($pin:ident, $trait:ty) => {
-        afpin!($pin, AF15, $trait);
+        afpin!($pin, 15, $trait);
     };
 }
 

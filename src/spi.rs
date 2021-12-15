@@ -9,7 +9,9 @@ use core::ptr;
 use core::sync::atomic;
 use core::sync::atomic::Ordering;
 
-use crate::dma::{self, dma1, dma2, TransferPayload};
+#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+use crate::dma::dma2;
+use crate::dma::{self, dma1, TransferPayload};
 /* old approach, just kept to be moved later
 use crate::gpio::{Alternate, PushPull, AF5};
 */
@@ -17,7 +19,7 @@ use crate::alternate_functions::{MisoPin, MosiPin, SckPin};
 use crate::gpio::AlternatePP;
 
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
 
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
@@ -48,18 +50,18 @@ pub trait MisoPin<SPI>: private::Sealed {}
 pub trait MosiPin<SPI>: private::Sealed {}
 
 macro_rules! pins {
-    ($spi:ident, $af:ident, SCK: [$($sck:ident),*], MISO: [$($miso:ident),*], MOSI: [$($mosi:ident),*]) => {
+    ($spi:ident, $af:literal, SCK: [$($sck:ident),*], MISO: [$($miso:ident),*], MOSI: [$($mosi:ident),*]) => {
         $(
-            impl private::Sealed for $sck<Alternate<$af, PushPull>> {}
-            impl SckPin<$spi> for $sck<Alternate<$af, PushPull>> {}
+            impl private::Sealed for $sck<Alternate<PushPull, $af>> {}
+            impl SckPin<$spi> for $sck<Alternate<PushPull, $af>> {}
         )*
         $(
-            impl private::Sealed for $miso<Alternate<$af, PushPull>> {}
-            impl MisoPin<$spi> for $miso<Alternate<$af, PushPull>> {}
+            impl private::Sealed for $miso<Alternate<PushPull, $af>> {}
+            impl MisoPin<$spi> for $miso<Alternate<PushPull, $af>> {}
         )*
         $(
-            impl private::Sealed for $mosi<Alternate<$af, PushPull>> {}
-            impl MosiPin<$spi> for $mosi<Alternate<$af, PushPull>> {}
+            impl private::Sealed for $mosi<Alternate<PushPull, $af>> {}
+            impl MosiPin<$spi> for $mosi<Alternate<PushPull, $af>> {}
         )*
     }
 }
@@ -72,7 +74,7 @@ pub struct Spi<SPI, PINS> {
 }
 
 macro_rules! hal {
-    ($($SPIX:ident: ($spiX:ident, $spiX_slave:ident, $APBX:ident, $spiXen:ident, $spiXrst:ident, $pclkX:ident),)+) => {
+    ($($SPIX:ident: ($spiX:ident, $spiX_slave:ident, $pclkX:ident),)+) => {
         $(
             impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
@@ -82,7 +84,7 @@ macro_rules! hal {
                     mode: Mode,
                     freq: F,
                     clocks: Clocks,
-                    apb2: &mut $APBX,
+                    apb2: &mut <$SPIX as RccBus>::Bus,
                 ) -> Self
                 where
                     F: Into<Hertz>,
@@ -91,9 +93,8 @@ macro_rules! hal {
                     MOSI: MosiPin<$SPIX> + AlternatePP,
                 {
                     // enable or reset $SPIX
-                    apb2.enr().modify(|_, w| w.$spiXen().set_bit());
-                    apb2.rstr().modify(|_, w| w.$spiXrst().set_bit());
-                    apb2.rstr().modify(|_, w| w.$spiXrst().clear_bit());
+                    <$SPIX>::enable(apb2);
+                    <$SPIX>::reset(apb2);
 
                     // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
                     //        8-bit
@@ -116,7 +117,7 @@ macro_rules! hal {
                     // SSI: set nss high = master mode
                     // CRCEN: hardware CRC calculation disabled
                     // BIDIMODE: 2 line unidirectional (full duplex)
-                    spi.cr1.write(|w| unsafe {
+                    spi.cr1.write(|w|
                         w.cpha()
                             .bit(mode.phase == Phase::CaptureOnSecondTransition)
                             .cpol()
@@ -137,21 +138,20 @@ macro_rules! hal {
                             .clear_bit()
                             .bidimode()
                             .clear_bit()
-                    });
+                    );
 
                     Spi { spi, pins }
                 }
 
-                pub fn $spiX_slave(spi: $SPIX, pins: (SCK, MISO, MOSI), mode: Mode, apb2: &mut $APBX,) -> Self
+                pub fn $spiX_slave(spi: $SPIX, pins: (SCK, MISO, MOSI), mode: Mode, apb2: &mut <$SPIX as RccBus>::Bus) -> Self
                 where
                     SCK: SckPin<$SPIX> + AlternatePP,
                     MISO: MisoPin<$SPIX> + AlternatePP,
                     MOSI: MosiPin<$SPIX> + AlternatePP,
                 {
                     // enable or reset $SPIX
-                    apb2.enr().modify(|_, w| w.$spiXen().set_bit());
-                    apb2.rstr().modify(|_, w| w.$spiXrst().set_bit());
-                    apb2.rstr().modify(|_, w| w.$spiXrst().clear_bit());
+                    <$SPIX>::enable(apb2);
+                    <$SPIX>::reset(apb2);
 
                     // CPOL: polarity
                     // CPHA: phase
@@ -201,7 +201,7 @@ macro_rules! hal {
                 {
                     self.spi.cr1.modify(|_, w| w.spe().clear_bit());
                     self.spi.cr1.modify(|_, w| {
-                        unsafe {w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq.into()));}
+                        w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq.into()));
                         w.spe().set_bit()
                     });
                 }
@@ -284,14 +284,30 @@ macro_rules! hal {
     feature = "stm32l4x6",
 ))]
 use crate::gpio::gpiod::*;
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(
+    // feature = "stm32l471",  // missing PAC support for Port G
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 use crate::gpio::gpiog::*;
 use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
 */
 
 use crate::stm32::SPI1;
 hal! {
-    SPI1: (spi1, spi1_slave, APB2, spi1en, spi1rst, pclk2),
+    SPI1: (spi1, spi1_slave, pclk2),
 }
 
 /*
@@ -302,78 +318,74 @@ hal! {
     feature = "stm32l4x5",
     feature = "stm32l4x6"
 ))]
-pins!(SPI1, AF5,
+pins!(SPI1, 5,
     SCK: [PA5, PB3, PE13],
     MISO: [PA6, PB4, PE14],
     MOSI: [PA7, PB5, PE15]);
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
+#[cfg(any(
+    // feature = "stm32l471", // missing PAC support for Port G
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
+pins!(SPI1, 5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
 */
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
 use crate::stm32::SPI3;
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
 hal! {
-    SPI3: (spi3, spi3_slave, APB1R1, spi3en, spi3rst, pclk1),
+    SPI3: (spi3, spi3_slave, pclk1),
 }
 
 /*
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins!(SPI3, AF6,
+#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+pins!(SPI3, 6,
     SCK: [PB3, PC10],
     MISO: [PB4, PC11],
     MOSI: [PB5, PC12]);
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
+#[cfg(any(
+    // feature = "stm32l471", // missing PAC support for Port G
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
+pins!(SPI3, 6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 */
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
 use crate::stm32::SPI2;
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
 hal! {
-    SPI2: (spi2, spi2_slave, APB1R1, spi2en, spi2rst, pclk1),
+    SPI2: (spi2, spi2_slave, pclk1),
 }
 
 /*
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-pins!(SPI2, AF5,
+pins!(SPI2, 5,
     SCK: [PB13, PB10, PD1],
     MISO: [PB14, PC2, PD3],
     MOSI: [PB15, PC3, PD4]);
@@ -786,18 +798,15 @@ macro_rules! spi_dma {
 }
 
 spi_dma!(SPI1, dma1::C2, c2s, map1, dma1::C3, c3s, map1);
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(not(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    feature = "stm32l452",
+    feature = "stm32l462",
+)))]
 spi_dma!(SPI2, dma1::C4, c4s, map1, dma1::C5, c5s, map1);
 // spi_dma!(SPI1, dma2::C3, c3s, map4, dma2::C4, c4s, map4);
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
+#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
 spi_dma!(SPI3, dma2::C1, c1s, map3, dma2::C2, c2s, map3);

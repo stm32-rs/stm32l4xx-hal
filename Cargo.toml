@@ -21,11 +21,11 @@ exclude = [
 edition = "2018"
 
 [dependencies]
-cortex-m = "0.6.3"
+cortex-m = "0.7"
 nb = "0.1.1"
-stm32l4 = "0.13.0"
+stm32l4 = "0.14.0"
 embedded-dma = "0.1"
-bxcan = ">=0.4, <0.6"
+bxcan = ">=0.4, <0.7"
 
 [dependencies.rand_core]
 version = "0.6.2"
@@ -44,7 +44,7 @@ default-features = false
 version = "1.1"
 
 [dependencies.embedded-hal]
-version = "0.2.3"
+version = "0.2.6"
 features = ["unproven"]
 
 [dependencies.stm32-usbd]
@@ -57,32 +57,68 @@ features = ["cortex-m", "fs"]
 optional = true
 
 [package.metadata.docs.rs]
-features = ["rt", "stm32l4x2", "stm32-usbd"]
+features = ["rt", "stm32l432", "stm32-usbd"]
 
 [features]
 rt = ["stm32l4/rt"]
 unproven = ["embedded-hal/unproven"]
 otg_fs = ["synopsys-usb-otg"]
-# MCU selection features / feature gates. Every specific MCU also enables the appropriate fallback
-# feature so that we only have to check that one of the fallback features is enabled and the
-# examples are available for a broader range of MCUs.
-stm32l452 = ["stm32l4x2", "stm32l4/stm32l4x2"]
-# Fallback features
-stm32l4x1 = ["stm32l4/stm32l4x1"]
-stm32l4x2 = ["stm32l4/stm32l4x2"]
-stm32l4x3 = ["stm32l4/stm32l4x3"]
-stm32l4x5 = ["stm32l4/stm32l4x5"]
-stm32l4x6 = ["stm32l4/stm32l4x6"]
+
+# L4x1
+stm32l431 = [ "stm32l4/stm32l4x1" ]
+stm32l451 = [ "stm32l4/stm32l4x1" ]
+stm32l471 = [ "stm32l4/stm32l4x1" ]
+
+# L412
+stm32l412 = [ "stm32l4/stm32l412" ]
+stm32l422 = [ "stm32l4/stm32l412" ]
+
+# L4x2
+stm32l432 = [ "stm32l4/stm32l4x2" ]
+stm32l442 = [ "stm32l4/stm32l4x2" ]
+stm32l452 = [ "stm32l4/stm32l4x2" ]
+stm32l462 = [ "stm32l4/stm32l4x2" ]
+
+# L4x3
+stm32l433 = [ "stm32l4/stm32l4x3" ]
+stm32l443 = [ "stm32l4/stm32l4x3" ]
+
+# L4x5
+stm32l475 = [ "stm32l4/stm32l4x5" ]
+
+# L4x6
+stm32l476 = [ "stm32l4/stm32l4x6" ]
+stm32l486 = [ "stm32l4/stm32l4x6" ]
+stm32l496 = [ "stm32l4/stm32l4x6" ]
+stm32l4a6 = [ "stm32l4/stm32l4x6" ]
+
+# L4+ series PAC support??
+#stm32l4p5 = [ "stm32l4/stm32l4x5" ]
+#stm32l4q5 = [ "stm32l4/stm32l4x5" ]
+#stm32l4r5 = [ "stm32l4/stm32l4x5" ]
+#stm32l4s5 = [ "stm32l4/stm32l4x5" ]
+
+# L4x7
+#stm32l4r7 = [ "stm32l4/stm32l4x7" ]
+#stm32l4s7 = [ "stm32l4/stm32l4x7" ]
+
+## L4x9
+stm32l4r9 = [ "stm32l4/stm32l4r9" ] # PAC has an L4r9 specific variation
+stm32l4s9 = [ "stm32l4/stm32l4r9" ]
 
 [dev-dependencies]
 panic-halt = "0.2.0"
 panic-semihosting = "0.5.0"
 cortex-m-semihosting = "0.3.5"
-cortex-m-rt = "0.6.12"
+cortex-m-rt = "0.7"
 usb-device = "0.2.3"
 usbd-serial = "0.1.0"
 heapless = "0.5"
-cortex-m-rtic = "0.5.5"
+
+[dev-dependencies.cortex-m-rtic]
+version = "0.5.9"
+default-features = false
+features = ["cortex-m-7"]
 
 [dev-dependencies.panic-rtt-target]
 version  = "0.1.1"
@@ -104,11 +140,11 @@ lto = true
 
 [[example]]
 name = "adc"
-required-features = ["rt", "stm32l4x3"]
+required-features = ["rt"]
 
 [[example]]
 name = "can-loopback"
-required-features = ["rt", "stm32l4x1"]
+required-features = ["rt", "stm32l433" ] # CAN peripheral on ever series except L41/L42, gate so CI will pass
 
 [[example]]
 name = "irq_button"
@@ -116,7 +152,7 @@ required-features = ["rt"]
 
 [[example]]
 name = "qspi"
-required-features = ["rt", "stm32l4x5"]
+required-features = ["rt", "stm32l476"] # L433/43 have no QSPI peripheral and are highly likely to be used
 
 [[example]]
 name = "rng"
@@ -128,15 +164,15 @@ required-features = ["rt"]
 
 [[example]]
 name = "rtic_frame_serial_dma"
-required-features = ["rt", "stm32l4x2"]
+required-features = ["rt"]
 
 [[example]]
 name = "spi_dma_rxtx"
-required-features = ["rt", "stm32l4x2"]
+required-features = ["rt"]
 
 [[example]]
 name = "serial_echo_rtic"
-required-features = ["rt", "stm32l4x3"]
+required-features = ["rt"]
 
 [[example]]
 name = "timer"
@@ -144,20 +180,20 @@ required-features = ["rt"]
 
 [[example]]
 name = "usb_serial"
-required-features = ["rt", "stm32l4x2", "stm32-usbd"]
+required-features = ["rt", "stm32-usbd"]
 
 [[example]]
 name = "otg_fs_serial"
-required-features = ["rt", "stm32l4x6", "otg_fs"]
+required-features = ["rt", "otg_fs"]
 
 [[example]]
 name = "i2c_write"
-required-features = ["stm32l4x1"]
+required-features = ["stm32l433"]
 
 [[example]]
 name = "lptim_rtic"
-required-features = ["rt", "stm32l4x2"]
+required-features = ["rt"]
 
 [[example]]
 name = "adc_dma"
-required-features = ["rt", "stm32l4x1"]
+required-features = ["rt"]

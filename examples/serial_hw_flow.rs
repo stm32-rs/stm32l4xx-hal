@@ -1,7 +1,6 @@
 //! Test the serial interface
 //!
 //! This example requires you to short (connect) the TX and RX pins.
-#![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -48,21 +47,21 @@ fn main() -> ! {
     // let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
     let tx = gpioa
         .pa2
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
     // let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
     let rx = gpioa
         .pa3
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
 
     let rts = gpioa
         .pa1
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let cts = gpioa
         .pa0
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart2(
@@ -94,6 +93,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

@@ -16,7 +16,7 @@
 
 #![deny(missing_docs)]
 
-use crate::rcc;
+use crate::rcc::{self, Enable};
 use crate::stm32::CRC;
 use core::hash::Hasher;
 
@@ -29,7 +29,7 @@ pub trait CrcExt {
 impl CrcExt for CRC {
     fn constrain(self, ahb1: &mut rcc::AHB1) -> Config {
         // Enable power to CRC unit
-        ahb1.enr().modify(|_, w| w.crcen().set_bit());
+        CRC::enable(ahb1);
 
         // Default values
         Config {

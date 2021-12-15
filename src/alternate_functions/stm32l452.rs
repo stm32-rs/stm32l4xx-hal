@@ -1,8 +1,8 @@
 // TODO Not yet complete
 
 use super::*; // Traits: SckPin, SclPin, ...
-use crate::gpio::*; // Alternate Functions and Pins: AFx, PAx, PBx, ...
-use crate::pac::*; // Peripherals: I2C1, I2C2, ...
+//use crate::gpio::*; // Alternate Functions and Pins: AFx, PAx, PBx, ...
+//use crate::pac::*; // Peripherals: I2C1, I2C2, ...
 
 // stm32l452xx datasheet DS11912 Rev7 page 76
 af_table_af0af7! {
@@ -65,6 +65,27 @@ af_table_af8af15! {
 [ PB13 | _ |TscPin<1, 2>|       _       | _ | _ | _ | _ | _ ]
 [ PB14 | _ |TscPin<1, 3>|       _       | _ | _ | _ | _ | _ ]
 [ PB15 | _ |TscPin<1, 4>|       _       | _ | _ | _ | _ | _ ]
+}
+
+// stm32l452xx datasheet page 79, only serial to fix example
+af_table_af0af7! {
+//      AF0
+[ PD0  | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD1  | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD2  | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD3  | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD4  | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD5  | _ | _ | _ | _ | _ | _ | _ | TxPin<USART2> ]
+[ PD6  | _ | _ | _ | _ | _ | _ | _ | RxPin<USART2> ]
+[ PD7  | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD8  | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD9  | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD10 | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD11 | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD12 | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD13 | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD14 | _ | _ | _ | _ | _ | _ | _ |       _       ]
+[ PD15 | _ | _ | _ | _ | _ | _ | _ |       _       ]
 }
 
 // stm32l452xx datasheet page 86, only qspi

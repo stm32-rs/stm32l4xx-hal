@@ -1,7 +1,5 @@
 //! Blinks an LED
 
-#![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_std]
 #![no_main]
 
@@ -42,13 +40,13 @@ fn main() -> ! {
     let mut scl =
         gpioa
             .pa9
-            .into_af4_opendrain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+            .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
     scl.internal_pull_up(&mut gpioa.pupdr, true);
 
     let mut sda =
         gpioa
             .pa10
-            .into_af4_opendrain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+            .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
     sda.internal_pull_up(&mut gpioa.pupdr, true);
 
     let mut i2c = I2c::i2c1(
@@ -84,6 +82,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

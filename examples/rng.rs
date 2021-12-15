@@ -48,10 +48,10 @@ fn main() -> ! {
     let mut gpioa = device.GPIOA.split(&mut rcc.ahb2);
     let tx = gpioa
         .pa9
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
     let rx = gpioa
         .pa10
-        .into_af7_pushpull(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
 
     let baud_rate = 9_600; // 115_200;
     let serial = Serial::usart1(

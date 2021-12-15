@@ -9,7 +9,7 @@ extern crate panic_rtt_target;
 use rtt_target::rprintln;
 use stm32l4xx_hal::{
     flash::ACR,
-    gpio::{gpiob::PB13, Output, PushPull, State},
+    gpio::{gpiob::PB13, Output, PinState, PushPull},
     lptimer::{ClockSource, Event, LowPowerTimer, LowPowerTimerConfig, PreScaler},
     pac::LPTIM1,
     prelude::*,
@@ -49,10 +49,10 @@ const APP: () = {
         let clocks = configure_clock_tree(rcc.cfgr, &mut flash.acr, &mut pwr);
 
         // PB13 is a user led on Nucleo-L452-P board
-        let led = gpiob.pb13.into_push_pull_output_with_state(
+        let led = gpiob.pb13.into_push_pull_output_in_state(
             &mut gpiob.moder,
             &mut gpiob.otyper,
-            State::Low,
+            PinState::Low,
         );
         rprintln!("Clocks = {:#?}", clocks);
         let lptim_config = LowPowerTimerConfig::default()
@@ -77,11 +77,7 @@ const APP: () = {
             lptim.clear_event_flag(Event::AutoReloadMatch);
             rprintln!("LPTIM1 tick");
 
-            if led.is_set_high().unwrap() {
-                led.set_low().unwrap();
-            } else {
-                led.set_high().unwrap();
-            }
+            led.toggle();
         }
     }
 

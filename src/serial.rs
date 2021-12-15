@@ -19,10 +19,29 @@ use crate::dma::{
 };
 use crate::gpio::{AlternateOD, AlternatePP};
 use crate::pac;
-use crate::rcc::{Clocks, APB1R1, APB2};
+use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(
+    //feature = "stm32l451", // missing PAC support
+    // feature = "stm32l452", // missing PAC support
+    // feature = "stm32l462", // missing PAC support
+    // feature = "stm32l471", // missing PAC support
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 use crate::dma::dma2;
 
 /// Interrupt event
@@ -197,9 +216,6 @@ macro_rules! hal {
         $(#[$meta:meta])*
         $USARTX:ident: (
             $usartX:ident,
-            $APB:ident,
-            $usartXen:ident,
-            $usartXrst:ident,
             $pclkX:ident,
             tx: ($txdma:ident, $dmacst:ident, $dmatxch:path),
             rx: ($rxdma:ident, $dmacsr:ident, $dmarxch:path)
@@ -227,15 +243,14 @@ macro_rules! hal {
                     pins: PINS,
                     config: Config,
                     clocks: Clocks,
-                    apb: &mut $APB,
+                    apb: &mut <pac::$USARTX as RccBus>::Bus,
                 ) -> Self
                 where
                     PINS: Pins<pac::$USARTX>,
                 {
                     // enable or reset $USARTX
-                    apb.enr().modify(|_, w| w.$usartXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
+                    <pac::$USARTX>::enable(apb);
+                    <pac::$USARTX>::reset(apb);
 
                     // Reset other registers to disable advanced USART features
                     usart.cr1.reset();
@@ -827,28 +842,58 @@ macro_rules! hal {
 }
 
 hal! {
-    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (TxDma1, c4s, dma1::C4), rx: (RxDma1, c5s, dma1::C5)),
-    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (TxDma2, c7s, dma1::C7), rx: (RxDma2, c6s, dma1::C6)),
+    USART1: (usart1, pclk2, tx: (TxDma1, c4s, dma1::C4), rx: (RxDma1, c5s, dma1::C5)),
+    USART2: (usart2, pclk1, tx: (TxDma2, c7s, dma1::C7), rx: (RxDma2, c6s, dma1::C6)),
+}
+
+#[cfg(not(any(feature = "stm32l432", feature = "stm32l442")))]
+hal! {
+    USART3: (usart3, pclk1, tx: (TxDma3, c2s, dma1::C2), rx: (RxDma3, c3s, dma1::C3)),
 }
 
 #[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
+    // feature = "stm32l451", // missing PAC support
+    // feature = "stm32l452", // missing PAC support
+    // feature = "stm32l462", // missing PAC support
+    // feature = "stm32l471", // missing PAC support
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
 ))]
 hal! {
-    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (TxDma3, c2s, dma1::C2), rx: (RxDma3, c3s, dma1::C3)),
+    UART4: (uart4, pclk1, tx: (TxDma4, c3s, dma2::C3), rx: (RxDma4, c5s, dma2::C5)),
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(
+    // feature = "stm32l471", // missing PAC support
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 hal! {
-    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (TxDma4, c3s, dma2::C3), rx: (RxDma4, c5s, dma2::C5)),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-hal! {
-    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (TxDma5, c1s, dma2::C1), rx: (RxDma5, c2s, dma2::C2)),
+    UART5: (uart5, pclk1, tx: (TxDma5, c1s, dma2::C1), rx: (RxDma5, c2s, dma2::C2)),
 }
 
 impl<USART, PINS> fmt::Write for Serial<USART, PINS>
@@ -956,7 +1001,7 @@ macro_rules! impl_pin_traits {
         $(
             $instance:ident: {
                 $(
-                    $af:ident: {
+                    $af:literal: {
                         TX: $($tx:ident),*;
                         RX: $($rx:ident),*;
                         RTS_DE: $($rts_de:ident),*;
@@ -970,37 +1015,37 @@ macro_rules! impl_pin_traits {
             $(
                 $(
                     impl private::SealedTx for
-                        gpio::$tx<Alternate<gpio::$af, PushPull>> {}
+                        gpio::$tx<Alternate<PushPull, $af>> {}
                     impl TxPin<pac::$instance> for
-                        gpio::$tx<Alternate<gpio::$af, PushPull>> {}
+                        gpio::$tx<Alternate<PushPull, $af>> {}
                 )*
 
                 $(
                     impl private::SealedTxHalfDuplex for
-                        gpio::$tx<Alternate<gpio::$af, OpenDrain>> {}
+                        gpio::$tx<Alternate<OpenDrain, $af>> {}
                     impl TxHalfDuplexPin<pac::$instance> for
-                        gpio::$tx<Alternate<gpio::$af, OpenDrain>> {}
+                        gpio::$tx<Alternate<OpenDrain, $af>> {}
                 )*
 
                 $(
                     impl private::SealedRx for
-                        gpio::$rx<Alternate<gpio::$af, PushPull>> {}
+                        gpio::$rx<Alternate<PushPull, $af>> {}
                     impl RxPin<pac::$instance> for
-                        gpio::$rx<Alternate<gpio::$af, PushPull>> {}
+                        gpio::$rx<Alternate<PushPull, $af>> {}
                 )*
 
                 $(
                     impl private::SealedRtsDe for
-                        gpio::$rts_de<Alternate<gpio::$af, PushPull>> {}
+                        gpio::$rts_de<Alternate<PushPull, $af>> {}
                     impl RtsDePin<pac::$instance> for
-                        gpio::$rts_de<Alternate<gpio::$af, PushPull>> {}
+                        gpio::$rts_de<Alternate<PushPull, $af>> {}
                 )*
 
                 $(
                     impl private::SealedCts for
-                        gpio::$cts<Alternate<gpio::$af, PushPull>> {}
+                        gpio::$cts<Alternate<PushPull, $af>> {}
                     impl CtsPin<pac::$instance> for
-                        gpio::$cts<Alternate<gpio::$af, PushPull>> {}
+                        gpio::$cts<Alternate<PushPull, $af>> {}
                 )*
             )*
         )*
@@ -1009,7 +1054,7 @@ macro_rules! impl_pin_traits {
 
 impl_pin_traits! {
     USART1: {
-        AF7: {
+        7: {
             TX: PA9, PB6;
             RX: PA10, PB7;
             RTS_DE: PA12, PB3;
@@ -1017,30 +1062,21 @@ impl_pin_traits! {
         }
     }
     USART2: {
-        AF7: {
+        7: {
             TX: PA2, PD5;
             RX: PA3, PD6;
             RTS_DE: PA1, PD4;
             CTS: PA0, PD3;
         }
-        AF3: {
+        3: {
             TX: ;
             RX: PA15;
             RTS_DE: ;
             CTS: ;
         }
     }
-}
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-impl_pin_traits! {
     USART3: {
-        AF7: {
+        7: {
             TX: PB10, PC4, PC10, PD8;
             RX: PB11, PC5, PC11, PD9;
             RTS_DE: PB1, PB14, PD2, PD12;
@@ -1049,18 +1085,57 @@ impl_pin_traits! {
     }
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(
+    // feature = "stm32l451",
+    // feature = "stm32l452",
+    // feature = "stm32l462",
+    // feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 impl_pin_traits! {
     UART4: {
-        AF8: {
+        8: {
             TX: PA0, PC10;
             RX: PA1, PC11;
             RTS_DE: PA15;
             CTS: PB7;
         }
     }
+}
+
+#[cfg(any(
+    // feature = "stm32l471", ,, missing PAC support
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
+impl_pin_traits! {
     UART5: {
-        AF8: {
+        8: {
             TX: PC12;
             RX: PD2;
             RTS_DE: PB4;
