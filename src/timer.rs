@@ -252,7 +252,7 @@ macro_rules! hal {
                     let cnt = unsafe { (*$TIM::ptr()).cnt.read() };
                     cnt.cnt().bits()
                 }
-                
+
                 // not able to select compilation for timers which support this feature
                 // pub fn set_mms(&mut self, mms_val: u8) {
                 //     // see chapter 27.4.2 in reference manual RM0394

@@ -611,6 +611,21 @@ impl ADC {
         self.adc.ier.modify(|_, w| w.jeosie().clear_bit()); // end of sequence interupt disable
     }
 
+    pub fn get_injected_jdr(&mut self, jdrx: u8) -> u16 {
+        match jdrx {
+            1 => self.adc.jdr1.read().jdata1().bits() as u16,
+            2 => self.adc.jdr2.read().jdata2().bits() as u16,
+            3 => self.adc.jdr3.read().jdata3().bits() as u16,
+            4 => self.adc.jdr4.read().jdata4().bits() as u16,
+            _ => 0xffff as u16,
+        }
+    }
+
+    /// clear jeos interrupt flag
+    pub fn set_jeos(&mut self) {
+        self.adc.isr.modify(|_, w| w.jeos().set_bit());
+    }
+
     /// Oversampling of adc according to datasheet of stm32g0, when oversampling is enabled
     /// 000: 2x
     /// 001: 4x
