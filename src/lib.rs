@@ -204,3 +204,5 @@ mod sealed {
     pub trait Sealed {}
 }
 pub(crate) use sealed::Sealed;
+
+pub(crate) mod feature;
