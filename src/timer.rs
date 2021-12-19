@@ -25,14 +25,10 @@ use crate::hal::timer::{CountDown, Periodic};
 ))]
 use crate::stm32::TIM3;
 */
-#[cfg(not(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l451",
-    feature = "stm32l452",
-    feature = "stm32l462",
-)))]
-use crate::stm32::TIM7;
+crate::feature::if_tim7! (present:
+    use crate::stm32::TIM7;
+);
+
 use crate::stm32::{TIM15, TIM16, TIM2, TIM6};
 #[cfg(any(
     // feature = "stm32l471", // missing PAC support
@@ -300,16 +296,11 @@ hal! {
 }
 */
 
-#[cfg(not(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l451",
-    feature = "stm32l452",
-    feature = "stm32l462",
-)))]
-hal! {
-    TIM7:  (tim7, free_running_tim7, APB1R1, u16),
-}
+crate::feature::if_tim7!(
+    present: hal! {
+        TIM7:  (tim7, free_running_tim7, APB1R1, u16),
+    }
+);
 
 #[cfg(any(
     feature = "stm32l475",
