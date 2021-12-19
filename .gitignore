@@ -1,4 +1,4 @@
-/target
+target/
 **/*.rs.bk
 Cargo.lock
 
@@ -7,4 +7,4 @@ Cargo.lock
 /logs
 
 # Visual Studio Code
-/.vscode
+.vscode/
