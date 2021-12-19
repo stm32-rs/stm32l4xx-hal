@@ -18,9 +18,55 @@ macro_rules! if_adc2 {
             feature = "stm32l4r9",
             feature = "stm32l4s9",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l471",
+            feature = "stm32l475",
+            feature = "stm32l476",
+            feature = "stm32l486",
+            feature = "stm32l496",
+            feature = "stm32l4a6",
+            feature = "stm32l4p5",
+            feature = "stm32l4q5",
+            feature = "stm32l4r5",
+            feature = "stm32l4s5",
+            feature = "stm32l4r7",
+            feature = "stm32l4s7",
+            feature = "stm32l4r9",
+            feature = "stm32l4s9",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l471",
+            feature = "stm32l475",
+            feature = "stm32l476",
+            feature = "stm32l486",
+            feature = "stm32l496",
+            feature = "stm32l4a6",
+            feature = "stm32l4p5",
+            feature = "stm32l4q5",
+            feature = "stm32l4r5",
+            feature = "stm32l4s5",
+            feature = "stm32l4r7",
+            feature = "stm32l4s7",
+            feature = "stm32l4r9",
+            feature = "stm32l4s9",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l412",
             feature = "stm32l422",
@@ -62,9 +108,51 @@ macro_rules! if_adc3 {
             feature = "stm32l4r9",
             feature = "stm32l4s9",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l471",
+            feature = "stm32l475",
+            feature = "stm32l476",
+            feature = "stm32l486",
+            feature = "stm32l496",
+            feature = "stm32l4a6",
+            feature = "stm32l4p5",
+            feature = "stm32l4q5",
+            feature = "stm32l4r5",
+            feature = "stm32l4s5",
+            feature = "stm32l4r7",
+            feature = "stm32l4s7",
+            feature = "stm32l4r9",
+            feature = "stm32l4s9",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l471",
+            feature = "stm32l475",
+            feature = "stm32l476",
+            feature = "stm32l486",
+            feature = "stm32l496",
+            feature = "stm32l4a6",
+            feature = "stm32l4p5",
+            feature = "stm32l4q5",
+            feature = "stm32l4r5",
+            feature = "stm32l4s5",
+            feature = "stm32l4r7",
+            feature = "stm32l4s7",
+            feature = "stm32l4r9",
+            feature = "stm32l4s9",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l471",
             feature = "stm32l475",
@@ -98,9 +186,39 @@ macro_rules! if_dac1 {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l432",
@@ -128,9 +246,39 @@ macro_rules! if_comp1 {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l432",
@@ -158,9 +306,39 @@ macro_rules! if_comp2 {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l432",
@@ -178,19 +356,23 @@ pub(crate) use if_comp2;
 
 macro_rules! if_dfsdm1 {
     (present: $ex:expr) => {
-        #[cfg(any(
-            feature = "stm32l451",
-            feature = "stm32l452",
-            feature = "stm32l462",
-        ))]
-        $ex
+        #[cfg(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",))]
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
-        #[cfg(not(any(
-            feature = "stm32l451",
-            feature = "stm32l452",
-            feature = "stm32l462",
-        )))]
+        #[cfg(not(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",)))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",))]
+        $ex
+    };
+    (absent: $ex:item) => {
+        #[cfg(not(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",)))]
         $ex
     };
 }
@@ -198,17 +380,23 @@ pub(crate) use if_dfsdm1;
 
 macro_rules! if_lcd {
     (present: $ex:expr) => {
-        #[cfg(any(
-            feature = "stm32l433",
-            feature = "stm32l443",
-        ))]
-        $ex
+        #[cfg(any(feature = "stm32l433", feature = "stm32l443",))]
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
-        #[cfg(not(any(
-            feature = "stm32l433",
-            feature = "stm32l443",
-        )))]
+        #[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(feature = "stm32l433", feature = "stm32l443",))]
+        $ex
+    };
+    (absent: $ex:item) => {
+        #[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
         $ex
     };
 }
@@ -222,9 +410,31 @@ macro_rules! if_aes {
             feature = "stm32l443",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l422",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l422",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l422",
             feature = "stm32l442",
@@ -238,19 +448,23 @@ pub(crate) use if_aes;
 
 macro_rules! if_tim3 {
     (present: $ex:expr) => {
-        #[cfg(any(
-            feature = "stm32l451",
-            feature = "stm32l452",
-            feature = "stm32l462",
-        ))]
-        $ex
+        #[cfg(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",))]
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
-        #[cfg(not(any(
-            feature = "stm32l451",
-            feature = "stm32l452",
-            feature = "stm32l462",
-        )))]
+        #[cfg(not(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",)))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",))]
+        $ex
+    };
+    (absent: $ex:item) => {
+        #[cfg(not(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",)))]
         $ex
     };
 }
@@ -265,9 +479,33 @@ macro_rules! if_tim7 {
             feature = "stm32l442",
             feature = "stm32l443",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l432",
@@ -292,9 +530,39 @@ macro_rules! if_i2c3 {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l431",
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l431",
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l412",
             feature = "stm32l422",
@@ -312,19 +580,23 @@ pub(crate) use if_i2c3;
 
 macro_rules! if_i2c4 {
     (present: $ex:expr) => {
-        #[cfg(any(
-            feature = "stm32l451",
-            feature = "stm32l452",
-            feature = "stm32l462",
-        ))]
-        $ex
+        #[cfg(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",))]
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
-        #[cfg(not(any(
-            feature = "stm32l451",
-            feature = "stm32l452",
-            feature = "stm32l462",
-        )))]
+        #[cfg(not(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",)))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",))]
+        $ex
+    };
+    (absent: $ex:item) => {
+        #[cfg(not(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",)))]
         $ex
     };
 }
@@ -342,9 +614,39 @@ macro_rules! if_usart3 {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l431",
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l431",
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l412",
             feature = "stm32l422",
@@ -362,19 +664,23 @@ pub(crate) use if_usart3;
 
 macro_rules! if_uart4 {
     (present: $ex:expr) => {
-        #[cfg(any(
-            feature = "stm32l451",
-            feature = "stm32l452",
-            feature = "stm32l462",
-        ))]
-        $ex
+        #[cfg(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",))]
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
-        #[cfg(not(any(
-            feature = "stm32l451",
-            feature = "stm32l452",
-            feature = "stm32l462",
-        )))]
+        #[cfg(not(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",)))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",))]
+        $ex
+    };
+    (absent: $ex:item) => {
+        #[cfg(not(any(feature = "stm32l451", feature = "stm32l452", feature = "stm32l462",)))]
         $ex
     };
 }
@@ -392,9 +698,39 @@ macro_rules! if_spi2 {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l431",
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l431",
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l412",
             feature = "stm32l422",
@@ -422,9 +758,39 @@ macro_rules! if_spi3 {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l432",
@@ -452,9 +818,39 @@ macro_rules! if_sai {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l432",
@@ -479,9 +875,33 @@ macro_rules! if_swpmi1 {
             feature = "stm32l442",
             feature = "stm32l443",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l432",
@@ -504,9 +924,35 @@ macro_rules! if_sdmmc {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l433",
@@ -532,9 +978,39 @@ macro_rules! if_usb_fs {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l412",
+            feature = "stm32l422",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l412",
             feature = "stm32l422",
@@ -562,9 +1038,39 @@ macro_rules! if_can1 {
             feature = "stm32l452",
             feature = "stm32l462",
         ))]
-        $ex
+        {
+            $ex
+        }
     };
     (absent: $ex:expr) => {
+        #[cfg(not(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        )))]
+        {
+            $ex
+        }
+    };
+    (present: $ex:item) => {
+        #[cfg(any(
+            feature = "stm32l431",
+            feature = "stm32l432",
+            feature = "stm32l433",
+            feature = "stm32l442",
+            feature = "stm32l443",
+            feature = "stm32l451",
+            feature = "stm32l452",
+            feature = "stm32l462",
+        ))]
+        $ex
+    };
+    (absent: $ex:item) => {
         #[cfg(not(any(
             feature = "stm32l431",
             feature = "stm32l432",
@@ -579,4 +1085,3 @@ macro_rules! if_can1 {
     };
 }
 pub(crate) use if_can1;
-

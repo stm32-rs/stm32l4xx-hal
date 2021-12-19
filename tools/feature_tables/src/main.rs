@@ -5,7 +5,7 @@ use std::{fs, path::Path};
 
 fn main() {
     let out_dir = "out";
-    fs::create_dir(out_dir).unwrap();
+    fs::create_dir(out_dir).ok();
     let dest_path = Path::new(&out_dir).join("peripherals.rs");
     write_peripherals(&dest_path);
 }
@@ -110,62 +110,36 @@ fn write_peripherals(dest_file: &Path) {
 }
 
 fn write_macro(append_to: &mut String, name: &str, features: &[&str]) {
-    let tab_1 = str::repeat(" ", 4);
-    let tab_2 = str::repeat(" ", 8);
-    let tab_3 = str::repeat(" ", 12);
     let feature_list = features.iter().fold(String::new(), |mut curr, &s| {
-        curr.push_str(&format!("{}feature = {:?},\n", tab_3, s));
+        curr.push_str(&format!("feature = {:?},\n", s));
         curr
     });
 
     append_to.push_str(&format!("macro_rules! {} {{\n", name));
-    // present
-    append_to.push_str(&format!("{}(present: $ex:expr) => {{\n", tab_1));
-    append_to.push_str(&format!(
-        "{}#[cfg(any(\n{}{}))]\n",
-        tab_2, feature_list, tab_2
-    ));
-    append_to.push_str(&format!("{}$ex\n", tab_2));
-    append_to.push_str(&format!("{}}};\n", tab_1));
-    // absent
-    append_to.push_str(&format!("{}(absent: $ex:expr) => {{\n", tab_1));
-    append_to.push_str(&format!(
-        "{}#[cfg(not(any(\n{}{})))]\n",
-        tab_2, feature_list, tab_2
-    ));
-    append_to.push_str(&format!("{}$ex\n", tab_2));
-    append_to.push_str(&format!("{}}};\n", tab_1));
+
+    for frag_spac in ["expr", "item"] {
+        // present:
+        append_to.push_str(&format!("(present: $ex:{}) => {{\n", frag_spac));
+        append_to.push_str(&format!("#[cfg(any(\n{}))]\n", feature_list));
+        if frag_spac == "expr" {
+            // wrap expressions in a block to avoid multi-line issues
+            append_to.push_str(&format!("{{ $ex }}\n"));
+        } else {
+            append_to.push_str(&format!("$ex\n"));
+        }
+        append_to.push_str(&format!("}};\n"));
+        // absent:
+        append_to.push_str(&format!("(absent: $ex:{}) => {{\n", frag_spac));
+        append_to.push_str(&format!("#[cfg(not(any(\n{})))]\n", feature_list));
+        if frag_spac == "expr" {
+            // wrap expressions in a block to avoid multi-line issues
+            append_to.push_str(&format!("{{ $ex }}\n"));
+        } else {
+            append_to.push_str(&format!("$ex\n"));
+        }
+        append_to.push_str(&format!("}};\n"));
+    }
     // footer
     append_to.push_str("}\n");
     append_to.push_str(&format!("pub(crate) use {};\n\n", name));
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_write_macro() {
-        let target = r#"macro_rules! is_l471 {
-    (present: $ex:expr) => {
-        #[cfg(any(
-            feature = "stm32l471",
-        ))]
-        $ex
-    };
-    (absent: $ex:expr) => {
-        #[cfg(not(any(
-            feature = "stm32l471",
-        )))]
-        $ex
-    };
-}
-pub(crate) use is_l471;
-
-"#; // note the two trailing newlines
-        let mut out = String::new();
-        write_macro(&mut out, "is_l471", &["stm32l471"]);
-        print!("{}", out);
-        assert_eq!(out, target);
-    }
 }
