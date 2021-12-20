@@ -197,3 +197,11 @@ required-features = ["rt"]
 [[example]]
 name = "adc_dma"
 required-features = ["rt"]
+
+[[example]]
+name = "adc_timer2_dma_seq"
+required-features = ["rt", "stm32l476"]
+
+[[example]]
+name = "adc_injectedsequence"
+required-features = ["rt", "stm32l476"]

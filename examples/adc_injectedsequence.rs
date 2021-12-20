@@ -3,21 +3,18 @@
 
 extern crate stm32l4;
 
-use cortex_m::peripheral::NVIC;
 use panic_rtt_target as _;
 use rtt_target::{rprintln, rtt_init_print};
 use stm32l4xx_hal::{
-    adc::{DmaMode, Jsequence, SampleTime, ADC},
+    adc::{Jsequence, SampleTime, ADC},
     delay::DelayCM,
-    dma::{dma1, RxDma, Transfer, W},
     prelude::*,
     time::Hertz,
-    timer::{Event, Timer},
+    timer::{Timer},
+    pac::TIM2,
 };
 
 use rtic::app;
-
-const SEQUENCE_LEN: usize = 4;
 
 #[app(device = stm32l4xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
 const APP: () = {
@@ -29,14 +26,6 @@ const APP: () = {
 
     #[init]
     fn init(cx: init::Context) -> init::LateResources {
-        let MEMORY2 = {
-            static mut MEMORY2: [u16; SEQUENCE_LEN] = [0u16; SEQUENCE_LEN];
-            unsafe { &mut MEMORY2 }
-        };
-        let MEMORY = {
-            static mut MEMORY: [u16; SEQUENCE_LEN] = [0u16; SEQUENCE_LEN];
-            unsafe { &mut MEMORY }
-        };
 
         rtt_init_print!();
 
@@ -54,7 +43,6 @@ const APP: () = {
         let mut rcc = pac.RCC.constrain();
         let mut flash = pac.FLASH.constrain();
         let mut pwr = pac.PWR.constrain(&mut rcc.apb1r1);
-        let dma_channels = pac.DMA1.split(&mut rcc.ahb1);
 
         //
         // Initialize the clocks
@@ -79,10 +67,6 @@ const APP: () = {
         let mut gpioc = pac.GPIOC.split(&mut rcc.ahb2);
         let mut pc0 = gpioc.pc0.into_analog(&mut gpioc.moder, &mut gpioc.pupdr);
 
-        let dma1_channel = dma_channels.1;
-        // let adc_buffer1_addr: u32 = MEMORY.as_ptr() as u32;
-        let adc_buffer1_addr = MEMORY.as_ptr();
-
         adc.configure_jsequence(&mut temp_pin, Jsequence::One, SampleTime::Cycles247_5);
         adc.configure_jsequence(&mut pc0, Jsequence::Two, SampleTime::Cycles247_5);
         adc.configure_jsequence(&mut temp_pin, Jsequence::Three, SampleTime::Cycles640_5);
@@ -97,15 +81,14 @@ const APP: () = {
         adc.set_inject_channel(2 as u8, 1 as u8);
 
         adc.start_injected_sequence();
-        rprintln!("Hello from init! 2");
 
         // start the timer
-        let mut timer = Timer::tim2(pac.TIM2, 1.hz(), clocks, &mut rcc.apb1r1);
+        let mut _timer = Timer::tim2(pac.TIM2, 1.hz(), clocks, &mut rcc.apb1r1);
 
         // Set timer output to trigger signal to ADC for start of sampling sequence
         unsafe {
             // get pointer of timer 2
-            let tim = &(*stm32l4::stm32l4x6::TIM2::ptr());
+            let tim = &(*TIM2::ptr());
             // config master mode selection to TRGO to Compare Pulse of timer2
             tim.cr2.modify(|_, w| w.mms().bits(3 as u8));
             tim.dier.write(|w| w.ude().set_bit());
@@ -125,19 +108,18 @@ const APP: () = {
     // injected data registers
     #[task(binds = ADC1_2, resources = [adc] )]
     fn adc1_irg(cx: adc1_irg::Context) {
-        unsafe {
-            let adc1 = cx.resources.adc;
 
-            let jdr1_val = adc1.get_injected_jdr(1 as u8);
-            let jdr2_val = adc1.get_injected_jdr(2 as u8);
-            let jdr3_val = adc1.get_injected_jdr(3 as u8);
-            let jdr4_val = adc1.get_injected_jdr(4 as u8);
-            rprintln!("jdr1: {}", jdr1_val);
-            rprintln!("jdr2: {}", jdr2_val);
-            rprintln!("jdr3: {}", jdr3_val);
-            rprintln!("jdr4: {}", jdr4_val);
+        let adc1 = cx.resources.adc;
 
-            adc1.set_jeos();
-        }
+        let jdr1_val = adc1.get_injected_jdr(1 as u8);
+        let jdr2_val = adc1.get_injected_jdr(2 as u8);
+        let jdr3_val = adc1.get_injected_jdr(3 as u8);
+        let jdr4_val = adc1.get_injected_jdr(4 as u8);
+        rprintln!("jdr1: {}", jdr1_val);
+        rprintln!("jdr2: {}", jdr2_val);
+        rprintln!("jdr3: {}", jdr3_val);
+        rprintln!("jdr4: {}", jdr4_val);
+
+        adc1.set_jeos();
     }
 };

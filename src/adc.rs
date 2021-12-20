@@ -511,52 +511,56 @@ impl ADC {
         self.adc.cr.modify(|_, w| w.addis().set_bit());
     }
 
+    /// channels for external triggers
+    /// TIM1_CH1     0b0000
+    /// TIM1_CH2     0b0001
+    /// TIM1_CH3     0b0010
+    /// TIM2_CH2     0b0011
+    /// TIM3_TRGO    0b0100  (not on all chips available)
+    /// EXTI line 11 0b0110
+    /// TIM8_TRGO    0b0111
+    /// TIM8_TRGO2   0b1000
+    /// TIM1_TRGO    0b1001
+    /// TIM1_TRGO2   0b1010
+    /// TIM2_TRGO    0b1011
+    /// TIM4_TRGO    0b1100
+    /// TIM6_TRGO    0b1101
+    /// TIM15_TRGO   0b1110
+    /// TIM3_CH4     0b1111
+    /// these bits are only allowed to be set, when ADC is disabled
+    /// set edge of injected trigger by timers
+    /// None              0b00
+    /// Positive edge     0b01
+    /// Negative edge     0b10
+    /// both edges        0b11
     pub fn set_external_trigger(&mut self, ch: u8, edge: u8) {
-        /// channels for external triggers
-        /// TIM1_CH1     0b0000
-        /// TIM1_CH2     0b0001
-        /// TIM1_CH3     0b0010
-        /// TIM2_CH2     0b0011
-        /// TIM3_TRGO    0b0100  (not on all chips available)
-        /// EXTI line 11 0b0110
-        /// TIM8_TRGO    0b0111
-        /// TIM8_TRGO2   0b1000
-        /// TIM1_TRGO    0b1001
-        /// TIM1_TRGO2   0b1010
-        /// TIM2_TRGO    0b1011
-        /// TIM4_TRGO    0b1100
-        /// TIM6_TRGO    0b1101
-        /// TIM15_TRGO   0b1110
-        /// TIM3_CH4     0b1111
-        /// these bits are only allowed to be set, when ADC is disabled
+        
         if self.adc.cr.read().adstart().bit_is_clear() {
             self.adc.cfgr.modify(|_, w| unsafe { w.extsel().bits(ch) });
-            /// set edge of injected trigger by timers
-            /// None              0b00
-            /// Positive edge     0b01
-            /// Negative edge     0b10
-            /// both edges        0b11
+            
             self.adc.cfgr.modify(|_, w| unsafe { w.exten().bits(edge) }); // 1 as u8
         }
     }
 
+    /// channels for injection Transmitter
+    /// TIM1_TRGO       0b0000
+    /// TIM1_CH4        0b0001
+    /// TIM2_TRGO       0b0010
+    /// TIM2_CH1        0b0011
+    /// TIM3_CH4        0b0100  (not on all chips available)
+    /// EXTI line 15    0b0110
+    /// TIM1_TRGO2      0b1000
+    /// TIM6_TRGO       0b1110
+    /// TIM15_TRGO      0b1111
+    /// set edge of injected trigger by timers
+    /// None              0b00
+    /// Positive edge     0b01
+    /// Negative edge     0b10
+    /// both edges        0b11
     pub fn set_inject_channel(&mut self, ch: u8, edge: u8) {
-        /// channels for injection Transmitter
-        /// TIM1_TRGO       0b0000
-        /// TIM1_CH4        0b0001
-        /// TIM2_TRGO       0b0010
-        /// TIM2_CH1        0b0011
-        /// TIM3_CH4        0b0100  (not on all chips available)
-        /// EXTI line 15    0b0110
-        /// TIM1_TRGO2      0b1000
-        /// TIM6_TRGO       0b1110
-        /// TIM15_TRGO      0b1111
+        
         self.adc.jsqr.modify(|_, w| unsafe { w.jextsel().bits(ch) });
-        /// set edge of injected trigger by timers
-        /// None              0b00
-        /// Positive edge     0b01
-        /// Negative edge     0b10
-        /// both edges        0b11
+       
         self.adc
             .jsqr
             .modify(|_, w| unsafe { w.jexten().bits(edge) }); // 1 as u8
