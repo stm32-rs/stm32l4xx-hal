@@ -236,11 +236,11 @@ pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
     },
     FeatureGate {
         name: "uart4",
-        state: IS_FEATURE_ENABLED_L451
-            || IS_FEATURE_ENABLED_L452
-            || IS_FEATURE_ENABLED_L462
-            || IS_FEATURE_ENABLED_L471
-            || IS_FEATURE_ENABLED_L475
+        state: //IS_FEATURE_ENABLED_L451 -- missing PAC support
+            //|| IS_FEATURE_ENABLED_L452 -- missing PAC support
+            //|| IS_FEATURE_ENABLED_L462 -- missing PAC support
+            //|| IS_FEATURE_ENABLED_L471 -- missing PAC support
+             IS_FEATURE_ENABLED_L475
             || IS_FEATURE_ENABLED_L476
             || IS_FEATURE_ENABLED_L485
             || IS_FEATURE_ENABLED_L486
@@ -257,8 +257,8 @@ pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
     },
     FeatureGate {
         name: "uart5",
-        state: IS_FEATURE_ENABLED_L471
-            || IS_FEATURE_ENABLED_L475
+        state: //IS_FEATURE_ENABLED_L471 -- missing PAC support
+             IS_FEATURE_ENABLED_L475
             || IS_FEATURE_ENABLED_L476
             || IS_FEATURE_ENABLED_L485
             || IS_FEATURE_ENABLED_L486
