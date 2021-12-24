@@ -339,4 +339,11 @@ pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
         name: "can1",
         state: !(IS_FEATURE_ENABLED_L412 || IS_FEATURE_ENABLED_L422),
     },
+    FeatureGate {
+        name: "rtc_type3",
+        state: IS_FEATURE_ENABLED_L412
+            || IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5,
+    },
 ];
