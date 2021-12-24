@@ -3,7 +3,7 @@ use crate::features::*;
 pub(crate) mod features;
 pub(crate) mod peripherals;
 
-pub(crate) fn feature_validate() -> bool {
+fn feature_validate() -> bool {
     const DEVICE_FEATURES: &[bool] = &[
         IS_FEATURE_ENABLED_L412,
         IS_FEATURE_ENABLED_L422,
@@ -48,4 +48,15 @@ This crate requires exactly one of the following features to be enabled:
 "
         );
     }
+
+    for gate in peripherals::PERIPHERAL_FEATURES {
+        if gate.state {
+            println!(r#"cargo:rustc-cfg=condition="peripheral_{}""#, gate.name);
+        }
+    }
+}
+
+pub(crate) struct FeatureGate<'a> {
+    pub name: &'a str,
+    pub state: bool,
 }

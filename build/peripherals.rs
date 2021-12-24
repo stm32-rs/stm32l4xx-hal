@@ -1,205 +1,208 @@
-use crate::features::*;
+use crate::{features::*, FeatureGate};
 
-const HAS_ADC2: &[bool] = &[
-    IS_FEATURE_ENABLED_L412,
-    IS_FEATURE_ENABLED_L422,
-    IS_FEATURE_ENABLED_L471,
-    IS_FEATURE_ENABLED_L475,
-    IS_FEATURE_ENABLED_L476,
-    IS_FEATURE_ENABLED_L486,
-    IS_FEATURE_ENABLED_L496,
-    IS_FEATURE_ENABLED_L4A6,
-    IS_FEATURE_ENABLED_L4P5,
-    IS_FEATURE_ENABLED_L4Q5,
-    IS_FEATURE_ENABLED_L4R5,
-    IS_FEATURE_ENABLED_L4S5,
-    IS_FEATURE_ENABLED_L4R7,
-    IS_FEATURE_ENABLED_L4S7,
-    IS_FEATURE_ENABLED_L4R9,
-    IS_FEATURE_ENABLED_L4S9,
-];
-
-const HAS_ADC3: &[bool] = &[
-    IS_FEATURE_ENABLED_L471,
-    IS_FEATURE_ENABLED_L475,
-    IS_FEATURE_ENABLED_L476,
-    IS_FEATURE_ENABLED_L486,
-    IS_FEATURE_ENABLED_L496,
-    IS_FEATURE_ENABLED_L4A6,
-    IS_FEATURE_ENABLED_L4P5,
-    IS_FEATURE_ENABLED_L4Q5,
-    IS_FEATURE_ENABLED_L4R5,
-    IS_FEATURE_ENABLED_L4S5,
-    IS_FEATURE_ENABLED_L4R7,
-    IS_FEATURE_ENABLED_L4S7,
-    IS_FEATURE_ENABLED_L4R9,
-    IS_FEATURE_ENABLED_L4S9,
-];
-
-const HAS_DAC1: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_COMP1: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_COMP2: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_DFSDM1: &[bool] = &[
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_LCD: &[bool] = &[IS_FEATURE_ENABLED_L433, IS_FEATURE_ENABLED_L443];
-
-const HAS_AES: &[bool] = &[
-    IS_FEATURE_ENABLED_L422,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_TIM3: &[bool] = &[
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_TIM7: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-];
-
-const HAS_I2C2: &[bool] = &[
-    IS_FEATURE_ENABLED_L412,
-    IS_FEATURE_ENABLED_L422,
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_I2C4: &[bool] = &[
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_USART3: &[bool] = &[
-    IS_FEATURE_ENABLED_L412,
-    IS_FEATURE_ENABLED_L422,
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_UART4: &[bool] = &[
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_SPI2: &[bool] = &[
-    IS_FEATURE_ENABLED_L412,
-    IS_FEATURE_ENABLED_L422,
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_SPI3: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_SAI: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_SWPMI1: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-];
-
-const HAS_SDMMC: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_USB_FS: &[bool] = &[
-    IS_FEATURE_ENABLED_L412,
-    IS_FEATURE_ENABLED_L422,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
-];
-
-const HAS_CAN1: &[bool] = &[
-    IS_FEATURE_ENABLED_L431,
-    IS_FEATURE_ENABLED_L432,
-    IS_FEATURE_ENABLED_L433,
-    IS_FEATURE_ENABLED_L442,
-    IS_FEATURE_ENABLED_L443,
-    IS_FEATURE_ENABLED_L451,
-    IS_FEATURE_ENABLED_L452,
-    IS_FEATURE_ENABLED_L462,
+/// list of peripherals to be gated and whether they are present for the selected features
+/// they can then be checked in the library using
+///
+/// ```Rust
+/// #[cfg(condition = peripheral_<name>)]
+/// ```
+pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
+    FeatureGate {
+        name: "adc2",
+        state: IS_FEATURE_ENABLED_L412
+            || IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L471
+            || IS_FEATURE_ENABLED_L475
+            || IS_FEATURE_ENABLED_L476
+            || IS_FEATURE_ENABLED_L486
+            || IS_FEATURE_ENABLED_L496
+            || IS_FEATURE_ENABLED_L4A6
+            || IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5
+            || IS_FEATURE_ENABLED_L4R5
+            || IS_FEATURE_ENABLED_L4S5
+            || IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S9,
+    },
+    FeatureGate {
+        name: "adc3",
+        state: IS_FEATURE_ENABLED_L471
+            || IS_FEATURE_ENABLED_L475
+            || IS_FEATURE_ENABLED_L476
+            || IS_FEATURE_ENABLED_L486
+            || IS_FEATURE_ENABLED_L496
+            || IS_FEATURE_ENABLED_L4A6
+            || IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5
+            || IS_FEATURE_ENABLED_L4R5
+            || IS_FEATURE_ENABLED_L4S5
+            || IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S9,
+    },
+    FeatureGate {
+        name: "dac1",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "comp1",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "comp2",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "dfsdm1",
+        state: IS_FEATURE_ENABLED_L451 || IS_FEATURE_ENABLED_L452 || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "lcd",
+        state: IS_FEATURE_ENABLED_L433 || IS_FEATURE_ENABLED_L443,
+    },
+    FeatureGate {
+        name: "aes",
+        state: IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "tim3",
+        state: IS_FEATURE_ENABLED_L451 || IS_FEATURE_ENABLED_L452 || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "tim7",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443,
+    },
+    FeatureGate {
+        name: "i2c2",
+        state: IS_FEATURE_ENABLED_L412
+            || IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "i2c4",
+        state: IS_FEATURE_ENABLED_L451 || IS_FEATURE_ENABLED_L452 || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "usart3",
+        state: IS_FEATURE_ENABLED_L412
+            || IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "uart4",
+        state: IS_FEATURE_ENABLED_L451 || IS_FEATURE_ENABLED_L452 || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "spi2",
+        state: IS_FEATURE_ENABLED_L412
+            || IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "spi3",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "sai",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "swpmi1",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443,
+    },
+    FeatureGate {
+        name: "sdmmc",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "usb_fs",
+        state: IS_FEATURE_ENABLED_L412
+            || IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
+    FeatureGate {
+        name: "can1",
+        state: IS_FEATURE_ENABLED_L431
+            || IS_FEATURE_ENABLED_L432
+            || IS_FEATURE_ENABLED_L433
+            || IS_FEATURE_ENABLED_L442
+            || IS_FEATURE_ENABLED_L443
+            || IS_FEATURE_ENABLED_L451
+            || IS_FEATURE_ENABLED_L452
+            || IS_FEATURE_ENABLED_L462,
+    },
 ];
