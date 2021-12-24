@@ -1,5 +1,6 @@
 use crate::features::*;
 
+pub(crate) mod family;
 pub(crate) mod features;
 pub(crate) mod peripherals;
 
@@ -53,6 +54,11 @@ This crate requires exactly one of the following features to be enabled:
     for gate in peripherals::PERIPHERAL_FEATURES {
         if gate.state {
             println!(r#"cargo:rustc-cfg=condition="peripheral_{}""#, gate.name);
+        }
+    }
+    for gate in family::DEVICE_FAMILY {
+        if gate.state {
+            println!(r#"cargo:rustc-cfg=condition="family_{}""#, gate.name);
         }
     }
 }
