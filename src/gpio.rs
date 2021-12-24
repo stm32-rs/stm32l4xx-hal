@@ -753,7 +753,8 @@ impl<const P: char> Gpio<P> {
             'F' => crate::pac::GPIOF::ptr() as _,
             #[cfg(condition = "peripheral_gpiog")]
             'G' => crate::pac::GPIOG::ptr() as _,
-            _ => crate::pac::GPIOA::ptr(),
+            // any other character is an internal implementation issue and should explode
+            _ => unreachable!(),
         }
     }
 }
