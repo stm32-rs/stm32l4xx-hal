@@ -11,6 +11,7 @@ pub(crate) const IS_FEATURE_ENABLED_L462: bool = cfg!(feature = "stm32l462");
 pub(crate) const IS_FEATURE_ENABLED_L471: bool = cfg!(feature = "stm32l471");
 pub(crate) const IS_FEATURE_ENABLED_L475: bool = cfg!(feature = "stm32l475");
 pub(crate) const IS_FEATURE_ENABLED_L476: bool = cfg!(feature = "stm32l476");
+pub(crate) const IS_FEATURE_ENABLED_L485: bool = cfg!(feature = "stm32l485");
 pub(crate) const IS_FEATURE_ENABLED_L486: bool = cfg!(feature = "stm32l486");
 pub(crate) const IS_FEATURE_ENABLED_L496: bool = cfg!(feature = "stm32l496");
 pub(crate) const IS_FEATURE_ENABLED_L4A6: bool = cfg!(feature = "stm32l4a6");
