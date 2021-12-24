@@ -1,6 +1,7 @@
 use crate::features::*;
 
 pub(crate) mod features;
+pub(crate) mod peripherals;
 
 pub(crate) fn feature_validate() -> bool {
     const DEVICE_FEATURES: &[bool] = &[
