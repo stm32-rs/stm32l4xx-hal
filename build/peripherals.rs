@@ -346,4 +346,40 @@ pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
             || IS_FEATURE_ENABLED_L4P5
             || IS_FEATURE_ENABLED_L4Q5,
     },
+    FeatureGate {
+        name: "gpiog",
+        state: //IS_FEATURE_ENABLED_L471 -- missing PAC support
+                IS_FEATURE_ENABLED_L475
+            || IS_FEATURE_ENABLED_L476
+            || IS_FEATURE_ENABLED_L485
+            || IS_FEATURE_ENABLED_L486
+            || IS_FEATURE_ENABLED_L496
+            || IS_FEATURE_ENABLED_L4A6
+            || IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5
+            || IS_FEATURE_ENABLED_L4R5
+            || IS_FEATURE_ENABLED_L4S5
+            || IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S9,
+    },
+    FeatureGate {
+        name: "gpiof",
+        state: //IS_FEATURE_ENABLED_L471 -- missing PAC support
+                IS_FEATURE_ENABLED_L475
+            || IS_FEATURE_ENABLED_L476
+            || IS_FEATURE_ENABLED_L485
+            || IS_FEATURE_ENABLED_L486
+            || IS_FEATURE_ENABLED_L496
+            || IS_FEATURE_ENABLED_L4A6
+            || IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5
+            || IS_FEATURE_ENABLED_L4R5
+            || IS_FEATURE_ENABLED_L4S5
+            || IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S9,
+    },
 ];
