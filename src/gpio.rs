@@ -749,41 +749,9 @@ impl<const P: char> Gpio<P> {
             'C' => crate::pac::GPIOC::ptr() as _,
             'D' => crate::pac::GPIOD::ptr() as _,
             'E' => crate::pac::GPIOE::ptr() as _,
-            #[cfg(any(
-                // feature = "stm32l471",  // missing PAC support for Port F
-                feature = "stm32l475",
-                feature = "stm32l476",
-                feature = "stm32l485",
-                feature = "stm32l486",
-                feature = "stm32l496",
-                feature = "stm32l4a6",
-                // feature = "stm32l4p5",
-                // feature = "stm32l4q5",
-                // feature = "stm32l4r5",
-                // feature = "stm32l4s5",
-                // feature = "stm32l4r7",
-                // feature = "stm32l4s7",
-                feature = "stm32l4r9",
-                feature = "stm32l4s9",
-            ))]
+            #[cfg(condition = "peripheral_gpiof")]
             'F' => crate::pac::GPIOF::ptr() as _,
-            #[cfg(any(
-                // feature = "stm32l471",  // missing PAC support for Port G
-                feature = "stm32l475",
-                feature = "stm32l476",
-                feature = "stm32l485",
-                feature = "stm32l486",
-                feature = "stm32l496",
-                feature = "stm32l4a6",
-                // feature = "stm32l4p5",
-                // feature = "stm32l4q5",
-                // feature = "stm32l4r5",
-                // feature = "stm32l4s5",
-                // feature = "stm32l4r7",
-                // feature = "stm32l4s7",
-                feature = "stm32l4r9",
-                feature = "stm32l4s9",
-            ))]
+            #[cfg(condition = "peripheral_gpiog")]
             'G' => crate::pac::GPIOG::ptr() as _,
             _ => crate::pac::GPIOA::ptr(),
         }
