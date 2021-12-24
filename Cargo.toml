@@ -19,6 +19,7 @@ exclude = [
 	"docs/*"
 ]
 edition = "2018"
+build = "build/build.rs"
 
 [dependencies]
 cortex-m = "0.7"

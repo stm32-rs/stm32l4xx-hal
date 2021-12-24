@@ -10,46 +10,6 @@
 
 #![no_std]
 
-#[cfg(not(any(
-    feature = "stm32l431",
-    feature = "stm32l451",
-    feature = "stm32l471",
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l432",
-    feature = "stm32l442",
-    feature = "stm32l452",
-    feature = "stm32l462",
-    feature = "stm32l433",
-    feature = "stm32l443",
-    feature = "stm32l475",
-    feature = "stm32l476",
-    feature = "stm32l486",
-    feature = "stm32l496",
-    feature = "stm32l4a6",
-    // note L4+ PAC support is mostly missing so other than r9/s9 these features don't actually exist yet
-    // feature = "stm32l4p5",
-    // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
-    // feature = "stm32l4s5",
-    // feature = "stm32l4r7",
-    // feature = "stm32l4s7",
-    // these have PAC support. Hal integration is very slim though
-    feature = "stm32l4r9",
-    feature = "stm32l4s9"
-)))]
-compile_error!(
-    "\
-This crate requires one of the following features enabled:
-    stm32l431, stm32l451, stm32l471
-    stm32l412, stm32l422, stm32l432, stm32l442, stm32l452, stm32l462
-    stm32l433, stm32l443
-    stm32l475, 
-    stm32l476, stm32l486, stm32l496, stm32l4a6
-    stm32l4r9, stm32l4s9
-"
-);
-
 // the common lists of features to spec what a MCU is capable of
 // lists are split by 3rd digit and 2nd digit groups
 
@@ -62,7 +22,7 @@ This crate requires one of the following features enabled:
 // L4x5
 // any(feature = "stm32l475")
 // L4x6
-// any(feature = "stm32l476", feature = "stm32l486", feature = "stm32l496", , feature = "stm32l4a6")
+// any(feature = "stm32l476", feature = "stm32l486", feature = "stm32l496", feature = "stm32l4a6")
 // L4+x9
 // any(feature = "stm32l4r9", feature = "stm32l4s9")
 
