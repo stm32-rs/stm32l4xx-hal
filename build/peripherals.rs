@@ -633,4 +633,79 @@ pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
         name: "fmc",
         state: true,
     },
+    FeatureGate {
+        name: "firewall",
+        state: true,
+    },
+    FeatureGate {
+        name: "vrefbuf",
+        state: true,
+    },
+    FeatureGate {
+        name: "iwdg",
+        state: true,
+    },
+    FeatureGate {
+        name: "wwdg",
+        state: true,
+    },
+    FeatureGate {
+        name: "dbgmcu",
+        state: true,
+    },
+    FeatureGate {
+        // aka LCD-TFT display controller
+        name: "lcdt",
+        state: IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5
+            || IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4S9,
+    },
+    FeatureGate {
+        // aka MIPI display serial interface
+        name: "dsi",
+        state: IS_FEATURE_ENABLED_L4R9 || IS_FEATURE_ENABLED_L4S9,
+    },
+    FeatureGate {
+        name: "dmamux1",
+        state: IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5
+            || IS_FEATURE_ENABLED_L4R5
+            || IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S5
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4S9,
+    },
+    FeatureGate {
+        name: "octspi1",
+        state: IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5
+            || IS_FEATURE_ENABLED_L4R5
+            || IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S5
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4S9,
+    },
+    FeatureGate {
+        name: "octspi2",
+        state: IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5
+            || IS_FEATURE_ENABLED_L4R5
+            || IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S5
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4S9,
+    },
+    FeatureGate {
+        name: "gfxmmu",
+        state: IS_FEATURE_ENABLED_L4R7
+            || IS_FEATURE_ENABLED_L4R9
+            || IS_FEATURE_ENABLED_L4S7
+            || IS_FEATURE_ENABLED_L4S9,
+    },
 ];
