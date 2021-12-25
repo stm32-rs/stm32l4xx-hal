@@ -9,7 +9,7 @@ use core::ptr;
 use core::sync::atomic;
 use core::sync::atomic::Ordering;
 
-#[cfg(not(condition = "family_L4x3"))]
+#[cfg(all(condition = "peripheral_spi3", not(condition = "family_L4x3")))]
 use crate::dma::dma2;
 use crate::dma::{self, dma1, TransferPayload};
 use crate::gpio::{Alternate, PushPull};
@@ -294,7 +294,7 @@ hal! {
     SPI3: (spi3, spi3_slave, pclk1),
 }
 
-#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+#[cfg(all(condition = "peripheral_spi3", not(condition = "family_L4x3")))]
 pins!(SPI3, 6,
     SCK: [PB3, PC10],
     MISO: [PB4, PC11],
@@ -724,5 +724,5 @@ spi_dma!(SPI1, dma1::C2, c2s, map1, dma1::C3, c3s, map1);
 #[cfg(not(condition = "family_L4x2"))]
 spi_dma!(SPI2, dma1::C4, c4s, map1, dma1::C5, c5s, map1);
 // spi_dma!(SPI1, dma2::C3, c3s, map4, dma2::C4, c4s, map4);
-#[cfg(not(condition = "family_L4x3"))]
+#[cfg(all(condition = "peripheral_spi3", not(condition = "family_L4x3")))]
 spi_dma!(SPI3, dma2::C1, c1s, map3, dma2::C2, c2s, map3);
