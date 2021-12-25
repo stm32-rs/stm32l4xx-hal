@@ -708,4 +708,9 @@ pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
             || IS_FEATURE_ENABLED_L4S7
             || IS_FEATURE_ENABLED_L4S9,
     },
+    FeatureGate {
+        // aka public key accelerator
+        name: "pka",
+        state: IS_FEATURE_ENABLED_L4Q5,
+    },
 ];
