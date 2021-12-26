@@ -27,6 +27,7 @@ stm32l4 = "0.14.0"
 embedded-dma = "0.1"
 bxcan = ">=0.4, <0.7"
 fugit = "0.3.5"
+bitfield = "0.13.2"
 
 [dependencies.rand_core]
 version = "0.6.2"
