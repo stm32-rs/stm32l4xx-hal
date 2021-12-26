@@ -1,8 +1,8 @@
 //! Power management
 
-use bitfield::{bitfield, BitRange};
 use crate::rcc::{Clocks, Enable, APB1R1};
 use crate::stm32::{pwr, PWR};
+use bitfield::{bitfield, BitRange};
 use cortex_m::peripheral::SCB;
 use fugit::RateExtU32;
 
@@ -86,7 +86,9 @@ impl Pwr {
 
     /// Enters 'Shutdown' low power mode.
     pub fn shutdown(&mut self, wkup: &WakeUpSource, scb: &mut SCB) -> ! {
-        unsafe { self.cr3.reg().modify(|_, w| w.bits(wkup.bit_range(0, 7))); }
+        unsafe {
+            self.cr3.reg().modify(|_, w| w.bits(wkup.bit_range(0, 7)));
+        }
 
         if wkup.internal_wkup() {
             // Can't apply directly due to the APC and RPS bits
