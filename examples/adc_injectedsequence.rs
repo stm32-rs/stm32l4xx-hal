@@ -8,10 +8,10 @@ use rtt_target::{rprintln, rtt_init_print};
 use stm32l4xx_hal::{
     adc::{Jsequence, SampleTime, ADC},
     delay::DelayCM,
+    pac::TIM2,
     prelude::*,
     time::Hertz,
-    timer::{Timer},
-    pac::TIM2,
+    timer::Timer,
 };
 
 use rtic::app;
@@ -26,7 +26,6 @@ const APP: () = {
 
     #[init]
     fn init(cx: init::Context) -> init::LateResources {
-
         rtt_init_print!();
 
         rprintln!("Hello from init!");
@@ -108,7 +107,6 @@ const APP: () = {
     // injected data registers
     #[task(binds = ADC1_2, resources = [adc] )]
     fn adc1_irg(cx: adc1_irg::Context) {
-
         let adc1 = cx.resources.adc;
 
         let jdr1_val = adc1.get_injected_jdr(1 as u8);

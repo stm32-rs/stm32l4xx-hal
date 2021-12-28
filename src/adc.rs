@@ -534,10 +534,9 @@ impl ADC {
     /// Negative edge     0b10
     /// both edges        0b11
     pub fn set_external_trigger(&mut self, ch: u8, edge: u8) {
-        
         if self.adc.cr.read().adstart().bit_is_clear() {
             self.adc.cfgr.modify(|_, w| unsafe { w.extsel().bits(ch) });
-            
+
             self.adc.cfgr.modify(|_, w| unsafe { w.exten().bits(edge) }); // 1 as u8
         }
     }
@@ -558,9 +557,8 @@ impl ADC {
     /// Negative edge     0b10
     /// both edges        0b11
     pub fn set_inject_channel(&mut self, ch: u8, edge: u8) {
-        
         self.adc.jsqr.modify(|_, w| unsafe { w.jextsel().bits(ch) });
-       
+
         self.adc
             .jsqr
             .modify(|_, w| unsafe { w.jexten().bits(edge) }); // 1 as u8

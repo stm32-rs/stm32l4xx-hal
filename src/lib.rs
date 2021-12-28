@@ -128,7 +128,12 @@ pub mod adc;
 pub mod can;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod crc;
-#[cfg(not(any(feature = "stm32l412", feature = "stm32l4r9", feature = "stm32l4s9",)))]
+#[cfg(any(
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6"
+))]
 pub mod dac;
 pub mod datetime;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]

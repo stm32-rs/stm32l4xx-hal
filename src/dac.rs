@@ -4,10 +4,10 @@ use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
 use crate::gpio::gpioa::{PA4, PA5};
-use crate::gpio::{Analog};
+use crate::gpio::Analog;
+use crate::hal::blocking::delay::DelayUs;
 use crate::rcc::*;
 use crate::stm32::DAC;
-use crate::hal::blocking::delay::DelayUs;
 
 pub trait DacOut<V> {
     fn set_value(&mut self, val: V);
