@@ -69,7 +69,6 @@ const APP: () = {
         let mut temp_pin = adc.enable_temperature(&mut delay);
 
         let dma1_channel = dma_channels.1;
-        let adc_buffer1_addr = MEMORY.as_ptr();
         let mut gpioc = pac.GPIOC.split(&mut rcc.ahb2);
         let mut pc0 = gpioc.pc0.into_analog(&mut gpioc.moder, &mut gpioc.pupdr);
 
