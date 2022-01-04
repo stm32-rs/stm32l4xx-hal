@@ -81,9 +81,6 @@ const APP: () = {
         // Heapless boxes also work very well as buffers for DMA transfers
         let transfer = Transfer::from_adc(adc, dma1_channel, MEMORY, DmaMode::Oneshot, true);
 
-        
-            // dma1.ccr1.modify(|_, w| w.en().set_bit());
-        }
         init::LateResources {
             transfer: Some(transfer),
         }
