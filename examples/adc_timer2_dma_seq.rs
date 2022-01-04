@@ -84,7 +84,7 @@ const APP: () = {
         adc.set_oversampling_shift(8);
         adc.oversampling_enable();
 
-        adc.set_external_trigger(0b1011, 1 as u8); // Timer2_TRGO
+        adc.set_external_trigger(0b1011, 1_u8); // Timer2_TRGO
 
         // Heapless boxes also work very well as buffers for DMA transfers
         let transfer = Transfer::from_adc(adc, dma1_channel, MEMORY, DmaMode::ExtTrigger, true);
@@ -95,7 +95,7 @@ const APP: () = {
             // get pointer of timer 2
             let tim = &(*stm32l4::stm32l4x6::TIM2::ptr());
             // config master mode selection to TRGO to Compare Pulse of timer2
-            tim.cr2.modify(|_, w| w.mms().bits(3 as u8));
+            tim.cr2.modify(|_, w| w.mms().bits(3_u8));
             tim.dier.write(|w| w.ude().set_bit());
         }
 

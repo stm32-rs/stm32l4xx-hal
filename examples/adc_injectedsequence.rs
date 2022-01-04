@@ -77,7 +77,7 @@ const APP: () = {
         adc.inject_oversampling_enable();
 
         // set injection trigger source to timer2 TRGO and rising edge
-        adc.set_inject_channel(2 as u8, 1 as u8);
+        adc.set_inject_channel(2_u8, 1_u8);
 
         adc.start_injected_sequence();
 
@@ -89,11 +89,11 @@ const APP: () = {
             // get pointer of timer 2
             let tim = &(*TIM2::ptr());
             // config master mode selection to TRGO to Compare Pulse of timer2
-            tim.cr2.modify(|_, w| w.mms().bits(3 as u8));
+            tim.cr2.modify(|_, w| w.mms().bits(3_u8));
             tim.dier.write(|w| w.ude().set_bit());
         }
 
-        init::LateResources { adc: adc }
+        init::LateResources { adc }
     }
 
     #[idle]
@@ -109,10 +109,10 @@ const APP: () = {
     fn adc1_irg(cx: adc1_irg::Context) {
         let adc1 = cx.resources.adc;
 
-        let jdr1_val = adc1.get_injected_jdr(1 as u8);
-        let jdr2_val = adc1.get_injected_jdr(2 as u8);
-        let jdr3_val = adc1.get_injected_jdr(3 as u8);
-        let jdr4_val = adc1.get_injected_jdr(4 as u8);
+        let jdr1_val = adc1.get_injected_jdr(1_u8);
+        let jdr2_val = adc1.get_injected_jdr(2_u8);
+        let jdr3_val = adc1.get_injected_jdr(3_u8);
+        let jdr4_val = adc1.get_injected_jdr(4_u8);
         rprintln!("jdr1: {}", jdr1_val);
         rprintln!("jdr2: {}", jdr2_val);
         rprintln!("jdr3: {}", jdr3_val);
