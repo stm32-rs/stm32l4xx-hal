@@ -92,9 +92,10 @@ impl From<u8> for Sequence {
     }
 }
 
-impl Into<u8> for Sequence {
-    fn into(self) -> u8 {
-        match self {
+
+impl From<Sequence> for u8 {
+    fn from(i: Sequence) -> u8 {
+        match i {
             Sequence::One => 0,
             Sequence::Two => 1,
             Sequence::Three => 2,
@@ -135,9 +136,10 @@ impl From<u8> for Jsequence {
     }
 }
 
-impl Into<u8> for Jsequence {
-    fn into(self) -> u8 {
-        match self {
+
+impl From<Jsequence> for u8 {
+    fn from(i: Jsequence) -> u8 {
+        match i {
             Jsequence::One => 0,
             Jsequence::Two => 1,
             Jsequence::Three => 2,
@@ -305,7 +307,7 @@ impl ADC {
 
     /// Convert a measurement to millivolts
     pub fn to_millivolts(&self, sample: u16) -> u16 {
-        ((u32::from(sample) * self.calibrated_vdda) / self.resolution.to_max_count()) as u16
+        ((u32::from(sample) * self.calibrated_vdda) / self.resolution.tomax_count()) as u16
     }
 
     /// Convert a raw sample from the `Temperature` to deg C
@@ -619,7 +621,7 @@ impl ADC {
             2 => self.adc.jdr2.read().jdata2().bits() as u16,
             3 => self.adc.jdr3.read().jdata3().bits() as u16,
             4 => self.adc.jdr4.read().jdata4().bits() as u16,
-            _ => 0xffff as u16,
+            _ => 0xffff_u16,
         }
     }
 
@@ -844,7 +846,7 @@ impl Default for Resolution {
 }
 
 impl Resolution {
-    fn to_max_count(&self) -> u32 {
+    fn tomax_count(&self) -> u32 {
         match self {
             Resolution::Bits12 => (1 << 12) - 1,
             Resolution::Bits10 => (1 << 10) - 1,
