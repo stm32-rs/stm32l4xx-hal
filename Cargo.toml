@@ -205,3 +205,7 @@ required-features = ["rt", "stm32l476"]
 [[example]]
 name = "adc_injectedsequence"
 required-features = ["rt", "stm32l476"]
+
+[[example]]
+name = "dac"
+required-features = ["rt", "stm32l476"]
