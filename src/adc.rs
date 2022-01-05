@@ -92,10 +92,9 @@ impl From<u8> for Sequence {
     }
 }
 
-
-impl From<Sequence> for u8 {
-    fn from(i: Sequence) -> u8 {
-        match i {
+impl Into<u8> for Sequence {
+    fn into(self) -> u8 {
+        match self {
             Sequence::One => 0,
             Sequence::Two => 1,
             Sequence::Three => 2,
@@ -136,10 +135,9 @@ impl From<u8> for Jsequence {
     }
 }
 
-
-impl From<Jsequence> for u8 {
-    fn from(i: Jsequence) -> u8 {
-        match i {
+impl Into<u8> for Jsequence {
+    fn into(self) -> u8 {
+        match self {
             Jsequence::One => 0,
             Jsequence::Two => 1,
             Jsequence::Three => 2,
