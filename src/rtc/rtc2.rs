@@ -65,11 +65,11 @@ pub fn clear_timestamp_flag(rtc: &RTC) {
 }
 
 pub fn is_alarm_a_accessible(rtc: &RTC) -> bool {
-    rtc.isr.read().alrawf().bit_is_clear()
+    rtc.isr.read().alrawf().bit_is_set()
 }
 
 pub fn is_alarm_b_accessible(rtc: &RTC) -> bool {
-    rtc.isr.read().alrbwf().bit_is_clear()
+    rtc.isr.read().alrbwf().bit_is_set()
 }
 
 // AN7459
