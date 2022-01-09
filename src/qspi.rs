@@ -12,9 +12,6 @@ use crate::gpio::{
     gpiod::{PD3, PD4, PD5, PD6, PD7},
 };
 
-#[cfg(condition = "family_L4x2")]
-use crate::gpio::gpiob::PB2;
-
 #[cfg(condition = "family_L4x6")]
 use crate::gpio::{
     gpioc::{PC1, PC2, PC4, PC5},
@@ -717,21 +714,6 @@ pins!(
     IO2: [PD6],
     IO3: [PD7]
 );
-
-#[cfg(condition = "family_L4x2")]
-impl IO0Pin<QUADSPI> for PB1<Alternate<PushPull, 10>> {
-    fn set_speed(self, speed: Speed) -> Self {
-        self.set_speed(speed)
-    }
-}
-#[cfg(condition = "family_L4x2")]
-impl private::Sealed for PB2<Alternate<PushPull, 10>> {}
-#[cfg(condition = "family_L4x2")]
-impl IO1Pin<QUADSPI> for PB2<Alternate<PushPull, 10>> {
-    fn set_speed(self, speed: Speed) -> Self {
-        self.set_speed(speed)
-    }
-}
 
 #[cfg(condition = "family_L4x6")]
 pins!(
