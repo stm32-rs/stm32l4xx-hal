@@ -451,6 +451,26 @@ impl CFGR {
     pub fn freeze(&self, acr: &mut ACR, pwr: &mut Pwr) -> Clocks {
         let rcc = unsafe { &*RCC::ptr() };
 
+        // Switch to MSI to prevent problems with PLL configuration.
+        if rcc.cr.read().msion().bit_is_clear() {
+            // Turn on MSI and configure it to 4MHz.
+            rcc.cr.modify(|_, w| {
+                w.msirgsel().set_bit(); // MSI Range is provided by MSIRANGE[3:0].
+                w.msirange().range4m();
+                w.msipllen().clear_bit();
+                w.msion().set_bit()
+            });
+
+            // Wait until MSI is running
+            while rcc.cr.read().msirdy().bit_is_clear() {}
+        }
+        if rcc.cfgr.read().sws().bits() != 0 {
+            // Set MSI as a clock source, reset prescalers.
+            rcc.cfgr.reset();
+            // Wait for clock switch status bits to change.
+            while rcc.cfgr.read().sws().bits() != 0 {}
+        }
+
         //
         // 1. Setup clocks
         //
