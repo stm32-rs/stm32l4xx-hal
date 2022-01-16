@@ -72,6 +72,24 @@ pub struct Alternate<MODE, const A: u8> {
     _mode: PhantomData<MODE>,
 }
 
+/// Marker trait for Pins in alternate function mode in push pull configuration
+///
+/// This is used so that peripherals can indicate their requirements on the
+/// output type of a pin. For example, a USART would require its tx-pin to
+/// have this trait implemented, i.e. the tx-pin should be configured to work
+/// in push-pull output type.
+pub trait AlternatePP {}
+impl<HL, const P: char, const N: u8, const A: u8> AlternatePP for Pin<Alternate<PushPull, A>, HL, P, N> {}
+
+/// Marker trait for Pins in alternate function mode in open drain configuration
+///
+/// This is used so that peripherals can indicate their requirements on the
+/// output type of a pin. For example, an I2C peripheral would require its
+/// scl and sda pins to have this trait implemented, i.e. all I2C pins should
+/// be configured to work in open-drain output type.
+pub trait AlternateOD {}
+impl<HL, const P: char, const N: u8, const A: u8> AlternateOD for Pin<Alternate<OpenDrain, A>, HL, P, N> {}
+
 #[derive(Debug, PartialEq)]
 pub enum Edge {
     Rising,

@@ -7,8 +7,8 @@
 //! usually comprised between 47nF and 100nF. These values are given as reference for an
 //! electrode fitting a human finger tip size across a few millimeters dielectric panel.
 
-use crate::gpio::gpiob::{PB4, PB5, PB6, PB7};
-use crate::gpio::{Alternate, OpenDrain, PushPull};
+use crate::alternate_functions::TscPin;
+use crate::gpio::{AlternateOD, AlternatePP};
 use crate::rcc::{Enable, Reset, AHB1};
 use crate::stm32::TSC;
 
@@ -26,48 +26,6 @@ pub enum Error {
     MaxCountError,
     /// Wrong GPIO for reading - returns the ioccr register
     InvalidPin(u32),
-}
-
-pub trait SamplePin<TSC> {
-    const GROUP: u32;
-    const OFFSET: u32;
-}
-impl SamplePin<TSC> for PB4<Alternate<OpenDrain, 9>> {
-    const GROUP: u32 = 2;
-    const OFFSET: u32 = 0;
-}
-impl SamplePin<TSC> for PB5<Alternate<OpenDrain, 9>> {
-    const GROUP: u32 = 2;
-    const OFFSET: u32 = 1;
-}
-impl SamplePin<TSC> for PB6<Alternate<OpenDrain, 9>> {
-    const GROUP: u32 = 2;
-    const OFFSET: u32 = 2;
-}
-impl SamplePin<TSC> for PB7<Alternate<OpenDrain, 9>> {
-    const GROUP: u32 = 2;
-    const OFFSET: u32 = 3;
-}
-
-pub trait ChannelPin<TSC> {
-    const GROUP: u32;
-    const OFFSET: u32;
-}
-impl ChannelPin<TSC> for PB4<Alternate<PushPull, 9>> {
-    const GROUP: u32 = 2;
-    const OFFSET: u32 = 0;
-}
-impl ChannelPin<TSC> for PB5<Alternate<PushPull, 9>> {
-    const GROUP: u32 = 2;
-    const OFFSET: u32 = 1;
-}
-impl ChannelPin<TSC> for PB6<Alternate<PushPull, 9>> {
-    const GROUP: u32 = 2;
-    const OFFSET: u32 = 2;
-}
-impl ChannelPin<TSC> for PB7<Alternate<PushPull, 9>> {
-    const GROUP: u32 = 2;
-    const OFFSET: u32 = 3;
 }
 
 pub struct Tsc<SPIN> {
@@ -137,9 +95,14 @@ pub enum ChargeDischargeTime {
 }
 
 impl<SPIN> Tsc<SPIN> {
-    pub fn tsc(tsc: TSC, sample_pin: SPIN, ahb: &mut AHB1, cfg: Option<Config>) -> Self
+    pub fn tsc<const GROUP: usize, const IO: usize>(
+        tsc: TSC,
+        sample_pin: SPIN,
+        ahb: &mut AHB1,
+        cfg: Option<Config>,
+    ) -> Self
     where
-        SPIN: SamplePin<TSC>,
+        SPIN: TscPin<GROUP, IO> + AlternateOD,
     {
         /* Enable the peripheral clock */
         TSC::enable(ahb);
@@ -178,7 +141,8 @@ impl<SPIN> Tsc<SPIN> {
                 .set_bit()
         });
 
-        let bit_pos = SPIN::OFFSET + (4 * (SPIN::GROUP - 1));
+        // GROUP and IO start counting at 1, so the indexes are (GROUP-1) and (IO-1)
+        let bit_pos = (IO - 1) + (4 * (GROUP - 1));
 
         // Schmitt trigger hysteresis on sample IOs
         tsc.iohcr.write(|w| unsafe { w.bits(1 << bit_pos) });
@@ -196,9 +160,9 @@ impl<SPIN> Tsc<SPIN> {
     }
 
     /// Starts a charge acquisition
-    pub fn start<PIN>(&self, _input: &mut PIN)
+    pub fn start<PIN, const GROUP: usize, const IO: usize>(&self, _input: &mut PIN)
     where
-        PIN: ChannelPin<TSC>,
+        PIN: TscPin<GROUP, IO> + AlternatePP,
     {
         self.clear(Event::EndOfAcquisition);
         self.clear(Event::MaxCountError);
@@ -206,7 +170,7 @@ impl<SPIN> Tsc<SPIN> {
         // discharge the caps ready for a new reading
         self.tsc.cr.modify(|_, w| w.iodef().clear_bit());
 
-        let bit_pos = PIN::OFFSET + (4 * (PIN::GROUP - 1));
+        let bit_pos = (IO - 1) + (4 * (GROUP - 1));
 
         // Set the channel pin
         self.tsc.ioccr.write(|w| unsafe { w.bits(1 << bit_pos) });
@@ -227,9 +191,12 @@ impl<SPIN> Tsc<SPIN> {
     }
 
     /// Blocks waiting for a acquisition to complete or for a Max Count Error
-    pub fn acquire<PIN>(&self, input: &mut PIN) -> Result<u16, Error>
+    pub fn acquire<PIN, const GROUP: usize, const IO: usize>(
+        &self,
+        input: &mut PIN,
+    ) -> Result<u16, Error>
     where
-        PIN: ChannelPin<TSC>,
+        PIN: TscPin<GROUP, IO> + AlternatePP,
     {
         // start the acq
         self.start(input);
@@ -249,11 +216,14 @@ impl<SPIN> Tsc<SPIN> {
     }
 
     /// Reads the tsc group 2 count register
-    pub fn read<PIN>(&self, _input: &mut PIN) -> Result<u16, Error>
+    pub fn read<PIN, const GROUP: usize, const IO: usize>(
+        &self,
+        _input: &mut PIN,
+    ) -> Result<u16, Error>
     where
-        PIN: ChannelPin<TSC>,
+        PIN: TscPin<GROUP, IO> + AlternatePP,
     {
-        let bit_pos = PIN::OFFSET + (4 * (PIN::GROUP - 1));
+        let bit_pos = (IO - 1) + (4 * (GROUP - 1));
         // Read the current channel config
         let channel = self.tsc.ioccr.read().bits();
         // if they are equal we have the right pin

@@ -1,3 +1,6 @@
+/*
+ * Old approach of implementing pin traits, just kept so it can be moved later
+ *
 //! Quad Serial Peripheral Interface (QSPI) bus
 
 use crate::gpio::{
@@ -23,11 +26,15 @@ use crate::gpio::{
     gpiof::{PF6, PF7, PF8, PF9},
 };
 
-use crate::gpio::{Alternate, PushPull, Speed};
+use crate::gpio::{Alternate, PushPull, Speed, AF10};
+*/
+use crate::alternate_functions::{ClkPin, IO0Pin, IO1Pin, IO2Pin, IO3Pin, NcsPin};
+use crate::gpio::{AlternatePP, Speed};
 use crate::rcc::{Enable, AHB3};
 use crate::stm32::QUADSPI;
 use core::ptr;
 
+/* old approach, just kept so it can be moved later
 #[doc(hidden)]
 mod private {
     pub trait Sealed {}
@@ -112,6 +119,7 @@ macro_rules! pins {
         )*
     }
 }
+*/
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u8)]
@@ -320,12 +328,12 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         config: QspiConfig,
     ) -> Self
     where
-        CLK: ClkPin<QUADSPI>,
-        NCS: NCSPin<QUADSPI>,
-        IO0: IO0Pin<QUADSPI>,
-        IO1: IO1Pin<QUADSPI>,
-        IO2: IO2Pin<QUADSPI>,
-        IO3: IO3Pin<QUADSPI>,
+        CLK: ClkPin<QUADSPI> + AlternatePP,
+        NCS: NcsPin<QUADSPI> + AlternatePP,
+        IO0: IO0Pin<QUADSPI> + AlternatePP,
+        IO1: IO1Pin<QUADSPI> + AlternatePP,
+        IO2: IO2Pin<QUADSPI> + AlternatePP,
+        IO3: IO3Pin<QUADSPI> + AlternatePP,
     {
         // Enable quad SPI in the clocks.
         QUADSPI::enable(ahb3);
@@ -345,6 +353,12 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
                 .set_bit()
         });
 
+        /* TODO Currently commented out because neither the traits from alternate_functions nor
+         * AlternatePP offer a method set_speed. This could be solved by a new trait in the gpio
+         * module (e.g. SpeedConfigurablePin) which the Qspi pins could depend on but in the
+         * serials speed requirements are currently ignored, too. So we could better aim for
+         * consistency here.
+         *
         // Set gpio speed
         let high_speed_pins = (
             pins.0.set_speed(Speed::VeryHigh),
@@ -354,6 +368,8 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
             pins.4.set_speed(Speed::VeryHigh),
             pins.5.set_speed(Speed::VeryHigh),
         );
+        */
+        let high_speed_pins = pins;
 
         let mut unit = Qspi {
             qspi,
@@ -697,6 +713,14 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
     }
 }
 
+/* old approach, just kept so it can be moved later
+#[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+))]
 pins!(
     QUADSPI,
     10,
@@ -736,3 +760,4 @@ pins!(
     IO2: [PC4, PF7],
     IO3: [PC5, PF6]
 );
+*/

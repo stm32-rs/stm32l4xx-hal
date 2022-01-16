@@ -12,11 +12,12 @@ use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 
+use crate::alternate_functions::{CtsPin, RtsDePin, RxPin, TxPin};
 use crate::dma::{
     dma1, CircBuffer, DMAFrame, FrameReader, FrameSender, Receive, RxDma, TransferPayload,
     Transmit, TxDma,
 };
-use crate::gpio::{self, Alternate, OpenDrain, PushPull};
+use crate::gpio::{AlternateOD, AlternatePP};
 use crate::pac;
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
@@ -923,6 +924,63 @@ where
     }
 }
 
+/// Pins trait for detecting hardware flow control or RS485 mode.
+pub trait Pins<USART> {
+    const FLOWCTL: bool;
+    const DEM: bool;
+    const HALF_DUPLEX: bool;
+}
+
+// No flow control, just Rx+Tx
+impl<Instance, Tx, Rx> Pins<Instance> for (Tx, Rx)
+where
+    Tx: TxPin<Instance> + AlternatePP,
+    Rx: RxPin<Instance> + AlternatePP,
+{
+    const FLOWCTL: bool = false;
+    const DEM: bool = false;
+    const HALF_DUPLEX: bool = false;
+}
+
+// No flow control Half_duplex, just Tx
+impl<Instance, Tx> Pins<Instance> for (Tx,)
+where
+    Tx: TxPin<Instance> + AlternateOD,
+{
+    const FLOWCTL: bool = false;
+    const DEM: bool = false;
+    const HALF_DUPLEX: bool = true;
+}
+
+// Hardware flow control, Rx+Tx+Rts+Cts
+impl<Instance, Tx, Rx, Rts, Cts> Pins<Instance> for (Tx, Rx, Rts, Cts)
+where
+    Tx: TxPin<Instance> + AlternatePP,
+    Rx: RxPin<Instance> + AlternatePP,
+    Rts: RtsDePin<Instance> + AlternatePP,
+    Cts: CtsPin<Instance> + AlternatePP,
+{
+    const FLOWCTL: bool = true;
+    const DEM: bool = false;
+    const HALF_DUPLEX: bool = false;
+}
+
+// DEM for RS485 mode
+impl<Instance, Tx, Rx, De> Pins<Instance> for (Tx, Rx, De)
+where
+    Tx: TxPin<Instance> + AlternatePP,
+    Rx: RxPin<Instance> + AlternatePP,
+    De: RtsDePin<Instance> + AlternatePP,
+{
+    const FLOWCTL: bool = false;
+    const DEM: bool = true;
+    const HALF_DUPLEX: bool = false;
+}
+
+/*
+ * The old approach of handling AF requirements. This is just kept here so
+ * it can be moved to the alternate_functions module.
+ *
 /// Marks pins as being as being TX pins for the given USART instance
 pub trait TxPin<Instance>: private::SealedTx {}
 
@@ -1086,59 +1144,6 @@ impl_pin_traits! {
     }
 }
 
-/// Pins trait for detecting hardware flow control or RS485 mode.
-pub trait Pins<USART> {
-    const FLOWCTL: bool;
-    const DEM: bool;
-    const HALF_DUPLEX: bool;
-}
-
-// No flow control, just Rx+Tx
-impl<Instance, Tx, Rx> Pins<Instance> for (Tx, Rx)
-where
-    Tx: TxPin<Instance>,
-    Rx: RxPin<Instance>,
-{
-    const FLOWCTL: bool = false;
-    const DEM: bool = false;
-    const HALF_DUPLEX: bool = false;
-}
-
-// No flow control Half_duplex, just Tx
-impl<Instance, Tx> Pins<Instance> for (Tx,)
-where
-    Tx: TxHalfDuplexPin<Instance>,
-{
-    const FLOWCTL: bool = false;
-    const DEM: bool = false;
-    const HALF_DUPLEX: bool = true;
-}
-
-// Hardware flow control, Rx+Tx+Rts+Cts
-impl<Instance, Tx, Rx, Rts, Cts> Pins<Instance> for (Tx, Rx, Rts, Cts)
-where
-    Tx: TxPin<Instance>,
-    Rx: RxPin<Instance>,
-    Rts: RtsDePin<Instance>,
-    Cts: CtsPin<Instance>,
-{
-    const FLOWCTL: bool = true;
-    const DEM: bool = false;
-    const HALF_DUPLEX: bool = false;
-}
-
-// DEM for RS485 mode
-impl<Instance, Tx, Rx, De> Pins<Instance> for (Tx, Rx, De)
-where
-    Tx: TxPin<Instance>,
-    Rx: RxPin<Instance>,
-    De: RtsDePin<Instance>,
-{
-    const FLOWCTL: bool = false;
-    const DEM: bool = true;
-    const HALF_DUPLEX: bool = false;
-}
-
 /// Contains supertraits used to restrict which traits users can implement
 mod private {
     pub trait SealedTx {}
@@ -1147,3 +1152,4 @@ mod private {
     pub trait SealedRtsDe {}
     pub trait SealedCts {}
 }
+*/

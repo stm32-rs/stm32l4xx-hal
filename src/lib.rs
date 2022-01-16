@@ -200,6 +200,8 @@ pub mod usb;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod watchdog;
 
+pub mod alternate_functions;
+
 mod sealed {
     pub trait Sealed {}
 }
