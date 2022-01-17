@@ -172,6 +172,8 @@ pub mod rng;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod rtc;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
+pub mod sai;
+#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod serial;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod signature;
