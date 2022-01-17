@@ -628,7 +628,7 @@ impl timer::Cancel for WakeupTimer<'_> {
         self.rtc.write(false, |rtc| {
             // Disable the wakeup timer
             rtc.cr.modify(|_, w| w.wute().clear_bit());
-            while rtc_registers::is_wakeup_timer_write_flag_set(&rtc) {}
+            while !rtc_registers::is_wakeup_timer_write_flag_set(rtc) {}
             rtc_registers::clear_wakeup_timer_flag(rtc);
 
             // According to the reference manual, section 26.7.4, the WUTF flag

@@ -13,16 +13,6 @@ use crate::gpio::{
 };
 
 #[cfg(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l432",
-    feature = "stm32l442",
-    feature = "stm32l452",
-    feature = "stm32l462",
-))]
-use crate::gpio::gpiob::PB2;
-
-#[cfg(any(
     feature = "stm32l476",
     feature = "stm32l486",
     feature = "stm32l496",
@@ -712,8 +702,8 @@ pins!(
     10,
     CLK: [PE10, PB10],
     nCS: [PE11, PB11],
-    IO0: [PE12, PB0],
-    IO1: [PE13, PB1],
+    IO0: [PE12, PB1],
+    IO1: [PE13, PB0],
     IO2: [PE14, PA7],
     IO3: [PE15, PA6]
 );
@@ -729,42 +719,6 @@ pins!(
     IO2: [PD6],
     IO3: [PD7]
 );
-
-#[cfg(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l432",
-    feature = "stm32l442",
-    feature = "stm32l452",
-    feature = "stm32l462",
-))]
-impl IO0Pin<QUADSPI> for PB1<Alternate<PushPull, 10>> {
-    fn set_speed(self, speed: Speed) -> Self {
-        self.set_speed(speed)
-    }
-}
-#[cfg(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l432",
-    feature = "stm32l442",
-    feature = "stm32l452",
-    feature = "stm32l462",
-))]
-impl private::Sealed for PB2<Alternate<PushPull, 10>> {}
-#[cfg(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l432",
-    feature = "stm32l442",
-    feature = "stm32l452",
-    feature = "stm32l462",
-))]
-impl IO1Pin<QUADSPI> for PB2<Alternate<PushPull, 10>> {
-    fn set_speed(self, speed: Speed) -> Self {
-        self.set_speed(speed)
-    }
-}
 
 #[cfg(any(
     feature = "stm32l476",
