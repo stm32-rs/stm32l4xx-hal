@@ -11,6 +11,8 @@ use cortex_m_rt::entry;
 use stm32l4xx_hal::{opamp::*, prelude::*, pac};
 
 use stm32l4xx_hal::traits::opamp::*;
+//use stm32l4xx_hal::delay::Delay;
+use stm32l4xx_hal::delay::DelayCM;
 
 #[entry]
 fn main() -> ! {
@@ -25,7 +27,9 @@ fn main() -> ! {
     let mut flash = dp.FLASH.constrain();
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
-    let _clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
+    let clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
+
+    let mut delay = DelayCM::new(clocks);
 
     // set IOs to analgo mode, which are used by the Opamp
     let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);
@@ -41,6 +45,7 @@ fn main() -> ! {
     let op1: OP1 = OP1::new(& ops.opamp1_csr, & ops.opamp1_otr, & ops.opamp1_lpotr, &rcc.apb1r1);
     // set operation models
     let _ret = op1.set_opamp_oper_mode(OperationMode::External);
+    op1.calibrate(&mut delay);
     op1.enable(true);
 
     loop {

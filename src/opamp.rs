@@ -9,6 +9,7 @@
 use crate::stm32::{opamp::*};
 use crate::traits::opamp as opamp_trait;
 use crate::rcc::APB1R1; //{Enable, Reset, APB1R1, CCIPR};
+use crate::hal::{blocking::delay::DelayUs,};
 
 // OPAMP1_CSR::opaen
 // OPAMP1_OTR
@@ -215,7 +216,7 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
         Ok(())
     }
 
-    fn calibrate(&self) -> opamp_trait::Result {
+    fn calibrate(&self, delay: &mut impl DelayUs<u32>) -> opamp_trait::Result {
         // set opamp into callibration mode
         self.csr.modify(|_, w| w.calon().set_bit());
         // select NMOS calibration first
@@ -244,7 +245,7 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
                 return Err(opamp_trait::Error::CalibrationError);
             }
             // wait at least 1ms to new config to settle
-            // TODO
+            delay.delay_us(1200);
         }
 
         // select NMOS calibration first
@@ -271,7 +272,7 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
                 return Err(opamp_trait::Error::CalibrationError);
             }
             // wait for at least 1ms to settle of Configuration
-            // TODO
+            delay.delay_us(1200);
         }
         Ok(())
     }

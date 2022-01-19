@@ -1,4 +1,5 @@
 
+use crate::hal::{blocking::delay::DelayUs,};
 
 #[derive(Copy, Clone, Debug)]
 pub enum OPAMPS {
@@ -99,7 +100,7 @@ pub trait ConfigOpamp {
 
     fn set_power_mode(&self, power_mode: PowerMode) -> Result;
 
-    fn calibrate(&self) -> Result;
+    fn calibrate(&self, delay: &mut impl DelayUs<u32>) -> Result;
 
     fn enable(&self, en: bool);
 }
