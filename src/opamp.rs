@@ -277,6 +277,14 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
         Ok(())
     }
 
+    fn set_calibration_mode(&self, usertrim: bool){
+        if usertrim {
+            self.csr.modify(|_, w| w.usertrim().set_bit());
+        } else {
+            self.csr.modify(|_, w| w.usertrim().clear_bit());
+        }
+    }
+
     fn enable(&self, en: bool) {
         if en {
             self.csr.modify(|_, w| w.opaen().set_bit());

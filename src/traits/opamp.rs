@@ -102,5 +102,7 @@ pub trait ConfigOpamp {
 
     fn calibrate(&self, delay: &mut impl DelayUs<u32>) -> Result;
 
+    fn set_calibration_mode(&self, usertrim: bool);
+
     fn enable(&self, en: bool);
 }
