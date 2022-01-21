@@ -22,6 +22,8 @@ pub enum OperationMode {
     PgaADC2ExternalFiltering,
     // // Calibration Modes
     // CalibrationMode,
+    // added, that warnings for global match pattern are suppressed
+    SuppressMachtWarnings,
 }
 
 /// Opamp Power Mode configuration
@@ -31,6 +33,8 @@ pub enum PowerMode {
     Normal,
     // low power mode with resticted bandwith
     LowPower,
+    // added, that warnings for global match pattern are suppressed
+    SuppressMachtWarnings,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -40,7 +44,9 @@ pub enum VINP {
     // output conected to DAC1
     DAC1,
     // output of opamp1
-    OPAMP1
+    OPAMP1,
+    // added, that warnings for global match pattern are suppressed
+    SuppressMachtWarnings,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -53,6 +59,8 @@ pub enum VINM {
     ExternalPin1,
     // input conected to external pin (also pga mode with filtering)
     ExternalPin2,
+    // added, that warnings for global match pattern are suppressed
+    SuppressMachtWarnings,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -62,6 +70,8 @@ pub enum PgaGain {
     PgaG4,
     PgaG8,
     PgaG16,
+    // added, that warnings for global match pattern are suppressed
+    SuppressMachtWarnings,
 }
 
 
@@ -79,6 +89,10 @@ pub enum Error {
     NotImplemented,
     // calibration Error
     CalibrationError,
+    // wrong pin assignment for selected operation mode
+    WrongPinAssinment,
+    // added, that warnings for global match pattern are suppressed
+    SuppressMachtWarnings,
 }
 
 
