@@ -41,16 +41,18 @@ fn main() -> ! {
     let mut _pa3 = gpioa.pa3.into_analog(&mut gpioa.moder, &mut gpioa.pupdr);
 
     let ops = dp.OPAMP;
+
     //ops.opamp1_csr.opaen;
     let op1: OP1 = OP1::new(& ops.opamp1_csr,
                             & ops.opamp1_otr,
                             & ops.opamp1_lpotr,
-                            &rcc.apb1r1,);
+                            &rcc.apb1r1,
+                            );
     // set operation models
-    let _ret = op1.set_opamp_oper_mode(OperationMode::External);
+    let _ret = op1.set_opamp_oper_mode(OperationMode::External).unwrap();
 
     // calibrate the opamp in normal mode, since it has not been switched to low power mode
-    op1.calibrate(&mut delay);
+    op1.calibrate(&mut delay).unwrap();
 
     // set user trim mode (as calibration for user has been perfomed above)
     op1.set_calibration_mode(true);

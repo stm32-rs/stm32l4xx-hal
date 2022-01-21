@@ -38,7 +38,7 @@ fn main() -> ! {
     // set operation models
     op1.set_opamp_oper_mode(OperationMode::PgaADC1);
     // set pga gain to 8
-    op1.set_pga_gain(PgaGain::PgaG8);
+    op1.set_pga_gain_enum(PgaGain::PgaG8);
     op1.enable(true);
     loop {
     }

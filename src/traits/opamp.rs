@@ -37,6 +37,8 @@ pub enum PowerMode {
     SuppressMachtWarnings,
 }
 
+/// Opamp postive input configuration. External pins are numerated, to which they finaly match is
+/// device specific
 #[derive(Copy, Clone, Debug)]
 pub enum VINP {
     // output conected to external pin
@@ -49,6 +51,8 @@ pub enum VINP {
     SuppressMachtWarnings,
 }
 
+/// Opamp negativ input configuration. External pins are numerated, to which they finaly match is
+/// device specific
 #[derive(Copy, Clone, Debug)]
 pub enum VINM {
     // input connected to Opamp output of other Opamp
@@ -63,6 +67,7 @@ pub enum VINM {
     SuppressMachtWarnings,
 }
 
+/// Opamp gain configuration in PGA mode
 #[derive(Copy, Clone, Debug)]
 pub enum PgaGain {
     PgaG1,
@@ -70,6 +75,10 @@ pub enum PgaGain {
     PgaG4,
     PgaG8,
     PgaG16,
+    PgaG32,   // this values and below may be used for stm32g4 devices
+    PgaG64,
+    PgaG128,
+    PgaG256,
     // added, that warnings for global match pattern are suppressed
     SuppressMachtWarnings,
 }
@@ -110,7 +119,9 @@ pub trait ConfigOpamp {
 
     fn conect_inputs(&self, vinp: VINP, vinm: VINM) -> Result;
 
-    fn set_pga_gain(&self, gain: PgaGain) -> Result;
+    fn set_pga_gain_enum(&self, gain: PgaGain) -> Result;
+
+    fn set_pga_gain(&self, gain: u16) -> Result;
 
     fn set_power_mode(&self, power_mode: PowerMode) -> Result;
 

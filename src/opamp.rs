@@ -1,26 +1,11 @@
 
-
-// use core::{
-//     // convert::Infallible,
-//     ops::DerefMut,
-//     // sync::atomic::{self, Ordering},
-// };
-
 use crate::stm32::{opamp::*};
 use crate::traits::opamp as opamp_trait;
 use crate::rcc::APB1R1; //{Enable, Reset, APB1R1, CCIPR};
 use crate::hal::{blocking::delay::DelayUs,};
 
-// OPAMP1_CSR::opaen
-// OPAMP1_OTR
-// OPAMP1_LPOTR
-// OPAMP2_CSR
-// OPAMP2_OTR
-// OPAMP2_LPOTR
 
-//opamp1_csr::opaen
-
-#[derive(Clone, Copy)]
+//#[derive(Clone, Copy)]
 pub struct OP1<'a> {
     csr: &'a OPAMP1_CSR,
     otr: &'a OPAMP1_OTR,
@@ -45,6 +30,23 @@ impl<'a> OP1<'a> {
         }
 
     }
+    /// opa range specifice the VDDA voltage applied to the device.
+    /// it is by default set to >2.4V (high)
+    /// do not use this function, if you do not know, what you are decoding
+    /// you might damage the devices
+    /// since the setting applies to all opamps in the device and before
+    /// changeing this value, all opamps must be disabled; up to this pointe
+    /// only one opamp is supportd in this file, for that only that opamp is disable
+    /// before the value is set.
+    /// you need to enable the opamp after calling this function separately
+    pub fn set_opa_range(&self, high: bool) {
+        self.csr.modify(|_, w| w.opaen().clear_bit());
+        if high {
+            self.csr.modify(|_, w| w.opa_range().set_bit());
+        } else {
+            self.csr.modify(|_, w| w.opa_range().clear_bit());
+        }
+    }
 }
 
 // s.common.ccr.modify(|_, w| w.vrefen().clear_bit());
@@ -65,57 +67,44 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
 
         match opmode {
             opamp_trait::OperationMode::External => {
-                // disable OPEAN (before changeing anything else)
-                self.csr.modify(|_, w| w.opaen().clear_bit());
-                // set OPA_RANGE = 1 (VDDA > 2.4V)
-                self.csr.modify(|_, w| w.opa_range().set_bit());
-                // set OPAMODE = 0
-                self.csr.modify(|_, w| unsafe {w.opamode().bits(0b00)});
-                // VP_SEL = 0 (GPIO)
-                self.csr.modify(|_, w| w.vp_sel().clear_bit());
-                // VM_SEL = 0 (GPIO)
-                self.csr.modify(|_, w| unsafe {w.vm_sel().bits(0b00)});
-                Ok(())
+                    // disable OPEAN (before changeing anything else)
+                    self.csr.modify(|_, w| w.opaen().clear_bit());
+                    // set OPA_RANGE = 1 (VDDA > 2.4V)
+                    self.csr.modify(|_, w| w.opa_range().set_bit());
+                    // set OPAMODE = 0
+                    self.csr.modify(|_, w| unsafe {w.opamode().bits(0b00)});
+                    // VP_SEL = 0 (GPIO)
+                    self.csr.modify(|_, w| w.vp_sel().clear_bit());
+                    // VM_SEL = 0 (GPIO)
+                    self.csr.modify(|_, w| unsafe {w.vm_sel().bits(0b00)});
+                    Ok(())
             },
             opamp_trait::OperationMode::PgaADC1 => {
-                // disable OPEAN (before changeing anything else)
-                self.csr.modify(|_, w| w.opaen().clear_bit());
-                // set OPA_RANGE = 1 (VDDA > 2.4V)
-                self.csr.modify(|_, w| w.opa_range().set_bit());
-                // set OPAMODE = 3 // follower mode = pga gain = 1
-                self.csr.modify(|_, w| unsafe {w.opamode().bits(0b11)});
-                // VP_SEL = 0 (GPIO)
-                self.csr.modify(|_, w| w.vp_sel().clear_bit());
-                // VM_SEL = 0 (GPIO)
-                self.csr.modify(|_, w| unsafe {w.vm_sel().bits(0b10)});
-                Ok(())
+                    // disable OPEAN (before changeing anything else)
+                    self.csr.modify(|_, w| w.opaen().clear_bit());
+                    // set OPA_RANGE = 1 (VDDA > 2.4V)
+                    self.csr.modify(|_, w| w.opa_range().set_bit());
+                    // set OPAMODE = 3 // follower mode = pga gain = 1
+                    self.csr.modify(|_, w| unsafe {w.opamode().bits(0b11)});
+                    // VP_SEL = 0 (GPIO)
+                    self.csr.modify(|_, w| w.vp_sel().clear_bit());
+                    // VM_SEL = 0 (GPIO)
+                    self.csr.modify(|_, w| unsafe {w.vm_sel().bits(0b10)});
+                    Ok(())
             },
             opamp_trait::OperationMode::PgaADC1ExternalFiltering => {
-                // disable OPEAN (before changeing anything else)
-                self.csr.modify(|_, w| w.opaen().clear_bit());
-                // set OPA_RANGE = 1 (VDDA > 2.4V)
-                self.csr.modify(|_, w| w.opa_range().set_bit());
-                // set OPAMODE = 2 // pga mode = pga, gain = 2..16 (no filtering in follower mode)
-                self.csr.modify(|_, w| unsafe {w.opamode().bits(0b10)});
-                // VP_SEL = 0 (GPIO)
-                self.csr.modify(|_, w| w.vp_sel().clear_bit());
-                // VM_SEL = 0 (GPIO) for external filtering
-                self.csr.modify(|_, w| unsafe {w.vm_sel().bits(0b00)});
-                Ok(())
+                    // disable OPEAN (before changeing anything else)
+                    self.csr.modify(|_, w| w.opaen().clear_bit());
+                    // set OPA_RANGE = 1 (VDDA > 2.4V)
+                    self.csr.modify(|_, w| w.opa_range().set_bit());
+                    // set OPAMODE = 2 // pga mode = pga, gain = 2..16 (no filtering in follower mode)
+                    self.csr.modify(|_, w| unsafe {w.opamode().bits(0b10)});
+                    // VP_SEL = 0 (GPIO)
+                    self.csr.modify(|_, w| w.vp_sel().clear_bit());
+                    // VM_SEL = 0 (GPIO) for external filtering
+                    self.csr.modify(|_, w| unsafe {w.vm_sel().bits(0b00)});
+                    Ok(())
             },
-            // opamp_trait::OperationMode::CalibrationMode => {
-            //     // disable OPEAN (before changeing anything else)
-            //     self.csr.modify(|_, w| w.opaen().clear_bit());
-            //     // set OPA_RANGE = 1 (VDDA > 2.4V)
-            //     self.csr.modify(|_, w| w.opa_range().set_bit());
-            //     // set OPAMODE = 3 // pga mode = pga gain = 2 (no filtering in follower mode)
-            //     self.csr.modify(|_, w| unsafe {w.opamode().bits(0b10)});
-            //     // VP_SEL = 0 (GPIO)
-            //     self.csr.modify(|_, w| w.vp_sel().clear_bit());
-            //     // VM_SEL = 0 (GPIO) for external filtering
-            //     self.csr.modify(|_, w| unsafe {w.vm_sel().bits(0b00)});
-            //     ()
-            // },
             _ => Err(opamp_trait::Error::NotImplemented),
         }
         // Err(opamp_trait::Error::NotImplemented)
@@ -124,7 +113,7 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
     fn conect_inputs(&self, vinp: opamp_trait::VINP, vinm: opamp_trait::VINM) -> opamp_trait::Result {
         match vinp {
             opamp_trait::VINP::ExternalPin1 => {
-                // VP_SEL = 0 (GPIO)
+                // VP_SEL = 0 (GPIO), PA0
                 self.csr.modify(|_, w| w.vp_sel().clear_bit());
             },
             opamp_trait::VINP::DAC1 => {
@@ -135,7 +124,7 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
         };
         match vinm {
             opamp_trait::VINM::ExternalPin1 => {
-                // VM_SEL = 0 (GPIO) for external filtering
+                // VM_SEL = 0 (GPIO), PA1 for external filtering
                 self.csr.modify(|_, w| unsafe {w.vm_sel().bits(0b00)});
             },
             opamp_trait::VINM::LeakageInputPin => {
@@ -151,7 +140,7 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
         Ok(())
     }
 
-    fn set_pga_gain(&self, gain: opamp_trait::PgaGain) -> opamp_trait::Result {
+    fn set_pga_gain_enum(&self, gain: opamp_trait::PgaGain) -> opamp_trait::Result {
         let opaen_state: bool = self.csr.read().opaen().bit_is_set();
         match gain {
             opamp_trait::PgaGain::PgaG1  => {
@@ -194,6 +183,58 @@ impl<'a> opamp_trait::ConfigOpamp for OP1<'a> {
             },
             _ => return Err(opamp_trait::Error::NotImplemented),
         };
+        if opaen_state == true {
+            // if it has been enabled before, enable it again
+            self.csr.modify(|_, w| w.opaen().set_bit());
+        }
+        Ok(())
+    }
+
+    fn set_pga_gain(&self, gain: u16) -> opamp_trait::Result {
+        let opaen_state: bool = self.csr.read().opaen().bit_is_set();
+
+        match gain {
+            1 => {
+                // disable OPEAN (before changeing anything else)
+                self.csr.modify(|_, w| w.opaen().clear_bit());
+                // set OPAMODE = 3 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.opamode().bits(0b11)});
+            },
+            2  => {
+                // disable OPEAN (before changeing anything else)
+                self.csr.modify(|_, w| w.opaen().clear_bit());
+                // set OPAMODE = 3 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.opamode().bits(0b10)});
+                // set PGA_GAIN = 2 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.pga_gain().bits(0b00)});
+            },
+            4  => {
+                // disable OPEAN (before changeing anything else)
+                self.csr.modify(|_, w| w.opaen().clear_bit());
+                // set OPAMODE = 3 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.opamode().bits(0b10)});
+                // set PGA_GAIN = 2 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.pga_gain().bits(0b01)});
+            },
+            8  => {
+                // disable OPEAN (before changeing anything else)
+                self.csr.modify(|_, w| w.opaen().clear_bit());
+                // set OPAMODE = 3 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.opamode().bits(0b10)});
+                // set PGA_GAIN = 2 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.pga_gain().bits(0b10)});
+            },
+            16  => {
+                // disable OPEAN (before changeing anything else)
+                self.csr.modify(|_, w| w.opaen().clear_bit());
+                // set OPAMODE = 3 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.opamode().bits(0b10)});
+                // set PGA_GAIN = 2 // follower mode = pga gain = 1
+                self.csr.modify(|_, w| unsafe {w.pga_gain().bits(0b11)});
+            },
+            _   => return Err(opamp_trait::Error::NotImplemented),
+        };
+
         if opaen_state == true {
             // if it has been enabled before, enable it again
             self.csr.modify(|_, w| w.opaen().set_bit());
