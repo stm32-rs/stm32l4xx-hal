@@ -197,3 +197,9 @@ required-features = ["rt"]
 [[example]]
 name = "adc_dma"
 required-features = ["rt"]
+
+[[example]]
+name = "dac"
+required-features = ["rt", "stm32l476"]
+
+
