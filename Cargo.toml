@@ -197,3 +197,7 @@ required-features = ["rt"]
 [[example]]
 name = "adc_dma"
 required-features = ["rt"]
+
+[[example]]
+name = "audio"
+required-features = ["rt", "stm32l496"] # Register  for PLLSAI1 incomplete in L4x3, gate so CI will pass

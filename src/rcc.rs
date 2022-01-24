@@ -85,8 +85,12 @@ impl RccExt for RCC {
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
+                sai1clk: None,
+                sai2clk: None,
                 pll_source: None,
                 pll_config: None,
+                pllsai1_config: None,
+                pllsai2_config: None,
             },
         }
     }
@@ -351,8 +355,12 @@ pub struct CFGR {
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
+    sai1clk: Option<u32>,
+    sai2clk: Option<u32>,
     pll_source: Option<PllSource>,
     pll_config: Option<PllConfig>,
+    pllsai1_config: Option<PllConfig>,
+    pllsai2_config: Option<PllConfig>,
 }
 
 impl CFGR {
@@ -441,6 +449,41 @@ impl CFGR {
         self
     }
 
+    #[cfg(not(any(
+        // pllsai1cfgr.pllsai1pdiv missing in PAC
+        feature = "stm32l433",
+        feature = "stm32l443",
+        feature = "stm32l475",
+    )))]
+    /// Sets the SAI1 frequency with some pll configuration
+    pub fn sai1clk_with_pll<F>(mut self, freq: F, cfg: PllConfig) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        self.pllsai1_config = Some(cfg);
+        self.sai1clk = Some(freq.into().0);
+        self
+    }
+
+    #[cfg(any(
+        // feature = "stm32l475", // pllsai2cfgr.pllsai2pdiv missing in PAC
+        feature = "stm32l476",
+        feature = "stm32l486",
+        feature = "stm32l496",
+        feature = "stm32l4a6",
+        feature = "stm32l4r9",
+        feature = "stm32l4s9",
+    ))]
+    /// Sets the SAI2 frequency with some pll configuration
+    pub fn sai2clk_with_pll<F>(mut self, freq: F, cfg: PllConfig) -> Self
+    where
+        F: Into<Hertz>,
+    {
+        self.pllsai2_config = Some(cfg);
+        self.sai2clk = Some(freq.into().0);
+        self
+    }
+
     /// Sets the PLL source
     pub fn pll_source(mut self, source: PllSource) -> Self {
         self.pll_source = Some(source);
@@ -498,6 +541,7 @@ impl CFGR {
         if let Some(lse_cfg) = &self.lse {
             // 1. Unlock the backup domain
             pwr.cr1.reg().modify(|_, w| w.dbp().set_bit());
+            while pwr.cr1.reg().read().dbp().bit_is_clear() {}
 
             // 2. Setup the LSE
             rcc.bdcr.modify(|_, w| {
@@ -634,13 +678,26 @@ impl CFGR {
                 // Calculate PLL multiplier and create a best effort pll config, just multiply n
                 let plln = (2 * sysclk) / clock_speed;
 
-                Some(PllConfig::new(1, plln as u8, PllDivider::Div2))
+                Some(PllConfig::new(
+                    1,
+                    plln as u8,
+                    None,
+                    None,
+                    Some(PllDivider::Div2),
+                ))
             } else {
                 None
             }
         } else {
             self.pll_config
         };
+
+        // Check that all M values are equal
+        let p = [pllconf, self.pllsai1_config, self.pllsai2_config];
+        let _ = p.iter().flatten().reduce(|first, pc| {
+            assert_eq!(pc.m, first.m);
+            pc
+        });
 
         let sysclk = match (self.sysclk, self.msi) {
             (Some(sysclk), _) => sysclk,
@@ -725,20 +782,7 @@ impl CFGR {
         let sysclk_src_bits;
         let mut msi = self.msi;
         if let Some(pllconf) = pllconf {
-            // Sanity-checks per RM0394, 6.4.4 PLL configuration register (RCC_PLLCFGR)
-            let r = pllconf.r.to_division_factor();
-            let clock_speed = clock_speed / (pllconf.m as u32 + 1);
-            let vco = clock_speed * pllconf.n as u32;
-            let output_clock = vco / r;
-
-            assert!(r <= 8); // Allowed max output divider
-            assert!(pllconf.n >= 8); // Allowed min multiplier
-            assert!(pllconf.n <= 86); // Allowed max multiplier
-            assert!(clock_speed >= 4_000_000); // VCO input clock min
-            assert!(clock_speed <= 16_000_000); // VCO input clock max
-            assert!(vco >= 64_000_000); // VCO output min
-            assert!(vco <= 334_000_000); // VCO output max
-            assert!(output_clock <= 80_000_000); // Max output clock
+            pllconf.check(clock_speed).unwrap();
 
             // use PLL as source
             sysclk_src_bits = 0b11;
@@ -753,7 +797,7 @@ impl CFGR {
                     .pllm()
                     .bits(pllconf.m)
                     .pllr()
-                    .bits(pllconf.r.to_bits())
+                    .bits(pllconf.r.unwrap().to_bits())
                     .plln()
                     .bits(pllconf.n)
             });
@@ -797,6 +841,63 @@ impl CFGR {
 
         while rcc.cfgr.read().sws().bits() != sysclk_src_bits {}
 
+        // SAI PLL
+
+        #[cfg(not(any(
+            // pllsai1cfgr.pllsai1pdiv missing in PAC
+            feature = "stm32l433",
+            feature = "stm32l443",
+            feature = "stm32l475"
+        )))]
+        if let Some(pllconf) = self.pllsai1_config {
+            pllconf.check(clock_speed).unwrap();
+
+            rcc.cr.modify(|_, w| w.pllsai1on().clear_bit());
+            while rcc.cr.read().pllsai1rdy().bit_is_set() {}
+
+            rcc.pllsai1cfgr.modify(|_, w| unsafe {
+                w.pllsai1pdiv()
+                    .bits(pllconf.p.unwrap())
+                    .pllsai1n()
+                    .bits(pllconf.n)
+            });
+
+            rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
+
+            while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
+
+            rcc.pllsai1cfgr.modify(|_, w| w.pllsai1pen().set_bit());
+        }
+
+        #[cfg(any(
+            // feature = "stm32l475", // pllsai2cfgr.pllsai2pdiv missing in PAC
+            feature = "stm32l476",
+            feature = "stm32l486",
+            feature = "stm32l496",
+            feature = "stm32l4a6",
+            feature = "stm32l4r9",
+            feature = "stm32l4s9",
+        ))]
+        if let Some(pllconf) = self.pllsai2_config {
+            pllconf.check(clock_speed).unwrap();
+
+            rcc.cr.modify(|_, w| w.pllsai2on().clear_bit());
+            while rcc.cr.read().pllsai2rdy().bit_is_set() {}
+
+            rcc.pllsai2cfgr.modify(|_, w| unsafe {
+                w.pllsai2pdiv()
+                    .bits(pllconf.p.unwrap())
+                    .pllsai2n()
+                    .bits(pllconf.n)
+            });
+
+            rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
+
+            while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
+
+            rcc.pllsai2cfgr.modify(|_, w| w.pllsai2pen().set_bit());
+        }
+
         //
         // 3. Shutdown unused clocks that have auto-started
         //
@@ -822,6 +923,8 @@ impl CFGR {
             ppre1,
             ppre2,
             sysclk: Hertz(sysclk),
+            sai1clk: self.sai1clk.map(|clk| Hertz(clk)),
+            sai2clk: self.sai2clk.map(|clk| Hertz(clk)),
             pll_source: pllconf.map(|_| pll_source),
         }
     }
@@ -858,28 +961,115 @@ impl PllDivider {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub enum PllConfigError {
+    MinOutputDivider,
+    MaxOutputDivider,
+    MinMultiplier,
+    MaxMultiplier,
+    MinVcoInputClock,
+    MaxVcoInputClock,
+    MinVcoOutputClock,
+    MaxVcoOutputClock,
+    MaxOutputClock,
+}
+
+#[derive(Clone, Copy, Debug)]
 /// PLL Configuration
 pub struct PllConfig {
     // Main PLL division factor
     m: u8,
-    // Main PLL multiplication factor
+    // PLL multiplication factor
     n: u8,
-    // Main PLL division factor for PLLCLK (system clock)
-    r: PllDivider,
+    // PLL division factor for PLLR
+    p: Option<u8>,
+    // PLL division factor for PLLR
+    q: Option<PllDivider>,
+    // PLL division factor for PLLR
+    r: Option<PllDivider>,
 }
 
 impl PllConfig {
     /// Create a new PLL config from manual settings
     ///
     /// PLL output = ((SourceClk / input_divider) * multiplier) / output_divider
-    pub fn new(input_divider: u8, multiplier: u8, output_divider: PllDivider) -> Self {
+    pub fn new(
+        input_divider: u8,
+        multiplier: u8,
+        output_divider_p: Option<u8>,
+        output_divider_q: Option<PllDivider>,
+        output_divider_r: Option<PllDivider>,
+    ) -> Self {
         assert!(input_divider > 0);
 
         PllConfig {
             m: input_divider - 1,
             n: multiplier,
-            r: output_divider,
+            p: output_divider_p,
+            q: output_divider_q,
+            r: output_divider_r,
         }
+    }
+
+    fn check(&self, clock_speed: u32) -> Result<(), PllConfigError> {
+        // Sanity-checks per RM0394, 6.4.4 PLL configuration register (RCC_PLLCFGR)
+        let clock_speed = clock_speed / (self.m as u32 + 1);
+        let vco = clock_speed * self.n as u32;
+
+        if !(self.n >= 8) {
+            return Err(PllConfigError::MinMultiplier);
+        }
+        if !(self.n <= 86) {
+            return Err(PllConfigError::MaxMultiplier);
+        }
+        if !(clock_speed >= 4_000_000) {
+            return Err(PllConfigError::MinVcoInputClock);
+        }
+        if !(clock_speed <= 16_000_000) {
+            return Err(PllConfigError::MaxVcoInputClock);
+        }
+        if !(vco >= 64_000_000) {
+            return Err(PllConfigError::MinVcoOutputClock);
+        }
+        if !(vco <= 334_000_000) {
+            return Err(PllConfigError::MaxVcoOutputClock);
+        }
+
+        if let Some(p) = self.p {
+            let output_clock = vco / p as u32;
+            if !(p >= 2) {
+                return Err(PllConfigError::MinOutputDivider);
+            }
+            if !(p <= 31) {
+                return Err(PllConfigError::MaxOutputDivider);
+            }
+            if !(output_clock <= 80_000_000) {
+                return Err(PllConfigError::MaxOutputClock);
+            }
+        }
+
+        if let Some(q) = self.q {
+            let q = q.to_division_factor();
+            let output_clock = vco / q as u32;
+            if !(q <= 8) {
+                return Err(PllConfigError::MaxOutputDivider);
+            }
+            if !(output_clock <= 80_000_000) {
+                return Err(PllConfigError::MaxOutputClock);
+            }
+        }
+
+        if let Some(r) = self.r {
+            let r = r.to_division_factor();
+            let output_clock = vco / r;
+            if !(r <= 8) {
+                return Err(PllConfigError::MaxOutputDivider);
+            }
+            if !(output_clock <= 80_000_000) {
+                return Err(PllConfigError::MaxOutputClock);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -919,6 +1109,8 @@ pub struct Clocks {
     ppre1: u8,
     ppre2: u8,
     sysclk: Hertz,
+    sai1clk: Option<Hertz>,
+    sai2clk: Option<Hertz>,
     pll_source: Option<PllSource>,
 }
 
@@ -977,5 +1169,15 @@ impl Clocks {
     /// Returns the system (core) frequency
     pub fn sysclk(&self) -> Hertz {
         self.sysclk
+    }
+
+    // Returns the SAI1 frequency
+    pub fn sai1clk(&self) -> Option<Hertz> {
+        self.sai1clk
+    }
+
+    // Returns the SAI1 frequency
+    pub fn sai2clk(&self) -> Option<Hertz> {
+        self.sai2clk
     }
 }
