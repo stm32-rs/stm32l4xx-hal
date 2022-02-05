@@ -43,8 +43,6 @@ fn main() -> ! {
     op1.set_pga_gain(2).unwrap();
     op1.enable(true);
 
-    
-
     // ===================================================================================
     // Debug Info below
     rprintln!(" done.");
@@ -73,6 +71,5 @@ fn main() -> ! {
         ops.opamp1_csr.read().pga_gain().bits() as u8
     );
 
-    loop {
-    }
+    loop {}
 }

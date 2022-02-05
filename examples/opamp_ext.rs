@@ -73,14 +73,16 @@ fn main() -> ! {
     // set operation models
     let _ret = op1.set_opamp_oper_mode(OperationMode::External).unwrap();
     rprintln!("op1 operation mode set...");
-    
-   
+
     op1.enable(true);
 
     // ===================================================================================
     // Debug Info below
 
-    rprintln!("opamode OP1: {}\n", ops.opamp1_csr.read().opamode().bits() as u8);
+    rprintln!(
+        "opamode OP1: {}\n",
+        ops.opamp1_csr.read().opamode().bits() as u8
+    );
     // rprintln!("opaen: {}\n", ops.opamp1_csr.read().opaen().bits() as u8);
     // rprintln!("opa_range: {}\n", ops.opamp1_csr.read().opa_range().bits() as u8);
     // rprintln!("vp_sel: {}\n", ops.opamp1_csr.read().vp_sel().bits() as u8);
@@ -92,6 +94,5 @@ fn main() -> ! {
     // rprintln!("usertrim: {}\n", ops.opamp1_csr.read().usertrim().bits() as u8);
     // rprintln!("pga_gain: {}\n", ops.opamp1_csr.read().pga_gain().bits() as u8);
 
-    
     loop {}
 }
