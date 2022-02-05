@@ -48,9 +48,9 @@ fn main() -> ! {
         &rcc.apb1r1,
     );
 
-    op1.set_opamp_oper_mode(OperationMode::Pga);
+    op1.set_opamp_oper_mode(OperationMode::Pga).unwrap();
     // set pga gain
-    op1.set_pga_gain(16);
+    op1.set_pga_gain(2).unwrap();
     op1.enable(true);
 
     rprintln!(" done.");
