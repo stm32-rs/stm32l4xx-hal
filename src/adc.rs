@@ -51,7 +51,6 @@ pub enum DmaMode {
     Oneshot = 1,
     // FIXME: Figure out how to get circular DMA to function properly (requires circbuffer?)
     // Circular = 2,
-    ExtTrigger = 3,
 }
 
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
@@ -117,37 +116,6 @@ impl Into<u8> for Sequence {
             Sequence::Fourteen => 13,
             Sequence::Fifteen => 14,
             Sequence::Sixteen => 15,
-        }
-    }
-}
-
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
-pub enum Jsequence {
-    One = 0,
-    Two = 1,
-    Three = 2,
-    Four = 3,
-}
-
-impl From<u8> for Jsequence {
-    fn from(bits: u8) -> Self {
-        match bits {
-            0 => Jsequence::One,
-            1 => Jsequence::Two,
-            2 => Jsequence::Three,
-            3 => Jsequence::Four,
-            _ => unimplemented!(),
-        }
-    }
-}
-
-impl Into<u8> for Jsequence {
-    fn into(self) -> u8 {
-        match self {
-            Jsequence::One => 0,
-            Jsequence::Two => 1,
-            Jsequence::Three => 2,
-            Jsequence::Four => 3,
         }
     }
 }
@@ -321,7 +289,7 @@ impl ADC {
 
     /// Convert a measurement to millivolts
     pub fn to_millivolts(&self, sample: u16) -> u16 {
-        ((u32::from(sample) * self.calibrated_vdda) / self.resolution.tomax_count()) as u16
+        ((u32::from(sample) * self.calibrated_vdda) / self.resolution.to_max_count()) as u16
     }
 
     /// Convert a raw sample from the `Temperature` to deg C
@@ -394,52 +362,6 @@ impl ADC {
             // Note: sequence length of 0 = 1 conversion
             self.set_sequence_length(sequence.into());
         }
-    }
-
-    /// Configure the channel for a specific step in the sequence.
-    ///
-    /// Automatically sets the sequence length to the farthes sequence
-    /// index that has been used so far. Use [`ADC::reset_jsequence`] to
-    /// reset the sequence length.
-    pub fn configure_jsequence<C>(
-        &mut self,
-        channel: &mut C,
-        sequence: Jsequence,
-        sample_time: SampleTime,
-    ) where
-        C: Channel,
-    {
-        let channel_bits = C::channel();
-        channel.set_sample_time(&self.adc, sample_time);
-
-        unsafe {
-            // This is sound as channel() always returns a valid channel number
-            match sequence {
-                Jsequence::One => self.adc.jsqr.modify(|_, w| w.jsq1().bits(channel_bits)),
-                Jsequence::Two => self.adc.jsqr.modify(|_, w| w.jsq2().bits(channel_bits)),
-                Jsequence::Three => self.adc.jsqr.modify(|_, w| w.jsq3().bits(channel_bits)),
-                Jsequence::Four => self.adc.jsqr.modify(|_, w| w.jsq4().bits(channel_bits)),
-            }
-        }
-
-        // This will only ever extend the sequence, not shrink it.
-        let current_seql = self.get_jsequence_length();
-        let next_seql: u8 = sequence.into();
-        if next_seql >= current_seql {
-            // Note: sequence length of 0 = 1 conversion
-            self.set_jsequence_length(sequence.into());
-        }
-    }
-
-    /// Get the configured sequence length (= `actual sequence length - 1`)
-    pub(crate) fn get_jsequence_length(&self) -> u8 {
-        self.adc.jsqr.read().jl().bits()
-    }
-
-    /// Private: length must be `actual sequence length - 1`, so not API-friendly.
-    /// Use [`ADC::reset_sequence`] and [`ADC::configure_sequence`] instead
-    fn set_jsequence_length(&mut self, length: u8) {
-        self.adc.jsqr.modify(|_, w| unsafe { w.jl().bits(length) });
     }
 
     /// Get the configured sequence length (= `actual sequence length - 1`)
@@ -526,171 +448,6 @@ impl ADC {
     pub fn disable(&mut self) {
         self.adc.cr.modify(|_, w| w.addis().set_bit());
     }
-
-    /// channels for external triggers
-    /// TIM1_CH1     0b0000
-    /// TIM1_CH2     0b0001
-    /// TIM1_CH3     0b0010
-    /// TIM2_CH2     0b0011
-    /// TIM3_TRGO    0b0100  (not on all chips available)
-    /// EXTI line 11 0b0110
-    /// TIM8_TRGO    0b0111
-    /// TIM8_TRGO2   0b1000
-    /// TIM1_TRGO    0b1001
-    /// TIM1_TRGO2   0b1010
-    /// TIM2_TRGO    0b1011
-    /// TIM4_TRGO    0b1100
-    /// TIM6_TRGO    0b1101
-    /// TIM15_TRGO   0b1110
-    /// TIM3_CH4     0b1111
-    /// these bits are only allowed to be set, when ADC is disabled
-    /// set edge of injected trigger by timers
-    /// None              0b00
-    /// Positive edge     0b01
-    /// Negative edge     0b10
-    /// both edges        0b11
-    pub fn set_external_trigger(&mut self, ch: u8, edge: u8) {
-        if self.adc.cr.read().adstart().bit_is_clear() {
-            self.adc.cfgr.modify(|_, w| unsafe { w.extsel().bits(ch) });
-
-            self.adc.cfgr.modify(|_, w| unsafe { w.exten().bits(edge) }); // 1 as u8
-        }
-    }
-
-    /// channels for injection Transmitter
-    /// TIM1_TRGO       0b0000
-    /// TIM1_CH4        0b0001
-    /// TIM2_TRGO       0b0010
-    /// TIM2_CH1        0b0011
-    /// TIM3_CH4        0b0100  (not on all chips available)
-    /// EXTI line 15    0b0110
-    /// TIM1_TRGO2      0b1000
-    /// TIM6_TRGO       0b1110
-    /// TIM15_TRGO      0b1111
-    /// set edge of injected trigger by timers
-    /// None              0b00
-    /// Positive edge     0b01
-    /// Negative edge     0b10
-    /// both edges        0b11
-    pub fn set_inject_channel(&mut self, ch: u8, edge: u8) {
-        self.adc.jsqr.modify(|_, w| unsafe { w.jextsel().bits(ch) });
-
-        self.adc
-            .jsqr
-            .modify(|_, w| unsafe { w.jexten().bits(edge) }); // 1 as u8
-    }
-
-    pub fn start_injected(&mut self) {
-        if !self.is_injected_mod_enabled() {
-            while self.adc.cr.read().addis().bit_is_set() {}
-            self.adc.ier.modify(|_, w| w.jeocie().set_bit()); // end of sequence interupt enable
-            self.adc.cr.modify(|_, w| w.aden().set_bit());
-            self.adc.cr.modify(|_, w| w.jadstart().set_bit());
-            // ADSTART bit is cleared to 0 bevor using this function
-            while self.adc.isr.read().adrdy().bit_is_clear() {}
-        }
-    }
-
-    pub fn start_injected_sequence(&mut self) {
-        if !self.is_injected_mod_enabled() {
-            while self.adc.cr.read().addis().bit_is_set() {}
-            self.adc.ier.modify(|_, w| w.jeosie().set_bit()); // end of sequence interupt enable
-
-            self.adc.cr.modify(|_, w| w.aden().set_bit());
-            while self.adc.isr.read().adrdy().bit_is_clear() {}
-            self.adc.cr.modify(|_, w| w.jadstart().set_bit());
-            // ADSTART bit is cleared to 0 bevor using this function
-
-            // clear end of sequencd conversion interrupt flag
-        }
-    }
-
-    pub fn is_injected_mod_enabled(&self) -> bool {
-        self.adc.cr.read().jadstart().bit_is_set()
-    }
-
-    pub fn stop_injected(&mut self) {
-        // ?????? or is it reset after each conversion?
-        self.adc.cr.modify(|_, w| w.jadstp().set_bit());
-        // self.adc.cr.modify(|_, w| w.jadstp().set_bit());
-        // ADSTART bit is cleared to 0 bevor using this function
-        // disable EOS interrupt
-        // maybe self.rb.cr.adstp().set_bit() must be performed before interrupt is disabled + wait abortion
-        self.adc.ier.modify(|_, w| w.jeocie().clear_bit()); // end of sequence interupt disable
-    }
-
-    pub fn stop_injected_sequence(&mut self) {
-        // ?????? or is it reset after each conversion?
-        self.adc.cr.modify(|_, w| w.jadstp().set_bit());
-        // self.adc.cr.modify(|_, w| w.jadstp().set_bit());
-        // ADSTART bit is cleared to 0 bevor using this function
-        // disable EOS interrupt
-        // maybe self.rb.cr.adstp().set_bit() must be performed before interrupt is disabled + wait abortion
-        self.adc.ier.modify(|_, w| w.jeosie().clear_bit()); // end of sequence interupt disable
-    }
-
-    pub fn get_injected_jdr(&mut self, jdrx: u8) -> u16 {
-        match jdrx {
-            1 => self.adc.jdr1.read().jdata1().bits() as u16,
-            2 => self.adc.jdr2.read().jdata2().bits() as u16,
-            3 => self.adc.jdr3.read().jdata3().bits() as u16,
-            4 => self.adc.jdr4.read().jdata4().bits() as u16,
-            _ => 0xffff_u16,
-        }
-    }
-
-    /// Reset the jsequence length to 1
-    ///
-    /// Does *not* erase previously configured sequence settings, only
-    /// changes the sequence length
-    pub fn reset_jsequence(&mut self) {
-        self.adc.jsqr.modify(|_, w| unsafe { w.jl().bits(0b00) })
-    }
-
-    /// clear jeos interrupt flag
-    pub fn set_jeos(&mut self) {
-        self.adc.isr.modify(|_, w| w.jeos().set_bit());
-    }
-
-    /// Oversampling of adc according to datasheet of stm32g0, when oversampling is enabled
-    /// 000: 2x
-    /// 001: 4x
-    /// 010: 8x
-    /// 011: 16x
-    /// 100: 32x
-    /// 101: 64x
-    /// 110: 128x
-    /// 111: 256x
-    pub fn set_oversampling_ratio(&mut self, multyply: u8) {
-        self.adc
-            .cfgr2
-            .modify(|_, w| unsafe { w.ovsr().bits(multyply) });
-    }
-
-    /// Oversampling shif configurations
-    /// 0000: No shift
-    /// 0001: Shift 1-bit
-    /// 0010: Shift 2-bits
-    /// 0011: Shift 3-bits
-    /// 0100: Shift 4-bits
-    /// 0101: Shift 5-bits
-    /// 0110: Shift 6-bits
-    /// 0111: Shift 7-bits
-    /// 1000: Shift 8-bits
-    /// Other codes reserved
-    pub fn set_oversampling_shift(&mut self, nrbits: u8) {
-        self.adc
-            .cfgr2
-            .modify(|_, w| unsafe { w.ovss().bits(nrbits) });
-    }
-
-    pub fn oversampling_enable(&mut self) {
-        self.adc.cfgr2.modify(|_, w| w.rovse().set_bit());
-    }
-
-    pub fn inject_oversampling_enable(&mut self) {
-        self.adc.cfgr2.modify(|_, w| w.jovse().set_bit());
-    }
 }
 
 impl<C> OneShot<ADC, u16, C> for ADC
@@ -769,10 +526,9 @@ where
     ) -> Self {
         assert!(dma_mode != DmaMode::Disabled);
 
-        let (enable, circular, exttrig) = match dma_mode {
-            DmaMode::Disabled => (false, false, false),
-            DmaMode::Oneshot => (true, false, false),
-            DmaMode::ExtTrigger => (true, false, true),
+        let (enable, circular) = match dma_mode {
+            DmaMode::Disabled => (false, false),
+            DmaMode::Oneshot => (true, false),
         };
 
         adc.adc
@@ -784,44 +540,28 @@ where
         // SAFETY: since the length of BUFFER is known to be `N`, we are allowed
         // to perform N transfers into said buffer
         channel.set_memory_address(buffer.as_ptr() as u32, true);
-        channel.set_transfer_length(N as u16); // N is buffer legnth
+        channel.set_transfer_length(N as u16);
 
         channel.cselr().modify(|_, w| w.c1s().bits(0b0000));
 
         channel.ccr().modify(|_, w| unsafe {
             w.mem2mem()
-                // clear memory to memory mode
                 .clear_bit()
-                // dma priority: 00: Low, 01: Medium, 10: High, 11: Very high
+                // 00: Low, 01: Medium, 10: High, 11: Very high
                 .pl()
                 .bits(0b01)
-                // dma transfer size: 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
                 .msize()
                 .bits(0b01)
-                // dma periferal transer size: 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
+                // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
                 .psize()
                 .bits(0b01)
                 // Peripheral -> Mem
                 .dir()
                 .clear_bit()
-                // memory increment mode
-                .minc()
-                .clear_bit()
-                // peripheral increment mode
-                .pinc()
-                .clear_bit()
-                // set circual mode as defined in DMAmode
                 .circ()
                 .bit(circular)
         });
-
-        // read ADC sequence length
-        let sequence_length = adc.adc.sqr1.read().l().bits();
-        // buffer increment bit in memory, if dma with several sequential reads are performed
-        if sequence_length > 0 && exttrig {
-            // memory increment mode
-            channel.ccr().modify(|_, w| w.minc().set_bit());
-        }
 
         if transfer_complete_interrupt {
             channel.listen(DMAEvent::TransferComplete);
@@ -830,7 +570,6 @@ where
         atomic::compiler_fence(Ordering::Release);
 
         channel.start();
-
         adc.start_conversion();
 
         Transfer::w(
@@ -868,7 +607,7 @@ impl Default for Resolution {
 }
 
 impl Resolution {
-    fn tomax_count(&self) -> u32 {
+    fn to_max_count(&self) -> u32 {
         match self {
             Resolution::Bits12 => (1 << 12) - 1,
             Resolution::Bits10 => (1 << 10) - 1,
@@ -954,9 +693,6 @@ macro_rules! adc_pins {
         )*
     };
 }
-
-// smprx : sample time main register
-// smpx  : smple tim channel value register
 
 adc_pins!(
     0,  Vref,              smpr1, smp0;
