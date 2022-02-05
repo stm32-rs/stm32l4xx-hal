@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ master ]
+    branches: [ opamp ]
   pull_request:
 
 name: Code formatting check
