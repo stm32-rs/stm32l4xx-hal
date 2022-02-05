@@ -1,5 +1,4 @@
-
-use crate::hal::{blocking::delay::DelayUs,};
+use crate::hal::blocking::delay::DelayUs;
 
 #[derive(Copy, Clone, Debug)]
 pub enum OPAMPS {
@@ -13,15 +12,9 @@ pub enum OperationMode {
     // wrong values provided
     External,
     // PGA mode, (configurable gain) connected to an ADC
-    PgaADC1,
+    Pga,
     // pga mode with external filter connected
-    PgaADC1ExternalFiltering,
-    // PGA mode, (configurable gain) connected to an ADC
-    PgaADC2,
-    // pga mode with external filter connected
-    PgaADC2ExternalFiltering,
-    // // Calibration Modes
-    // CalibrationMode,
+    PgaExternalFiltering,
     // added, that warnings for global match pattern are suppressed
     SuppressMachtWarnings,
 }
@@ -75,15 +68,13 @@ pub enum PgaGain {
     PgaG4,
     PgaG8,
     PgaG16,
-    PgaG32,   // this values and below may be used for stm32g4 devices
+    PgaG32, // this values and below may be used for stm32g4 devices
     PgaG64,
     PgaG128,
     PgaG256,
     // added, that warnings for global match pattern are suppressed
     SuppressMachtWarnings,
 }
-
-
 
 /// Opamp configuration error
 #[derive(Copy, Clone, Debug)]
@@ -104,8 +95,6 @@ pub enum Error {
     SuppressMachtWarnings,
 }
 
-
-
 /// A type alias for the result of opamp configruation error.
 pub type Result = core::result::Result<(), Error>;
 
@@ -114,12 +103,11 @@ pub type Result = core::result::Result<(), Error>;
 // }
 
 pub trait ConfigOpamp {
-
     fn set_opamp_oper_mode(&self, opmode: OperationMode) -> Result;
 
     fn conect_inputs(&self, vinp: VINP, vinm: VINM) -> Result;
 
-    fn set_pga_gain_enum(&self, gain: PgaGain) -> Result;
+    // fn set_pga_gain_enum(&self, gain: PgaGain) -> Result;
 
     fn set_pga_gain(&self, gain: u16) -> Result;
 

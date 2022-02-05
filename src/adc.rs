@@ -30,6 +30,12 @@ pub struct Vbat;
 /// Core temperature internal signal
 pub struct Temperature;
 
+/// Opamp1 output connected to ADC1
+pub struct Opamp1Out;
+
+/// Opamp1 output connected to ADC1
+pub struct Opamp2Out;
+
 /// Analog to Digital converter interface
 pub struct ADC {
     pub(crate) adc: ADC1,
@@ -254,6 +260,16 @@ impl ADC {
         Vbat {}
     }
 
+    /// Get the `Opamp1Out`
+    pub fn enable_opamp1_out(&mut self) -> Opamp1Out {
+        Opamp1Out {}
+    }
+
+    /// Get the `Opamp2Out`
+    pub fn enable_opamp2_out(&mut self) -> Opamp2Out {
+        Opamp2Out {}
+    }
+
     /// Calculates the system VDDA by sampling the internal VREF channel and comparing
     /// the result with the value stored at the factory. If the chip's VDDA is not stable, run
     /// this before each ADC conversion.
@@ -383,7 +399,7 @@ impl ADC {
     /// Configure the channel for a specific step in the sequence.
     ///
     /// Automatically sets the sequence length to the farthes sequence
-    /// index that has been used so far. Use [`ADC::reset_sequence`] to
+    /// index that has been used so far. Use [`ADC::reset_jsequence`] to
     /// reset the sequence length.
     pub fn configure_jsequence<C>(
         &mut self,
@@ -621,6 +637,14 @@ impl ADC {
             4 => self.adc.jdr4.read().jdata4().bits() as u16,
             _ => 0xffff_u16,
         }
+    }
+
+    /// Reset the jsequence length to 1
+    ///
+    /// Does *not* erase previously configured sequence settings, only
+    /// changes the sequence length
+    pub fn reset_jsequence(&mut self) {
+        self.adc.jsqr.modify(|_, w| unsafe { w.jl().bits(0b00) })
     }
 
     /// clear jeos interrupt flag
@@ -931,6 +955,9 @@ macro_rules! adc_pins {
     };
 }
 
+// smprx : sample time main register
+// smpx  : smple tim channel value register
+
 adc_pins!(
     0,  Vref,              smpr1, smp0;
     1,  gpio::PC0<Analog>, smpr1, smp1;
@@ -951,4 +978,6 @@ adc_pins!(
     16, gpio::PB1<Analog>, smpr2, smp16;
     17, Temperature,       smpr2, smp17;
     18, Vbat,              smpr2, smp18;
+    8,  Opamp1Out,  smpr1, smp8;
+    15, Opamp2Out,  smpr2, smp15;
 );
