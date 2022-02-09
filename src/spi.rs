@@ -9,7 +9,7 @@ use core::ptr;
 use core::sync::atomic;
 use core::sync::atomic::Ordering;
 
-#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+#[cfg(all(has_peripheral = "spi3", not(family = "L4x3")))]
 use crate::dma::dma2;
 use crate::dma::{self, dma1, TransferPayload};
 use crate::gpio::{Alternate, PushPull};
@@ -269,23 +269,7 @@ macro_rules! hal {
 }
 
 use crate::gpio::gpiod::*;
-#[cfg(any(
-    // feature = "stm32l471",  // missing PAC support for Port G
-    feature = "stm32l475",
-    feature = "stm32l476",
-    feature = "stm32l485",
-    feature = "stm32l486",
-    feature = "stm32l496",
-    feature = "stm32l4a6",
-    // feature = "stm32l4p5",
-    // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
-    // feature = "stm32l4s5",
-    // feature = "stm32l4r7",
-    // feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9",
-))]
+#[cfg(has_peripheral = "gpiog")]
 use crate::gpio::gpiog::*;
 use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
 
@@ -299,56 +283,24 @@ pins!(SPI1, 5,
     MISO: [PA6, PB4, PE14],
     MOSI: [PA7, PB5, PE15]);
 
-#[cfg(any(
-    // feature = "stm32l471", // missing PAC support for Port G
-    feature = "stm32l475",
-    feature = "stm32l476",
-    feature = "stm32l485",
-    feature = "stm32l486",
-    feature = "stm32l496",
-    feature = "stm32l4a6",
-    // feature = "stm32l4p5",
-    // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
-    // feature = "stm32l4s5",
-    // feature = "stm32l4r7",
-    // feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9",
-))]
+#[cfg(has_peripheral = "gpiog")]
 pins!(SPI1, 5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
 
-#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+#[cfg(has_peripheral = "spi3")]
 use crate::stm32::SPI3;
 
-#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+#[cfg(has_peripheral = "spi3")]
 hal! {
     SPI3: (spi3, spi3_slave, pclk1),
 }
 
-#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+#[cfg(all(has_peripheral = "spi3", not(family = "L4x3")))]
 pins!(SPI3, 6,
     SCK: [PB3, PC10],
     MISO: [PB4, PC11],
     MOSI: [PB5, PC12]);
 
-#[cfg(any(
-    // feature = "stm32l471", // missing PAC support for Port G
-    feature = "stm32l475",
-    feature = "stm32l476",
-    feature = "stm32l485",
-    feature = "stm32l486",
-    feature = "stm32l496",
-    feature = "stm32l4a6",
-    // feature = "stm32l4p5",
-    // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
-    // feature = "stm32l4s5",
-    // feature = "stm32l4r7",
-    // feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9",
-))]
+#[cfg(all(has_peripheral = "spi3", has_peripheral = "gpiog"))]
 pins!(SPI3, 6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
 
 use crate::stm32::SPI2;
@@ -769,15 +721,8 @@ macro_rules! spi_dma {
 }
 
 spi_dma!(SPI1, dma1::C2, c2s, map1, dma1::C3, c3s, map1);
-#[cfg(not(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l432",
-    feature = "stm32l442",
-    feature = "stm32l452",
-    feature = "stm32l462",
-)))]
+#[cfg(not(family = "L4x2"))]
 spi_dma!(SPI2, dma1::C4, c4s, map1, dma1::C5, c5s, map1);
 // spi_dma!(SPI1, dma2::C3, c3s, map4, dma2::C4, c4s, map4);
-#[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
+#[cfg(all(has_peripheral = "spi3", not(family = "L4x3")))]
 spi_dma!(SPI3, dma2::C1, c1s, map3, dma2::C2, c2s, map3);

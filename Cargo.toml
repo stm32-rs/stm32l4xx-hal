@@ -19,6 +19,7 @@ exclude = [
 	"docs/*"
 ]
 edition = "2018"
+build = "build/build.rs"
 
 [dependencies]
 cortex-m = "0.7"
@@ -85,6 +86,7 @@ stm32l443 = [ "stm32l4/stm32l4x3" ]
 
 # L4x5
 stm32l475 = [ "stm32l4/stm32l4x5" ]
+stm32l485 = [ "stm32l4/stm32l4x5" ]
 
 # L4x6
 stm32l476 = [ "stm32l4/stm32l4x6" ]

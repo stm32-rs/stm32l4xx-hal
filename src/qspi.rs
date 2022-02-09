@@ -6,18 +6,13 @@ use crate::gpio::{
     gpioe::{PE10, PE11, PE12, PE13, PE14, PE15},
 };
 
-#[cfg(not(any(feature = "stm32l475")))]
+#[cfg(not(family = "L4x5"))]
 use crate::gpio::{
     gpioa::{PA2, PA3},
     gpiod::{PD3, PD4, PD5, PD6, PD7},
 };
 
-#[cfg(any(
-    feature = "stm32l476",
-    feature = "stm32l486",
-    feature = "stm32l496",
-    feature = "stm32l4a6"
-))]
+#[cfg(family = "L4x6")]
 use crate::gpio::{
     gpioc::{PC1, PC2, PC4, PC5},
     gpiof::{PF6, PF7, PF8, PF9},
@@ -708,7 +703,7 @@ pins!(
     IO3: [PE15, PA6]
 );
 
-#[cfg(not(any(feature = "stm32l475")))]
+#[cfg(not(family = "L4x5"))]
 pins!(
     QUADSPI,
     10,
@@ -720,12 +715,7 @@ pins!(
     IO3: [PD7]
 );
 
-#[cfg(any(
-    feature = "stm32l476",
-    feature = "stm32l486",
-    feature = "stm32l496",
-    feature = "stm32l4a6"
-))]
+#[cfg(family = "L4x6")]
 pins!(
     QUADSPI,
     10,

@@ -75,24 +75,12 @@ pub fn is_alarm_b_accessible(rtc: &RTC) -> bool {
 // AN7459
 // L4 series except L41/2 has 20 backup registers
 // L41/2, L4P/Q and L4R/S have 32 backup registers
-#[cfg(not(any(
-    feature = "stm32l4r5",
-    feature = "stm32l4s5",
-    feature = "stm32l4r7",
-    feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9"
-)))]
-pub const BACKUP_REGISTER_COUNT: usize = 20;
-#[cfg(any(
-    feature = "stm32l4r5",
-    feature = "stm32l4s5",
-    feature = "stm32l4r7",
-    feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9"
-))]
-pub const BACKUP_REGISTER_COUNT: usize = 32;
+pub const BACKUP_REGISTER_COUNT: usize =
+    if cfg!(any(family = "L41_42", family = "L4P_4Q", family = "L4R_4S",)) {
+        32
+    } else {
+        20
+    };
 
 /// Read content of the backup register.
 ///

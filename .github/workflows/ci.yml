@@ -26,6 +26,7 @@ jobs:
           - stm32l471
           - stm32l475
           - stm32l476
+          - stm32l485
           - stm32l486
           - stm32l496
           - stm32l4a6

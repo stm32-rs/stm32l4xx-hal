@@ -1,35 +1,15 @@
 //! RTC peripheral abstraction
 
 /// refer to AN4759 to compare features of RTC2 and RTC3
-#[cfg(not(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l4p5",
-    feature = "stm32l4q5"
-)))]
+#[cfg(has_peripheral_variant = "rtc_type2")]
 pub mod rtc2;
-#[cfg(not(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l4p5",
-    feature = "stm32l4q5"
-)))]
+#[cfg(has_peripheral_variant = "rtc_type2")]
 pub use rtc2 as rtc_registers;
 
 /// refer to AN4759 to compare features of RTC2 and RTC3
-#[cfg(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l4p5",
-    feature = "stm32l4q5"
-))]
+#[cfg(has_peripheral_variant = "rtc_type3")]
 pub mod rtc3;
-#[cfg(any(
-    feature = "stm32l412",
-    feature = "stm32l422",
-    feature = "stm32l4p5",
-    feature = "stm32l4q5"
-))]
+#[cfg(has_peripheral_variant = "rtc_type3")]
 pub use rtc3 as rtc_registers;
 
 use void::Void;
