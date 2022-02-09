@@ -142,7 +142,7 @@ bus! {
     SAI1 => (APB2, sai1en, sai1smen, sai1rst), // 21
 }
 
-#[cfg(any(condition = "family_L4x5", condition = "family_L4x6"))]
+#[cfg(any(family = "L4x5", family = "L4x6"))]
 bus! {
     GPIOF => (AHB2, gpiofen, gpiofsmen, gpiofrst), // 5
     GPIOG => (AHB2, gpiogen, gpiogsmen, gpiogrst), // 6
@@ -160,64 +160,54 @@ bus! {
     SAI2 => (APB2, sai2en, sai2smen, sai2rst), // 22
 }
 
-#[cfg(any(condition = "family_L4x1", condition = "family_L4x2"))]
+#[cfg(any(family = "L4x1", family = "L4x2"))]
 bus! {
     UART4 => (APB1R1, uart4en, uart4smen, usart4rst), // 19 // TODO: fix typo
 
     I2C4 => (APB1R2, i2c4en,, i2c4rst), // 1 // TODO: fix absent
 }
 
-#[cfg(any(
-    condition = "family_L4x1",
-    condition = "family_L4x2",
-    condition = "family_L4x3",
-    condition = "family_L4x5"
-))]
+#[cfg(any(family = "L4x1", family = "L4x2", family = "L4x3", family = "L4x5"))]
 bus! {
     DAC1 => (APB1R1, dac1en, dac1smen, dac1rst), // 29
 
     SDMMC => (APB2, sdmmcen, sdmmcsmen, sdmmcrst), // 10
 }
 
-#[cfg(not(condition = "family_L4x3"))]
+#[cfg(not(family = "L4x3"))]
 bus! {
     ADC2 => (AHB2, adcen, adcfssmen, adcrst), // 13
     QUADSPI => (AHB3, qspien, qspismen, qspirst), // 8
 }
 
-#[cfg(not(condition = "family_L4x5"))]
+#[cfg(not(family = "L4x5"))]
 bus! {
     CRS => (APB1R1, crsen,,), // 24 // TODO: fix absent
 }
 
-#[cfg(any(condition = "family_L4x1", condition = "family_L4x3"))]
-#[cfg(condition = "peripheral_usb_device_fs")]
+#[cfg(any(family = "L4x1", family = "L4x3"))]
+#[cfg(has_peripheral = "usb_device_fs")]
 bus! {
     USB => (APB1R1, usbfsen, usbfssmen, usbfsrst), // 26
 }
 
-#[cfg(condition = "family_L4x1")]
+#[cfg(family = "L4x1")]
 bus! {
     TIM3 => (APB1R1, tim3en,,), // 1 // TODO: absent smen, rst
     USB_FS => (APB1R1, usbf, usbfssmen, usbfsrst), // 26 // TODO: fix typo
 }
 
-#[cfg(condition = "family_L4x2")]
+#[cfg(family = "L4x2")]
 bus! {
     TIM3 => (APB1R1, tim3en,, tim3rst), // 1 // TODO: fix absent
 }
 
-#[cfg(condition = "family_L4x5")]
+#[cfg(family = "L4x5")]
 bus! {
     DFSDM => (APB2, dfsdmen, dfsdmsmen, dfsdmrst), // 24
 }
 
-#[cfg(any(
-    condition = "family_L4x6",
-    condition = "family_L4+x5",
-    condition = "family_L4+x7",
-    condition = "family_L4+x9"
-))]
+#[cfg(any(family = "L4x6", family = "L4+x5", family = "L4+x7", family = "L4+x9"))]
 bus! {
     DMA2D => (AHB1, dma2den, dma2dsmen, dma2drst), // 17
 

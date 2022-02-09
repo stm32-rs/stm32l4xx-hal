@@ -2,13 +2,13 @@
 
 use crate::hal::timer::{CountDown, Periodic};
 
-#[cfg(condition = "peripheral_tim3")]
+#[cfg(has_peripheral = "tim3")]
 use crate::stm32::TIM3;
 
-#[cfg(condition = "peripheral_tim7")]
+#[cfg(has_peripheral = "tim7")]
 use crate::stm32::TIM7;
 use crate::stm32::{TIM15, TIM16, TIM2, TIM6};
-#[cfg(condition = "peripheral_tim17")]
+#[cfg(has_peripheral = "tim17")]
 use crate::stm32::{TIM17, TIM4, TIM5};
 
 // TIM1/TIM8 ("Advcanced Control Timers") -> no impl
@@ -229,27 +229,27 @@ hal! {
     TIM16: (tim16, free_running_tim16, APB2, u16),
 }
 
-#[cfg(condition = "peripheral_tim3")]
+#[cfg(has_peripheral = "tim3")]
 hal! {
     TIM3:  (tim3, free_running_tim3, APB1R1, u16),
 }
 
-#[cfg(condition = "peripheral_tim7")]
+#[cfg(has_peripheral = "tim7")]
 hal! {
     TIM7:  (tim7, free_running_tim7, APB1R1, u16),
 }
 
-#[cfg(condition = "peripheral_tim4")]
+#[cfg(has_peripheral = "tim4")]
 hal! {
     TIM4:  (tim4, free_running_tim4, APB1R1, u16),
 }
 
-#[cfg(condition = "peripheral_tim5")]
+#[cfg(has_peripheral = "tim5")]
 hal! {
     TIM5:  (tim5, free_running_tim5, APB1R1, u32),
 }
 
-#[cfg(condition = "peripheral_tim17")]
+#[cfg(has_peripheral = "tim17")]
 hal! {
     TIM17: (tim17, free_running_tim17, APB2, u16),
 }

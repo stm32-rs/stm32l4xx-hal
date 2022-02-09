@@ -45,7 +45,7 @@ mod common_pins {
     }
 }
 
-#[cfg(condition = "family_L4x1")]
+#[cfg(family = "L4x1")]
 mod pb13_pb12_af10 {
     use crate::gpio::{
         gpiob::{PB12, PB13},

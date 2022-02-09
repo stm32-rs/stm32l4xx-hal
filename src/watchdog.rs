@@ -27,17 +27,9 @@ impl IndependentWatchdog {
 
     /// Debug independent watchdog stopped when core is halted
     pub fn stop_on_debug(&self, dbgmcu: &DBGMCU, stop: bool) {
-        #[cfg(any(
-            condition = "family_L4x1",
-            condition = "family_L4x2",
-            condition = "family_L4x3",
-        ))]
+        #[cfg(any(family = "L4x1", family = "L4x2", family = "L4x3",))]
         dbgmcu.apb1fzr1.modify(|_, w| w.dbg_iwdg_stop().bit(stop));
-        #[cfg(not(any(
-            condition = "family_L4x1",
-            condition = "family_L4x2",
-            condition = "family_L4x3",
-        )))]
+        #[cfg(not(any(family = "L4x1", family = "L4x2", family = "L4x3",)))]
         dbgmcu.apb1_fzr1.modify(|_, w| w.dbg_iwdg_stop().bit(stop));
     }
 
