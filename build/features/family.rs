@@ -1,11 +1,7 @@
 use crate::{features::*, FeatureGate};
 
 /// list of peripherals to be gated and whether they are present for the selected features
-/// they can then be checked in the library using
-///
-/// ```Rust
-/// #[cfg(condition = peripheral_<name>)]
-/// ```
+/// see [crate::features::generate_internal_features()] for how to reference these
 pub(crate) const DEVICE_FAMILY: &[FeatureGate] = &[
     FeatureGate {
         name: "L4x1",

@@ -1,11 +1,7 @@
 use crate::{features::*, FeatureGate};
 
 /// list of peripherals to be gated and whether they are present for the selected features
-/// they can then be checked in the library using
-///
-/// ```Rust
-/// #[cfg(condition = peripheral_<name>)]
-/// ```
+/// see [crate::features::generate_internal_features()] for how to reference these
 pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
     FeatureGate {
         name: "adc1",
@@ -457,11 +453,8 @@ pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
         state: IS_FEATURE_ENABLED_L496 || IS_FEATURE_ENABLED_L4A6,
     },
     FeatureGate {
-        name: "rtc_type3",
-        state: IS_FEATURE_ENABLED_L412
-            || IS_FEATURE_ENABLED_L422
-            || IS_FEATURE_ENABLED_L4P5
-            || IS_FEATURE_ENABLED_L4Q5,
+        name: "rtc",
+        state: true,
     },
     FeatureGate {
         name: "gpioa",
@@ -712,5 +705,24 @@ pub(crate) const PERIPHERAL_FEATURES: &[FeatureGate] = &[
         // aka public key accelerator
         name: "pka",
         state: IS_FEATURE_ENABLED_L4Q5,
+    },
+];
+
+/// list of peripherals variants to be gated and whether they are present for the selected features
+/// see [crate::features::generate_internal_features()] for how to reference these
+pub(crate) const PERIPHERAL_VARIANTS: &[FeatureGate] = &[
+    FeatureGate {
+        name: "rtc_type3",
+        state: IS_FEATURE_ENABLED_L412
+            || IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5,
+    },
+    FeatureGate {
+        name: "rtc_type2",
+        state: !(IS_FEATURE_ENABLED_L412
+            || IS_FEATURE_ENABLED_L422
+            || IS_FEATURE_ENABLED_L4P5
+            || IS_FEATURE_ENABLED_L4Q5),
     },
 ];
