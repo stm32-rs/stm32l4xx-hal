@@ -1,44 +1,9 @@
-use crate::features::*;
-
-pub(crate) mod family;
 pub(crate) mod features;
-pub(crate) mod peripherals;
-
-fn feature_validate() -> bool {
-    const DEVICE_FEATURES: &[bool] = &[
-        IS_FEATURE_ENABLED_L412,
-        IS_FEATURE_ENABLED_L422,
-        IS_FEATURE_ENABLED_L431,
-        IS_FEATURE_ENABLED_L432,
-        IS_FEATURE_ENABLED_L433,
-        IS_FEATURE_ENABLED_L442,
-        IS_FEATURE_ENABLED_L443,
-        IS_FEATURE_ENABLED_L451,
-        IS_FEATURE_ENABLED_L452,
-        IS_FEATURE_ENABLED_L462,
-        IS_FEATURE_ENABLED_L471,
-        IS_FEATURE_ENABLED_L475,
-        IS_FEATURE_ENABLED_L476,
-        IS_FEATURE_ENABLED_L485,
-        IS_FEATURE_ENABLED_L486,
-        IS_FEATURE_ENABLED_L496,
-        IS_FEATURE_ENABLED_L4A6,
-        //IS_FEATURE_ENABLED_L4P5,
-        //IS_FEATURE_ENABLED_L4Q5,
-        //IS_FEATURE_ENABLED_L4R5,
-        //IS_FEATURE_ENABLED_L4S5,
-        //IS_FEATURE_ENABLED_L4R7,
-        //IS_FEATURE_ENABLED_L4S7,
-        IS_FEATURE_ENABLED_L4R9,
-        IS_FEATURE_ENABLED_L4S9,
-    ];
-    DEVICE_FEATURES.iter().filter(|&&b| b).count() == 1
-}
 
 fn main() {
-    if !feature_validate() {
-        panic!(
-            "
+    assert!(
+        features::validate_selected_features(),
+        "
 This crate requires exactly one of the following features to be enabled:
     stm32l431, stm32l451, stm32l471
     stm32l412, stm32l422, stm32l432, stm32l442, stm32l452, stm32l462
@@ -47,19 +12,8 @@ This crate requires exactly one of the following features to be enabled:
     stm32l476, stm32l486, stm32l496, stm32l4a6
     stm32l4r9, stm32l4s9
 "
-        );
-    }
-
-    for gate in peripherals::PERIPHERAL_FEATURES {
-        if gate.state {
-            println!(r#"cargo:rustc-cfg=condition="peripheral_{}""#, gate.name);
-        }
-    }
-    for gate in family::DEVICE_FAMILY {
-        if gate.state {
-            println!(r#"cargo:rustc-cfg=condition="family_{}""#, gate.name);
-        }
-    }
+    );
+    features::generate_internal_features();
 }
 
 pub(crate) struct FeatureGate<'a> {
