@@ -1,15 +1,15 @@
 //! RTC peripheral abstraction
 
 /// refer to AN4759 to compare features of RTC2 and RTC3
-#[cfg(not(has_peripheral = "rtc_type3"))]
+#[cfg(has_peripheral_variant = "rtc_type2")]
 pub mod rtc2;
-#[cfg(not(has_peripheral = "rtc_type3"))]
+#[cfg(has_peripheral_variant = "rtc_type2")]
 pub use rtc2 as rtc_registers;
 
 /// refer to AN4759 to compare features of RTC2 and RTC3
-#[cfg(has_peripheral = "rtc_type3")]
+#[cfg(has_peripheral_variant = "rtc_type3")]
 pub mod rtc3;
-#[cfg(has_peripheral = "rtc_type3")]
+#[cfg(has_peripheral_variant = "rtc_type3")]
 pub use rtc3 as rtc_registers;
 
 use void::Void;
