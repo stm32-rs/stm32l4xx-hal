@@ -234,7 +234,7 @@ impl<const P: char> PUPDR<P> {
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $PXx:ident, $port_id:literal, $extigpionr:expr, [
+    ($GPIOX:ident, $gpiox:ident, $PXx:ident, $port_id:literal, $extigpionr:expr, $({ $pwrenable:expr },)? [
         $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $HL:ident, $exticri:ident),)+
     ]) => {
         /// GPIO
@@ -274,6 +274,7 @@ macro_rules! gpio {
                 fn split(self, ahb: &mut AHB2) -> Parts {
                     <$GPIOX>::enable(ahb);
                     <$GPIOX>::reset(ahb);
+                    $($pwrenable)?
 
                     Parts {
                         afrh: Afr::new(),
@@ -753,7 +754,9 @@ gpio!(GPIOF, gpiof, PFx, 'F', 5, [
     feature = "stm32l4r9",
     feature = "stm32l4s9",
 ))]
-gpio!(GPIOG, gpiog, PGx, 'G', 6, [
+gpio!(GPIOG, gpiog, PGx, 'G', 6,
+    { unsafe { (*crate::pac::PWR::ptr()).cr2.modify(|_,w| w.iosv().set_bit()); } },
+[
     PG0: (pg0, 0, Analog, L8, exticr1),
     PG1: (pg1, 1, Analog, L8, exticr1),
     PG2: (pg2, 2, Analog, L8, exticr1),
