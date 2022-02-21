@@ -194,6 +194,15 @@ impl Default for Config {
     }
 }
 
+impl From<Bps> for Config {
+    fn from(baudrate: Bps) -> Config {
+        Config {
+            baudrate,
+            ..Default::default()
+        }
+    }
+}
+
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
     usart: USART,
@@ -240,13 +249,15 @@ macro_rules! hal {
                 pub fn $usartX(
                     usart: pac::$USARTX,
                     pins: PINS,
-                    config: Config,
+                    config: impl Into<Config>,
                     clocks: Clocks,
                     apb: &mut <pac::$USARTX as RccBus>::Bus,
                 ) -> Self
                 where
                     PINS: Pins<pac::$USARTX>,
                 {
+                    let config = config.into();
+
                     // enable or reset $USARTX
                     <pac::$USARTX>::enable(apb);
                     <pac::$USARTX>::reset(apb);
