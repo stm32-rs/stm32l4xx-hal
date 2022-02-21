@@ -32,9 +32,9 @@ fn main() -> ! {
     // clock configuration (clocks run at nearly the maximum frequency)
     let _clocks = rcc
         .cfgr
-        .sysclk(80.mhz())
-        .pclk1(80.mhz())
-        .pclk2(80.mhz())
+        .sysclk(80.MHz())
+        .pclk1(80.MHz())
+        .pclk2(80.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
     let get_id_command = QspiReadCommand {

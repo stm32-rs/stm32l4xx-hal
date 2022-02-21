@@ -29,7 +29,7 @@ fn main() -> ! {
     // clock configuration using the default settings (all clocks run at 8 MHz)
     let _clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
-    // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
+    // let clocks = rcc.cfgr.sysclk(64.MHz()).pclk1(32.MHz()).freeze(&mut flash.acr);
 
     // let mut delay = Delay::new(cp.SYST, clocks);
     let mut led = gpiob

@@ -82,8 +82,8 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new<F: Into<Hertz>>(freq: F, clocks: Clocks) -> Self {
-        let freq = freq.into().0;
+    pub fn new(freq: Hertz, clocks: Clocks) -> Self {
+        let freq = freq.raw();
         assert!(freq <= 1_000_000);
 
         // TODO review compliance with the timing requirements of I2C
@@ -94,7 +94,7 @@ impl Config {
         //
         // t_SYNC1 + t_SYNC2 > 4 * t_I2CCLK
         // t_SCL ~= t_SYNC1 + t_SYNC2 + t_SCLL + t_SCLH
-        let i2cclk = clocks.pclk1().0;
+        let i2cclk = clocks.pclk1().raw();
         let ratio = i2cclk / freq - 4;
         let (presc, scll, sclh, sdadel, scldel) = if freq >= 100_000 {
             // fast-mode or fast-mode plus

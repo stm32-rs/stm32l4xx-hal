@@ -15,3 +15,4 @@ pub use crate::pwr::PwrExt as _stm32l4_hal_PwrExt;
 pub use crate::rcc::RccExt as _stm32l4_hal_RccExt;
 pub use crate::rng::RngExt as _stm32l4_hal_RngExt;
 pub use crate::time::U32Ext as _stm32l4_hal_time_U32Ext;
+pub use fugit::{ExtU32 as _, RateExtU32 as _};

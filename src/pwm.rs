@@ -104,50 +104,45 @@ pins_to_channels_mapping! {
 }
 
 pub trait PwmExt1: Sized {
-    fn pwm<PINS, T>(self, _: PINS, frequency: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    fn pwm<PINS>(self, _: PINS, frequency: Hertz, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
     where
-        PINS: Pins<Self>,
-        T: Into<Hertz>;
+        PINS: Pins<Self>;
 }
 
 pub trait PwmExt2: Sized {
-    fn pwm<PINS, T>(
+    fn pwm<PINS>(
         self,
         _: PINS,
-        frequency: T,
+        frequency: Hertz,
         clocks: Clocks,
         apb: &mut APB1R1,
     ) -> PINS::Channels
     where
-        PINS: Pins<Self>,
-        T: Into<Hertz>;
+        PINS: Pins<Self>;
 }
 
 impl PwmExt1 for TIM1 {
-    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    fn pwm<PINS>(self, _pins: PINS, freq: Hertz, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
     where
         PINS: Pins<Self>,
-        T: Into<Hertz>,
     {
-        tim1(self, _pins, freq.into(), clocks, apb)
+        tim1(self, _pins, freq, clocks, apb)
     }
 }
 
 impl PwmExt1 for TIM15 {
-    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
+    fn pwm<PINS>(self, _pins: PINS, freq: Hertz, clocks: Clocks, apb: &mut APB2) -> PINS::Channels
     where
         PINS: Pins<Self>,
-        T: Into<Hertz>,
     {
-        tim15(self, _pins, freq.into(), clocks, apb)
+        tim15(self, _pins, freq, clocks, apb)
     }
 }
 
 impl PwmExt2 for TIM2 {
-    fn pwm<PINS, T>(self, _pins: PINS, freq: T, clocks: Clocks, apb: &mut APB1R1) -> PINS::Channels
+    fn pwm<PINS>(self, _pins: PINS, freq: Hertz, clocks: Clocks, apb: &mut APB1R1) -> PINS::Channels
     where
         PINS: Pins<Self>,
-        T: Into<Hertz>,
     {
         // TODO: check if this is really not needed (in the f1xx examples value
         //       of remap is 0x0). if so, what's afio.mapr on l4xx?
@@ -155,7 +150,7 @@ impl PwmExt2 for TIM2 {
         // mapr.mapr()
         //     .modify(|_, w| unsafe { w.tim2_remap().bits(PINS::REMAP) });
 
-        tim2(self, _pins, freq.into(), clocks, apb)
+        tim2(self, _pins, freq, clocks, apb)
     }
 }
 
@@ -201,8 +196,7 @@ macro_rules! advanced_timer {
                     tim.ccmr2_output().modify(|_, w| w.oc4pe().set_bit().oc4m().bits(6));
                 }
 
-                let clk = clocks.pclk2().0;
-                let freq = freq.0;
+                let clk = clocks.pclk2();
                 let ticks = clk / freq;
 
                 // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
@@ -270,8 +264,7 @@ macro_rules! standard_timer {
                     tim.ccmr2_output().modify(|_, w| w.oc4pe().set_bit().oc4m().bits(6));
                 }
 
-                let clk = clocks.pclk1().0;
-                let freq = freq.0;
+                let clk = clocks.pclk1();
                 let ticks = clk / freq;
 
                 // maybe this is all u32? also, why no `- 1` vs `timer.rs`?
@@ -328,8 +321,7 @@ macro_rules! small_timer {
                 //     tim.ccmr1_output().modify(|_, w| w.oc2pe().set_bit().oc2m().bits(6));
                 // }
 
-                let clk = clocks.pclk1().0;
-                let freq = freq.0;
+                let clk = clocks.pclk1();
                 let ticks = clk / freq;
 
                 // maybe this is all u32? also, why no `- 1` vs `timer.rs`?

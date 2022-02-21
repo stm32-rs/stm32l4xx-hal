@@ -33,9 +33,9 @@ fn main() -> ! {
     // let clocks = rcc.cfgr.freeze(&mut flash.acr);
     let clocks = rcc
         .cfgr
-        .sysclk(80.mhz())
-        .pclk1(80.mhz())
-        .pclk2(80.mhz())
+        .sysclk(80.MHz())
+        .pclk1(80.MHz())
+        .pclk2(80.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
@@ -69,8 +69,8 @@ fn main() -> ! {
         p.SPI1,
         (sck, miso, mosi),
         MODE,
-        // 1.mhz(),
-        100.khz(),
+        // 1.MHz(),
+        100.kHz(),
         clocks,
         &mut rcc.apb2,
     );

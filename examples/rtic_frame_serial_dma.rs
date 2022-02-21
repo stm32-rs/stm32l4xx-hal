@@ -59,7 +59,7 @@ const APP: () = {
             .cfgr
             .lse(CrystalBypass::Disable, ClockSecuritySystem::Disable)
             .msi(MsiFreq::RANGE4M)
-            .sysclk(80.mhz())
+            .sysclk(80.MHz())
             .freeze(&mut flash.acr, &mut pwr);
 
         // USART2 pins

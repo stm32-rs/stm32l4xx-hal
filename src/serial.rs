@@ -259,7 +259,7 @@ macro_rules! hal {
                     // Configure baud rate
                     match config.oversampling {
                         Oversampling::Over8 => {
-                            let uartdiv = 2 * clocks.$pclkX().0 / config.baudrate.0;
+                            let uartdiv = 2 * clocks.$pclkX().raw() / config.baudrate.0;
                             assert!(uartdiv >= 16, "impossible baud rate");
 
                             let lower = (uartdiv & 0xf) >> 1;
@@ -269,7 +269,7 @@ macro_rules! hal {
                             usart.brr.write(|w| unsafe { w.bits(brr) });
                         }
                         Oversampling::Over16 => {
-                            let brr = clocks.$pclkX().0 / config.baudrate.0;
+                            let brr = clocks.$pclkX().raw() / config.baudrate.0;
                             assert!(brr >= 16, "impossible baud rate");
 
                             usart.brr.write(|w| unsafe { w.bits(brr) });

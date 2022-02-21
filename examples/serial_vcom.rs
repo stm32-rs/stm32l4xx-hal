@@ -33,7 +33,7 @@ fn main() -> ! {
     // clock configuration using the default settings (all clocks run at 8 MHz)
     let clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
-    // let clocks = rcc.cfgr.sysclk(64.mhz()).pclk1(32.mhz()).freeze(&mut flash.acr);
+    // let clocks = rcc.cfgr.sysclk(64.MHz()).pclk1(32.MHz()).freeze(&mut flash.acr);
 
     //let tx = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
     // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);

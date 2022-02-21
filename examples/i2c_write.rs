@@ -52,7 +52,7 @@ fn main() -> ! {
     let mut i2c = I2c::i2c1(
         dp.I2C1,
         (scl, sda),
-        i2c::Config::new(100.khz(), clocks),
+        i2c::Config::new(100.kHz(), clocks),
         &mut rcc.apb1r1,
     );
 

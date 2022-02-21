@@ -111,9 +111,9 @@ unsafe fn main() -> ! {
             rcc.cfgr
                 .msi(MsiFreq::RANGE48M) // Set the MSI (multi-speed internal) clock to 48 MHz
                 .pll_source(PllSource::MSI)
-                .sysclk_with_pll(80.mhz(), pll_cfg)
-                .pclk1(24.mhz())
-                .pclk2(24.mhz())
+                .sysclk_with_pll(80.MHz(), pll_cfg)
+                .pclk1(24.MHz())
+                .pclk2(24.MHz())
                 .freeze(&mut flash.acr, &mut pwr)
         } else {
             // Note: If program needs low-speed clocks, adjust this.
@@ -121,12 +121,12 @@ unsafe fn main() -> ! {
             rcc.cfgr
                 .msi(MsiFreq::RANGE48M)
                 .hse(
-                    16.mhz(),
+                    16.MHz(),
                     CrystalBypass::Disable, // Bypass enabled when clock signals instead of crystals/resonators are used.
                     ClockSecuritySystem::Disable, // We have not set up interrupt routines handling clock drifts/errors.
                 )
                 .pll_source(PllSource::HSE)
-                .sysclk(80.mhz())
+                .sysclk(80.MHz())
                 .freeze(&mut flash.acr, &mut pwr)
         }
     };

@@ -40,8 +40,8 @@ fn main() -> ! {
     let clocks = rcc
         .cfgr
         .hsi48(true) // needed for RNG
-        .sysclk(64.mhz())
-        .pclk1(32.mhz())
+        .sysclk(64.MHz())
+        .pclk1(32.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
     // setup usart
