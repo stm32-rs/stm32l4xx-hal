@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## Changed
 
+    - Use `fugit` duration nd rate units instead of custom
     - Use const-generics for GPIO (require Rust 1.51)
 
 ## [v0.6.0] - 2020-12-11

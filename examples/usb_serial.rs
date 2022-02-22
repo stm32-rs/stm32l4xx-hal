@@ -44,7 +44,7 @@ fn main() -> ! {
     let _clocks = rcc
         .cfgr
         .hsi48(true)
-        .sysclk(80.mhz())
+        .sysclk(80.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
     enable_crs();

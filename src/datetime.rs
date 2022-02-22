@@ -1,19 +1,9 @@
 //! Date and timer units & helper functions
 
-/// Micors
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Micros(pub u32);
-/// Seconds
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Second(pub u32);
-
-/// Minutes
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Minute(pub u32);
-
-/// Hours
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Hour(pub u32);
+pub use fugit::{
+    HoursDurationU32 as Hour, MicrosDurationU32 as Micros, MinutesDurationU32 as Minute,
+    SecsDurationU32 as Second,
+};
 
 /// Day (1-7)
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -37,15 +27,6 @@ pub struct Year(pub u32);
 
 /// Extension trait that adds convenience methods to the `u32` type
 pub trait U32Ext {
-    /// Micros
-    fn micros(self) -> Micros;
-    /// Seconds
-    fn seconds(self) -> Second;
-    /// Minutes
-    fn minutes(self) -> Minute;
-    /// Hours
-    fn hours(self) -> Hour;
-    /// Day
     fn day(self) -> Day;
     /// Seconds
     fn date(self) -> DateInMonth;
@@ -56,21 +37,6 @@ pub trait U32Ext {
 }
 
 impl U32Ext for u32 {
-    fn micros(self) -> Micros {
-        Micros(self)
-    }
-    fn seconds(self) -> Second {
-        Second(self)
-    }
-
-    fn minutes(self) -> Minute {
-        Minute(self)
-    }
-
-    fn hours(self) -> Hour {
-        Hour(self)
-    }
-
     fn day(self) -> Day {
         Day(self)
     }
@@ -106,10 +72,10 @@ impl Time {
         daylight_savings: bool,
     ) -> Self {
         Self {
-            hours: hours.0,
-            minutes: minutes.0,
-            seconds: seconds.0,
-            micros: micros.0,
+            hours: hours.ticks(),
+            minutes: minutes.ticks(),
+            seconds: seconds.ticks(),
+            micros: micros.ticks(),
             daylight_savings,
         }
     }
@@ -131,23 +97,6 @@ impl Date {
             month: month.0,
             year: year.0,
         }
-    }
-}
-
-impl Into<Micros> for Second {
-    fn into(self) -> Micros {
-        Micros(self.0 * 1_000_000)
-    }
-}
-impl Into<Second> for Minute {
-    fn into(self) -> Second {
-        Second(self.0 * 60)
-    }
-}
-
-impl Into<Second> for Hour {
-    fn into(self) -> Second {
-        Second(self.0 * 3600)
     }
 }
 
@@ -184,10 +133,6 @@ macro_rules! impl_to_struct {
 }
 
 impl_from_struct!(
-    Micros: [u32, u16, u8],
-    Second: [u32, u16, u8],
-    Hour: [u32, u16, u8],
-    Minute: [u32, u16, u8],
     Day: [u32, u16, u8],
     DateInMonth: [u32, u16, u8],
     Month: [u32, u16, u8],
@@ -195,7 +140,7 @@ impl_from_struct!(
 );
 
 impl_to_struct!(
-    u32: [Hour, Minute, Second, Micros, Day, DateInMonth, Month, Year],
-    u16: [Hour, Minute, Second, Micros, Day, DateInMonth, Month, Year],
-    u8: [Hour, Minute, Second, Micros, Day, DateInMonth, Month, Year],
+    u32: [Day, DateInMonth, Month, Year],
+    u16: [Day, DateInMonth, Month, Year],
+    u8: [Day, DateInMonth, Month, Year],
 );

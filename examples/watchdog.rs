@@ -4,7 +4,6 @@
 
 use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
-use crate::hal::time::MilliSeconds;
 use crate::hal::watchdog::IndependentWatchdog;
 use cortex_m_rt::{entry, exception, ExceptionFrame};
 use cortex_m_semihosting as sh;
@@ -37,7 +36,7 @@ fn main() -> ! {
     watchdog.stop_on_debug(&dp.DBGMCU, true);
 
     // Start the independent watchdog timer
-    watchdog.start(MilliSeconds(1020));
+    watchdog.start(1020.millis());
     timer.delay_ms(1000_u32);
 
     // Feed the independent watchdog timer

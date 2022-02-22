@@ -51,13 +51,13 @@ fn main() -> ! {
         RtcConfig::default().clock_config(RtcClockSource::LSE),
     );
 
-    let time = Time::new(21.hours(), 57.minutes(), 32.seconds(), 0.micros(), false);
+    let time = Time::new(21.hours(), 57.minutes(), 32.secs(), 0.micros(), false);
     let date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
 
     rtc.set_date_time(date, time);
 
     // Set alarm A for 1 minute
-    // let alarm_time = Time::new(21.hours(), 57.minutes(), 37.seconds(), 0.micros(), false);
+    // let alarm_time = Time::new(21.hours(), 57.minutes(), 37.secs(), 0.micros(), false);
     // let alarm_date = date;
     // rtc.set_alarm(Alarm::AlarmA, alarm_date, alarm_time);
     let mut wkp = rtc.wakeup_timer();

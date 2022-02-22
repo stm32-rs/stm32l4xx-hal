@@ -17,7 +17,7 @@ extern crate stm32l4xx_hal as hal;
 // extern crate nb;
 
 use crate::hal::prelude::*;
-use crate::hal::serial::{Config, Serial};
+use crate::hal::serial::Serial;
 use crate::rt::ExceptionFrame;
 use cortex_m::asm;
 
@@ -37,9 +37,9 @@ fn main() -> ! {
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     let clocks = rcc
         .cfgr
-        .sysclk(80.mhz())
-        .pclk1(80.mhz())
-        .pclk2(80.mhz())
+        .sysclk(80.MHz())
+        .pclk1(80.MHz())
+        .pclk2(80.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
     // The Serial API is highly generic
@@ -57,13 +57,7 @@ fn main() -> ! {
     // let rx = gpiob.pb7.into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
-    let serial = Serial::usart2(
-        p.USART2,
-        (tx, rx),
-        Config::default().baudrate(9_600.bps()),
-        clocks,
-        &mut rcc.apb1r1,
-    );
+    let serial = Serial::usart2(p.USART2, (tx, rx), 9_600.bps(), clocks, &mut rcc.apb1r1);
     let (mut tx, mut rx) = serial.split();
 
     let sent = b'X';

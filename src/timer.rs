@@ -64,6 +64,7 @@ use void::Void;
 
 use crate::rcc::{Clocks, Enable, Reset, APB1R1, APB2};
 use crate::time::Hertz;
+use fugit::RateExtU32;
 
 /// Hardware timers
 pub struct Timer<TIM> {
@@ -97,8 +98,7 @@ macro_rules! hal {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
 
                     self.timeout = timeout.into();
-                    let frequency = self.timeout.0;
-                    let ticks = self.clocks.pclk1().0 / frequency; // TODO check pclk that timer is on
+                    let ticks = self.clocks.pclk1() / self.timeout; // TODO check pclk that timer is on
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
                     self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
@@ -133,10 +133,7 @@ macro_rules! hal {
                 // even if the `$TIM` are non overlapping (compare to the `free` function below
                 // which just works)
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T>(tim: $TIM, timeout: T, clocks: Clocks, apb: &mut $apb) -> Self
-                where
-                    T: Into<Hertz>,
-                {
+                pub fn $tim(tim: $TIM, timeout: Hertz, clocks: Clocks, apb: &mut $apb) -> Self {
                     // enable and reset peripheral to a clean slate state
                     <$TIM>::enable(apb);
                     <$TIM>::reset(apb);
@@ -144,7 +141,7 @@ macro_rules! hal {
                     let mut timer = Timer {
                         clocks,
                         tim,
-                        timeout: Hertz(0),
+                        timeout: 0.Hz(),
                     };
                     timer.start(timeout);
 
@@ -154,24 +151,20 @@ macro_rules! hal {
                 /// Start a free running, monotonic, timer running at some specific frequency.
                 ///
                 /// May generate events on overflow of the timer.
-                pub fn $frname<T>(
+                pub fn $frname(
                     tim: $TIM,
                     clocks: Clocks,
-                    frequency: T,
+                    frequency: Hertz,
                     event_on_overflow: bool,
                     apb: &mut $apb,
-                ) -> Self
-                where
-                    T: Into<Hertz>,
-                {
+                ) -> Self {
                     <$TIM>::enable(apb);
                     <$TIM>::reset(apb);
 
-                    let frequency = frequency.into();
-                    let psc = clocks.pclk1().0 / frequency.0 - 1;
+                    let psc = clocks.pclk1() / frequency - 1;
 
-                    debug_assert!(clocks.pclk1().0 >= frequency.0);
-                    debug_assert!(frequency.0 > 0);
+                    debug_assert!(clocks.pclk1() >= frequency);
+                    debug_assert!(frequency.raw() > 0);
                     debug_assert!(psc <= core::u16::MAX.into());
 
                     tim.psc.write(|w| w.psc().bits((psc as u16).into()) );

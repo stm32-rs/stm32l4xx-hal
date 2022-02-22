@@ -38,7 +38,7 @@ const APP: () = {
         let clocks = rcc
             .cfgr
             .msi(MsiFreq::RANGE4M)
-            .sysclk(80.mhz())
+            .sysclk(80.MHz())
             .freeze(&mut flash.acr, &mut pwr);
 
         //
@@ -68,7 +68,7 @@ const APP: () = {
                 phase: Phase::CaptureOnFirstTransition,
                 polarity: Polarity::IdleLow,
             },
-            100.khz(),
+            100.kHz(),
             clocks,
             &mut rcc.apb2,
         );

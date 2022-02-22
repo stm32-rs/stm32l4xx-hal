@@ -32,6 +32,7 @@ pub mod rtc3;
 ))]
 pub use rtc3 as rtc_registers;
 
+use fugit::ExtU32;
 use void::Void;
 
 use crate::{
@@ -191,10 +192,10 @@ impl Rtc {
         let dater = self.rtc.dr.read();
 
         time = Time::new(
-            bcd2_to_byte((timer.ht().bits(), timer.hu().bits())).into(),
-            bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())).into(),
-            bcd2_to_byte((timer.st().bits(), timer.su().bits())).into(),
-            micros.into(),
+            (bcd2_to_byte((timer.ht().bits(), timer.hu().bits())) as u32).hours(),
+            (bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())) as u32).minutes(),
+            (bcd2_to_byte((timer.st().bits(), timer.su().bits())) as u32).secs(),
+            micros.micros(),
             cr.bkp().bit(),
         );
 

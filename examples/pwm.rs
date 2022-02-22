@@ -40,7 +40,7 @@ fn main() -> ! {
 
     let mut pwm = p
         .TIM2
-        .pwm((c1, c2, c3, c4), 1.khz(), clocks, &mut rcc.apb1r1)
+        .pwm((c1, c2, c3, c4), 1.kHz(), clocks, &mut rcc.apb1r1)
         .3;
 
     let max = pwm.get_max_duty();

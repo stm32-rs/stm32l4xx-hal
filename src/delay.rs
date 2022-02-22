@@ -53,7 +53,7 @@ impl DelayUs<u32> for Delay {
         // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
         const MAX_RVR: u32 = 0x00FF_FFFF;
 
-        let mut total_rvr = us * (self.clocks.hclk().0 / 1_000_000);
+        let mut total_rvr = us * (self.clocks.hclk().raw() / 1_000_000);
 
         while total_rvr != 0 {
             let current_rvr = if total_rvr <= MAX_RVR {
@@ -132,7 +132,7 @@ impl DelayMs<u8> for DelayCM {
 impl DelayUs<u32> for DelayCM {
     fn delay_us(&mut self, us: u32) {
         // Max delay is 53_687_091 us at 80 MHz
-        let ticks = self.sysclk.0 / 1_000_000;
+        let ticks = self.sysclk.raw() / 1_000_000;
 
         asm::delay(ticks * us);
     }

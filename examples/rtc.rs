@@ -51,7 +51,7 @@ fn main() -> ! {
         RtcConfig::default().clock_config(RtcClockSource::LSE),
     );
 
-    let time = Time::new(21.hours(), 57.minutes(), 32.seconds(), 0.micros(), false);
+    let time = Time::new(21.hours(), 57.minutes(), 32.secs(), 0.micros(), false);
     let date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
 
     rtc.set_date_time(date, time);

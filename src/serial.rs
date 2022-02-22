@@ -194,6 +194,15 @@ impl Default for Config {
     }
 }
 
+impl From<Bps> for Config {
+    fn from(baudrate: Bps) -> Config {
+        Config {
+            baudrate,
+            ..Default::default()
+        }
+    }
+}
+
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
     usart: USART,
@@ -240,13 +249,15 @@ macro_rules! hal {
                 pub fn $usartX(
                     usart: pac::$USARTX,
                     pins: PINS,
-                    config: Config,
+                    config: impl Into<Config>,
                     clocks: Clocks,
                     apb: &mut <pac::$USARTX as RccBus>::Bus,
                 ) -> Self
                 where
                     PINS: Pins<pac::$USARTX>,
                 {
+                    let config = config.into();
+
                     // enable or reset $USARTX
                     <pac::$USARTX>::enable(apb);
                     <pac::$USARTX>::reset(apb);
@@ -259,7 +270,7 @@ macro_rules! hal {
                     // Configure baud rate
                     match config.oversampling {
                         Oversampling::Over8 => {
-                            let uartdiv = 2 * clocks.$pclkX().0 / config.baudrate.0;
+                            let uartdiv = 2 * clocks.$pclkX().raw() / config.baudrate.0;
                             assert!(uartdiv >= 16, "impossible baud rate");
 
                             let lower = (uartdiv & 0xf) >> 1;
@@ -269,7 +280,7 @@ macro_rules! hal {
                             usart.brr.write(|w| unsafe { w.bits(brr) });
                         }
                         Oversampling::Over16 => {
-                            let brr = clocks.$pclkX().0 / config.baudrate.0;
+                            let brr = clocks.$pclkX().raw() / config.baudrate.0;
                             assert!(brr >= 16, "impossible baud rate");
 
                             usart.brr.write(|w| unsafe { w.bits(brr) });

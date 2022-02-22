@@ -15,7 +15,6 @@ use stm32l4xx_hal::{
     prelude::*,
     pwr::Pwr,
     rcc::{ClockSecuritySystem, Clocks, CrystalBypass, RccExt, CFGR},
-    time::U32Ext,
 };
 
 // this is the LD4 on Nucleo-L452-P
@@ -24,7 +23,7 @@ type Timer = LowPowerTimer<LPTIM1>;
 
 pub fn configure_clock_tree(cfgr: CFGR, acr: &mut ACR, pwr: &mut Pwr) -> Clocks {
     cfgr.lse(CrystalBypass::Disable, ClockSecuritySystem::Disable)
-        .sysclk(80.mhz())
+        .sysclk(80.MHz())
         .freeze(acr, pwr)
 }
 

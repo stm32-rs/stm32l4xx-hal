@@ -8,7 +8,6 @@ use stm32l4xx_hal::{
     delay::DelayCM,
     dma::{dma1, RxDma, Transfer, W},
     prelude::*,
-    time::Hertz,
 };
 
 use rtic::app;
@@ -51,10 +50,7 @@ const APP: () = {
         //
         // Initialize the clocks
         //
-        let clocks = rcc
-            .cfgr
-            .sysclk(Hertz(80_000_000))
-            .freeze(&mut flash.acr, &mut pwr);
+        let clocks = rcc.cfgr.sysclk(80.MHz()).freeze(&mut flash.acr, &mut pwr);
 
         let mut delay = DelayCM::new(clocks);
 

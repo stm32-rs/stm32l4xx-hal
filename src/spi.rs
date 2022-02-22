@@ -71,16 +71,15 @@ macro_rules! hal {
         $(
             impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
-                pub fn $spiX<F>(
+                pub fn $spiX(
                     spi: $SPIX,
                     pins: (SCK, MISO, MOSI),
                     mode: Mode,
-                    freq: F,
+                    freq: Hertz,
                     clocks: Clocks,
                     apb2: &mut <$SPIX as RccBus>::Bus,
                 ) -> Self
                 where
-                    F: Into<Hertz>,
                     SCK: SckPin<$SPIX>,
                     MISO: MisoPin<$SPIX>,
                     MOSI: MosiPin<$SPIX>,
@@ -98,7 +97,7 @@ macro_rules! hal {
                             w.frxth().set_bit().ds().bits(0b111).ssoe().clear_bit()
                         });
 
-                    let br = Self::compute_baud_rate(clocks.$pclkX(), freq.into());
+                    let br = Self::compute_baud_rate(clocks.$pclkX(), freq);
 
                     // CPHA: phase
                     // CPOL: polarity
@@ -189,18 +188,16 @@ macro_rules! hal {
                 }
 
                 /// Change the baud rate of the SPI
-                pub fn reclock<F>(&mut self, freq: F, clocks: Clocks)
-                    where F: Into<Hertz>
-                {
+                pub fn reclock(&mut self, freq: Hertz, clocks: Clocks) {
                     self.spi.cr1.modify(|_, w| w.spe().clear_bit());
                     self.spi.cr1.modify(|_, w| {
-                        w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq.into()));
+                        w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq));
                         w.spe().set_bit()
                     });
                 }
 
                 fn compute_baud_rate(clocks: Hertz, freq: Hertz) -> u8 {
-                    match clocks.0 / freq.0 {
+                    match clocks / freq {
                         0 => unreachable!(),
                         1..=2 => 0b000,
                         3..=5 => 0b001,

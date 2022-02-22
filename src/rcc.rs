@@ -6,6 +6,7 @@ use cast::u32;
 use crate::flash::ACR;
 use crate::pwr::Pwr;
 use crate::time::Hertz;
+use fugit::RateExtU32;
 
 mod enable;
 
@@ -39,7 +40,7 @@ pub enum MsiFreq {
 
 impl MsiFreq {
     fn to_hertz(self) -> Hertz {
-        Hertz(match self {
+        (match self {
             Self::RANGE100K => 100_000,
             Self::RANGE200K => 200_000,
             Self::RANGE400K => 400_000,
@@ -53,6 +54,7 @@ impl MsiFreq {
             Self::RANGE32M => 32_000_000,
             Self::RANGE48M => 48_000_000,
         })
+        .Hz()
     }
 }
 
@@ -357,12 +359,9 @@ pub struct CFGR {
 
 impl CFGR {
     /// Add an HSE to the system
-    pub fn hse<F>(mut self, freq: F, bypass: CrystalBypass, css: ClockSecuritySystem) -> Self
-    where
-        F: Into<Hertz>,
-    {
+    pub fn hse(mut self, freq: Hertz, bypass: CrystalBypass, css: ClockSecuritySystem) -> Self {
         self.hse = Some(HseConfig {
-            speed: freq.into().0,
+            speed: freq.raw(),
             bypass,
             css,
         });
@@ -378,11 +377,8 @@ impl CFGR {
     }
 
     /// Sets a frequency for the AHB bus
-    pub fn hclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.hclk = Some(freq.into().0);
+    pub fn hclk(mut self, freq: Hertz) -> Self {
+        self.hclk = Some(freq.raw());
         self
     }
 
@@ -405,39 +401,27 @@ impl CFGR {
     }
 
     /// Sets a frequency for the APB1 bus
-    pub fn pclk1<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.pclk1 = Some(freq.into().0);
+    pub fn pclk1(mut self, freq: Hertz) -> Self {
+        self.pclk1 = Some(freq.raw());
         self
     }
 
     /// Sets a frequency for the APB2 bus
-    pub fn pclk2<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.pclk2 = Some(freq.into().0);
+    pub fn pclk2(mut self, freq: Hertz) -> Self {
+        self.pclk2 = Some(freq.raw());
         self
     }
 
     /// Sets the system (core) frequency
-    pub fn sysclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.sysclk = Some(freq.into().0);
+    pub fn sysclk(mut self, freq: Hertz) -> Self {
+        self.sysclk = Some(freq.raw());
         self
     }
 
     /// Sets the system (core) frequency with some pll configuration
-    pub fn sysclk_with_pll<F>(mut self, freq: F, cfg: PllConfig) -> Self
-    where
-        F: Into<Hertz>,
-    {
+    pub fn sysclk_with_pll(mut self, freq: Hertz, cfg: PllConfig) -> Self {
         self.pll_config = Some(cfg);
-        self.sysclk = Some(freq.into().0);
+        self.sysclk = Some(freq.raw());
         self
     }
 
@@ -600,7 +584,7 @@ impl CFGR {
                 PllSource::HSI16 => (HSI, source),
                 PllSource::MSI => {
                     if let Some(msi) = self.msi {
-                        (msi.to_hertz().0, source)
+                        (msi.to_hertz().raw(), source)
                     } else {
                         panic!("MSI selected as PLL source, but not enabled");
                     }
@@ -615,7 +599,7 @@ impl CFGR {
             }
             // 2. MSI
             else if let Some(msi) = self.msi {
-                (msi.to_hertz().0, PllSource::MSI)
+                (msi.to_hertz().raw(), PllSource::MSI)
             }
             // 3. HSI as fallback
             else {
@@ -644,8 +628,8 @@ impl CFGR {
 
         let sysclk = match (self.sysclk, self.msi) {
             (Some(sysclk), _) => sysclk,
-            (None, Some(msi)) => msi.to_hertz().0,
-            (None, None) => MsiFreq::RANGE4M.to_hertz().0,
+            (None, Some(msi)) => msi.to_hertz().raw(),
+            (None, None) => MsiFreq::RANGE4M.to_hertz().raw(),
         };
 
         assert!(sysclk <= 80_000_000);
@@ -684,7 +668,7 @@ impl CFGR {
             })
             .unwrap_or((0b000, 1));
 
-        let pclk1 = hclk / u32(ppre1);
+        let pclk1: u32 = hclk / u32(ppre1);
 
         assert!(pclk1 <= sysclk);
 
@@ -701,7 +685,7 @@ impl CFGR {
             })
             .unwrap_or((0b000, 1));
 
-        let pclk2 = hclk / u32(ppre2);
+        let pclk2: u32 = hclk / u32(ppre2);
 
         assert!(pclk2 <= sysclk);
 
@@ -812,16 +796,16 @@ impl CFGR {
         //
 
         Clocks {
-            hclk: Hertz(hclk),
+            hclk: hclk.Hz(),
             lsi: lsi_used,
             lse: self.lse.is_some(),
             msi,
             hsi48: self.hsi48,
-            pclk1: Hertz(pclk1),
-            pclk2: Hertz(pclk2),
+            pclk1: pclk1.Hz(),
+            pclk2: pclk2.Hz(),
             ppre1,
             ppre2,
-            sysclk: Hertz(sysclk),
+            sysclk: sysclk.Hz(),
             pll_source: pllconf.map(|_| pll_source),
         }
     }

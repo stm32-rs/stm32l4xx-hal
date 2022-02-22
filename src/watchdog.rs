@@ -59,8 +59,8 @@ impl IndependentWatchdog {
 
     /// Sets the watchdog timer timout period. Max: 32768 ms
     fn setup(&self, timeout_ms: MilliSeconds) {
-        assert!(timeout_ms.0 < (1 << 15), "Watchdog timeout to high");
-        let pr = match timeout_ms.0 {
+        assert!(timeout_ms.ticks() < (1 << 15), "Watchdog timeout to high");
+        let pr = match timeout_ms.ticks() {
             t if t == 0 => 0b000, // <= (MAX_PR + 1) * 4 / LSI_KHZ => 0b000,
             t if t <= (MAX_PR + 1) * 8 / LSI_KHZ => 0b001,
             t if t <= (MAX_PR + 1) * 16 / LSI_KHZ => 0b010,
@@ -72,7 +72,7 @@ impl IndependentWatchdog {
 
         let max_period = Self::timeout_period(pr, MAX_RL);
         let max_rl = u32::from(MAX_RL);
-        let rl = (timeout_ms.0 * max_rl / max_period).min(max_rl) as u16;
+        let rl = (timeout_ms.ticks() * max_rl / max_period).min(max_rl) as u16;
 
         self.access_registers(|iwdg| {
             iwdg.pr.modify(|_, w| w.pr().bits(pr));
@@ -91,7 +91,7 @@ impl IndependentWatchdog {
         let pr = self.iwdg.pr.read().pr().bits();
         let rl = self.iwdg.rlr.read().rl().bits();
         let ms = Self::timeout_period(pr, rl);
-        MilliSeconds(ms)
+        MilliSeconds::from_ticks(ms)
     }
 
     /// pr: Prescaler divider bits, rl: reload value

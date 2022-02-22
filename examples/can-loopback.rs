@@ -28,7 +28,7 @@ const APP: () = {
         let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);
 
         // Set the clocks to 80 MHz
-        let _clocks = rcc.cfgr.sysclk(80.mhz()).freeze(&mut flash.acr, &mut pwr);
+        let _clocks = rcc.cfgr.sysclk(80.MHz()).freeze(&mut flash.acr, &mut pwr);
 
         rprintln!("  - CAN init");
 
