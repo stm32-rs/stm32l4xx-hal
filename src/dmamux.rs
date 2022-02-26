@@ -11,7 +11,7 @@ use crate::dma::{dma1, dma2};
 #[cfg(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -132,7 +132,7 @@ pub enum DmaInput {
 #[cfg(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -240,7 +240,7 @@ enum DMAREQ_ID_A {
 #[cfg(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -256,7 +256,7 @@ impl From<DMAREQ_ID_A> for u8 {
 #[cfg(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -372,7 +372,7 @@ impl TryFrom<DmaInput> for DMAREQ_ID_A {
 #[cfg(not(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -419,7 +419,7 @@ macro_rules! cselr {
 #[cfg(not(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -565,7 +565,7 @@ macro_rules! dmamux {
                     #[cfg(any(
                         // feature = "stm32l4p5",
                         // feature = "stm32l4q5",
-                        // feature = "stm32l4r5",
+                        feature = "stm32l4r5",
                         // feature = "stm32l4s5",
                         // feature = "stm32l4r7",
                         // feature = "stm32l4s7",
@@ -586,7 +586,7 @@ macro_rules! dmamux {
                     #[cfg(not(any(
                         // feature = "stm32l4p5",
                         // feature = "stm32l4q5",
-                        // feature = "stm32l4r5",
+                        feature = "stm32l4r5",
                         // feature = "stm32l4s5",
                         // feature = "stm32l4r7",
                         // feature = "stm32l4s7",

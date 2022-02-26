@@ -143,7 +143,7 @@ bus! {
 #[cfg(not(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -161,10 +161,17 @@ bus! {
 }
 
 // L4+
+#[cfg(any(feature = "stm32l4r5"))]
+bus! {
+    ADC1 => (AHB2, adcen, adcfssmen, adcrst), // 13
+
+    FIREWALL => (APB2, fwen,,), // 7
+    LTCD => (APB2, ltdcen, ltdcsmen, ltdcrst), // 26
+}
+
 #[cfg(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -188,7 +195,7 @@ bus! {
     feature = "stm32l4a6",
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -257,7 +264,7 @@ bus! {
     feature = "stm32l443",
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -324,7 +331,7 @@ bus! {
     feature = "stm32l4a6",
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
@@ -361,7 +368,7 @@ bus! {
 #[cfg(any(
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
+    feature = "stm32l4r5",
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
