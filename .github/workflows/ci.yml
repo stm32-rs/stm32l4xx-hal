@@ -24,7 +24,7 @@ jobs:
           - { id: stm32l452, additional-features: ",stm32-usbd" }
           - { id: stm32l462, additional-features: ",stm32-usbd" }
           - { id: stm32l471, additional-features: "" }
-          - { id: stm32l475, additional-features: ",otg_fs" }
+          - { id: stm32l475, additional-features: "" } # USB_OTG not supported by PAC
           - { id: stm32l476, additional-features: ",otg_fs" }
           - { id: stm32l486, additional-features: ",otg_fs" }
           - { id: stm32l496, additional-features: ",otg_fs" }
@@ -57,8 +57,8 @@ jobs:
         rust:
           - stable
         mcu:
-          - stm32l4r9
-          - stm32l4s9
+          - { id: stm32l4r9, additional-features: "" }
+          - { id: stm32l4s9, additional-features: "" }
 
     steps:
       - uses: actions/checkout@v2
