@@ -39,61 +39,11 @@ fn enable_usb_pwr() {
     pwr.cr2.modify(|_, w| w.usv().set_bit());
 }
 
-/// Reset peripherals to known state.
-unsafe fn reset_peripherals(dp: &Peripherals) {
-    dp.RCC.cr.modify(|_, w| w.msion().set_bit());
-    dp.RCC.cfgr.modify(|_, w| {
-        w.sw().bits(0);
-        w.hpre().bits(0);
-        w.ppre1().bits(0);
-        w.ppre2().bits(0);
-        w.mcosel().bits(0);
-        w
-    });
-    dp.RCC.cr.modify(|_, w| {
-        w.pllsai2on().clear_bit();
-        w.pllsai1on().clear_bit();
-        w.pllon().clear_bit();
-        w.hsion().clear_bit();
-        w.csson().clear_bit();
-        w.hseon().clear_bit();
-        w
-    });
-    dp.RCC.pllcfgr.modify(|_, w| {
-        w.pllpdiv().bits(0);
-        w.pllr().bits(0);
-        w.pllren().clear_bit();
-        w.pllq().bits(0);
-        w.pllqen().clear_bit();
-        w.pllp().clear_bit();
-        w.pllpen().clear_bit();
-        w.plln().bits(1 << 4);
-        w.pllm().bits(0);
-        w.pllsrc().bits(0);
-        w
-    });
-
-    dp.RCC.crrcr.modify(|_, w| w.hsi48on().clear_bit());
-    dp.RCC.cr.modify(|_, w| w.hsebyp().clear_bit());
-
-    dp.RCC.pllcfgr.modify(|_, w| {
-        w.pllsrc().bits(0);
-        w.pllpdiv().bits(0);
-        w
-    });
-
-    dp.RCC.cier.reset();
-
-    dp.FLASH.acr.modify(|_, w| w.bits(4));
-}
-
 static mut EP_MEMORY: [u32; 1024] = [0; 1024];
 
 #[entry]
 unsafe fn main() -> ! {
     let dp = Peripherals::take().unwrap();
-
-    //reset_peripherals(&dp);
 
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();

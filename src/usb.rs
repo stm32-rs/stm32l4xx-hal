@@ -6,7 +6,7 @@
 //! for usage examples.
 
 use crate::rcc::{Enable, Reset};
-use crate::stm32::{RCC, USB};
+use crate::stm32::USB;
 use stm32_usbd::UsbPeripheral;
 
 use crate::gpio::gpioa::{PA11, PA12};
