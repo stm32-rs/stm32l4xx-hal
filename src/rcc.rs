@@ -186,7 +186,7 @@ impl BDCR {
 }
 
 macro_rules! bus_struct {
-    ($($busX:ident => ($EN:ident, $en:ident, $SMEN:ident, $smen:ident, $RST:ident, $rst:ident, $doc:literal),)+) => {
+    ($($busX:ident => ($EN:ident, $en:ident, $SMEN:ident, $smen:ident, $RST:ident, $rst:ident, $clk:ident, $doc:literal),)+) => {
         $(
             #[doc = $doc]
             pub struct $busX {
@@ -216,17 +216,23 @@ macro_rules! bus_struct {
                     unsafe { &(*RCC::ptr()).$rst }
                 }
             }
+
+            impl BusClock for $busX {
+                fn clock(clocks: &Clocks) -> Hertz {
+                    clocks.$clk
+                }
+            }
         )+
     };
 }
 
 bus_struct! {
-    AHB1 => (AHB1ENR, ahb1enr, AHB1SMENR, ahb1smenr, AHB1RSTR, ahb1rstr, "Advanced High-performance Bus 1 (AHB1) registers"),
-    AHB2 => (AHB2ENR, ahb2enr, AHB2SMENR, ahb2smenr, AHB2RSTR, ahb2rstr, "Advanced High-performance Bus 2 (AHB2) registers"),
-    AHB3 => (AHB3ENR, ahb3enr, AHB3SMENR, ahb3smenr, AHB3RSTR, ahb3rstr, "Advanced High-performance Bus 3 (AHB3) registers"),
-    APB1R1 => (APB1ENR1, apb1enr1, APB1SMENR1, apb1smenr1, APB1RSTR1, apb1rstr1, "Advanced Peripheral Bus 1 (APB1) registers"),
-    APB1R2 => (APB1ENR2, apb1enr2, APB1SMENR2, apb1smenr2, APB1RSTR2, apb1rstr2, "Advanced Peripheral Bus 1 (APB1) registers"),
-    APB2 => (APB2ENR, apb2enr, APB2SMENR, apb2smenr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
+    AHB1 => (AHB1ENR, ahb1enr, AHB1SMENR, ahb1smenr, AHB1RSTR, ahb1rstr, hclk, "Advanced High-performance Bus 1 (AHB1) registers"),
+    AHB2 => (AHB2ENR, ahb2enr, AHB2SMENR, ahb2smenr, AHB2RSTR, ahb2rstr, hclk, "Advanced High-performance Bus 2 (AHB2) registers"),
+    AHB3 => (AHB3ENR, ahb3enr, AHB3SMENR, ahb3smenr, AHB3RSTR, ahb3rstr, hclk, "Advanced High-performance Bus 3 (AHB3) registers"),
+    APB1R1 => (APB1ENR1, apb1enr1, APB1SMENR1, apb1smenr1, APB1RSTR1, apb1rstr1, pclk1, "Advanced Peripheral Bus 1 (APB1) registers"),
+    APB1R2 => (APB1ENR2, apb1enr2, APB1SMENR2, apb1smenr2, APB1RSTR2, apb1rstr2, pclk1, "Advanced Peripheral Bus 1 (APB1) registers"),
+    APB2 => (APB2ENR, apb2enr, APB2SMENR, apb2smenr, APB2RSTR, apb2rstr, pclk2, "Advanced Peripheral Bus 2 (APB2) registers"),
 }
 
 /// Bus associated to peripheral
@@ -294,6 +300,59 @@ pub trait Reset: RccBus {
     ///
     /// Resets peripheral. Takes access to RCC internally
     unsafe fn reset_unchecked();
+}
+
+/// Frequency on bus that peripheral is connected in
+pub trait BusClock {
+    /// Calculates frequency depending on `Clock` state
+    fn clock(clocks: &Clocks) -> Hertz;
+}
+
+impl<T> BusClock for T
+where
+    T: RccBus,
+    T::Bus: BusClock,
+{
+    fn clock(clocks: &Clocks) -> Hertz {
+        T::Bus::clock(clocks)
+    }
+}
+
+/// Frequency on bus that timer is connected in
+pub trait BusTimerClock {
+    /// Calculates base frequency of timer depending on `Clock` state
+    fn timer_clock(clocks: &Clocks) -> Hertz;
+}
+
+impl<T> BusTimerClock for T
+where
+    T: RccBus,
+    T::Bus: BusTimerClock,
+{
+    fn timer_clock(clocks: &Clocks) -> Hertz {
+        T::Bus::timer_clock(clocks)
+    }
+}
+
+impl BusTimerClock for APB1R1 {
+    fn timer_clock(clocks: &Clocks) -> Hertz {
+        let pclk_mul = if clocks.ppre1 > 1 { 2 } else { 1 };
+        clocks.pclk1 * pclk_mul
+    }
+}
+
+impl BusTimerClock for APB1R2 {
+    fn timer_clock(clocks: &Clocks) -> Hertz {
+        let pclk_mul = if clocks.ppre1 > 1 { 2 } else { 1 };
+        clocks.pclk1 * pclk_mul
+    }
+}
+
+impl BusTimerClock for APB2 {
+    fn timer_clock(clocks: &Clocks) -> Hertz {
+        let pclk_mul = if clocks.ppre2 > 1 { 2 } else { 1 };
+        clocks.pclk2 * pclk_mul
+    }
 }
 
 #[derive(Debug, PartialEq)]
