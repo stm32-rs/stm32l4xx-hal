@@ -303,7 +303,7 @@ where
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(bytes.len() < 256 && bytes.len() > 0);
+        assert!(bytes.len() < 256);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
