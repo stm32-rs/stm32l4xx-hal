@@ -108,14 +108,12 @@ bus! {
     GPIOD => (AHB2, gpioden, gpiodsmen, gpiodrst), // 3
     GPIOE => (AHB2, gpioeen, gpioesmen, gpioerst), // 4
     GPIOH => (AHB2, gpiohen, gpiohsmen, gpiohrst), // 7
-    ADC1 => (AHB2, adcen, adcfssmen, adcrst), // 13
     AES => (AHB2, aesen, aessmen, aesrst), // 16
     RNG => (AHB2, rngen, rngsmen, rngrst), // 18
 
     TIM2 => (APB1R1, tim2en, tim2smen, tim2rst), // 0
     TIM6 => (APB1R1, tim6en, tim6smen, tim6rst), // 4
     TIM7 => (APB1R1, tim7en, tim7smen, tim7rst), // 5
-    LCD => (APB1R1, lcden, lcdsmen, lcdrst), // 9
     WWDG => (APB1R1, wwdgen, wwdgsmen,), // 11
     SPI2 => (APB1R1, spi2en, spi2smen, spi2rst), // 14
     SPI3 => (APB1R1, spi3en, sp3smen, spi3rst), // 15 // TODO: fix typo
@@ -130,16 +128,54 @@ bus! {
     LPTIM1 => (APB1R1, lptim1en, lptim1smen, lptim1rst), // 31
 
     LPUART1 => (APB1R2, lpuart1en, lpuart1smen, lpuart1rst), // 0
-    SWPMI1 => (APB1R2, swpmi1en, swpmi1smen, swpmi1rst), // 2
     LPTIM2 => (APB1R2, lptim2en, lptim2smen, lptim2rst), // 5
+
     SYSCFG => (APB2, syscfgen, syscfgsmen, syscfgrst), // 0
-    FIREWALL => (APB2, firewallen,,), // 7
     TIM1 => (APB2, tim1en, tim1smen, tim1rst), // 11
     SPI1 => (APB2, spi1en, spi1smen, spi1rst), // 12
     USART1 => (APB2, usart1en, usart1smen, usart1rst), // 14
     TIM15 => (APB2, tim15en, tim15smen, tim15rst), // 16
     TIM16 => (APB2, tim16en, tim16smen, tim16rst), // 17
     SAI1 => (APB2, sai1en, sai1smen, sai1rst), // 21
+}
+
+// L4x1, L4x2, L4x3, L4x5 or L4x6
+#[cfg(not(any(
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+)))]
+bus! {
+    ADC1 => (AHB2, adcen, adcfssmen, adcrst), // 13
+
+    LCD => (APB1R1, lcden, lcdsmen, lcdrst), // 9
+
+    SWPMI1 => (APB1R2, swpmi1en, swpmi1smen, swpmi1rst), // 2
+
+    FIREWALL => (APB2, firewallen,,), // 7
+}
+
+// L4+
+#[cfg(any(
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
+bus! {
+    ADC => (AHB2, adcen, adcfssmen, adcrst), // 13
+
+    FIREWALL => (APB2, fwen,,), // 7
+    LTCD => (APB2, ltdcen, ltdcsmen, ltdcrst), // 26
 }
 
 // L4x5 or L4x6
@@ -215,9 +251,19 @@ bus! {
     SDMMC => (APB2, sdmmcen, sdmmcsmen, sdmmcrst), // 10
 }
 
-// L4x1, L4x2, L4x5, or L4x6 (L4+ assumed)
-
-#[cfg(not(any(feature = "stm32l433", feature = "stm32l443")))]
+// L4x1, L4x2, L4x5, or L4x6
+#[cfg(not(any(
+    feature = "stm32l433",
+    feature = "stm32l443",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+    )))]
 bus! {
     ADC2 => (AHB2, adcen, adcfssmen, adcrst), // 13
     QUADSPI => (AHB3, qspien, qspismen, qspirst), // 8
@@ -291,13 +337,40 @@ bus! {
     GPIOI => (AHB2, gpioien, gpioismen, gpioirst), // 8
     OTG_FS_GLOBAL => (AHB2, otgfsen, otgfssmen, otgfsrst), // 12 // TODO: absent in x5
     DCMI => (AHB2, dcmien, dcmismen, dcmirst), // 14
-    HASH => (AHB2, hash1en, hash1smen, hash1rst), // 17
 
-    CAN2 => (APB1R1, can2en, can2smen, can2rst), // 26
     DAC => (APB1R1, dac1en, dac1smen, dac1rst), // 29
 
     I2C4 => (APB1R2, i2c4en, i2c4smen, i2c4rst), // 1
+}
+
+#[cfg(any(
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+))]
+bus! {
+    CAN2 => (APB1R1, can2en, can2smen, can2rst), // 26
+
+    HASH => (AHB2, hash1en, hash1smen, hash1rst), // 17
 
     SDMMC1 => (APB2, sdmmcen, sdmmcsmen, sdmmcrst), // 10
     DFSDM1 => (APB2, dfsdmen, dfsdmsmen, dfsdmrst), // 24
+}
+
+#[cfg(any(
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
+bus! {
+    HASH => (AHB2, hashen, hashsmen, hashrst), // 17
+    SDMMC1 => (AHB2, sdmmc1en, sdmmc1smen, sdmmc1rst), // 22
+
+    DFSDM1 => (APB2, dfsdm1en, dfsdm1smen, dfsdm1rst), // 24
 }

@@ -126,20 +126,14 @@ pub mod adc;
 #[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 #[cfg(not(any(feature = "stm32l412",)))]
 pub mod can;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod crc;
 pub mod datetime;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod delay;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod dma;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
+pub mod dmamux;
 pub mod flash;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod gpio;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod i2c;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod lptimer;
 #[cfg(all(
     feature = "otg_fs",
@@ -152,11 +146,8 @@ pub mod lptimer;
     )
 ))]
 pub mod otg_fs;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod prelude;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod pwm;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod pwr;
 #[cfg(not(any(
     feature = "stm32l433",
@@ -165,23 +156,14 @@ pub mod pwr;
     feature = "stm32l4s9",
 )))]
 pub mod qspi;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod rcc;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod rng;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod rtc;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod serial;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod signature;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod spi;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod time;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod timer;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod tsc;
 #[cfg(all(
     feature = "stm32-usbd",
@@ -197,7 +179,6 @@ pub mod tsc;
     )
 ))]
 pub mod usb;
-#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
 pub mod watchdog;
 
 mod sealed {

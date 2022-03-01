@@ -12,6 +12,7 @@ use core::sync::atomic::Ordering;
 #[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
 use crate::dma::dma2;
 use crate::dma::{self, dma1, TransferPayload};
+use crate::dmamux::{DmaInput, DmaMux};
 use crate::gpio::{Alternate, PushPull};
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
@@ -109,7 +110,7 @@ macro_rules! hal {
                     // SSI: set nss high = master mode
                     // CRCEN: hardware CRC calculation disabled
                     // BIDIMODE: 2 line unidirectional (full duplex)
-                    spi.cr1.write(|w|
+                    spi.cr1.write(|w| unsafe {
                         w.cpha()
                             .bit(mode.phase == Phase::CaptureOnSecondTransition)
                             .cpol()
@@ -130,7 +131,7 @@ macro_rules! hal {
                             .clear_bit()
                             .bidimode()
                             .clear_bit()
-                    );
+                    });
 
                     Spi { spi, pins }
                 }
@@ -190,7 +191,7 @@ macro_rules! hal {
                 /// Change the baud rate of the SPI
                 pub fn reclock(&mut self, freq: Hertz, clocks: Clocks) {
                     self.spi.cr1.modify(|_, w| w.spe().clear_bit());
-                    self.spi.cr1.modify(|_, w| {
+                    self.spi.cr1.modify(|_, w| unsafe {
                         w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq));
                         w.spe().set_bit()
                     });
@@ -370,7 +371,7 @@ pub type SpiTxDma<SPI, PINS, CHANNEL> = dma::TxDma<SpiPayload<SPI, PINS>, CHANNE
 pub type SpiRxTxDma<SPI, PINS, RXCH, TXCH> = dma::RxTxDma<SpiPayload<SPI, PINS>, RXCH, TXCH>;
 
 macro_rules! spi_dma {
-    ($SPIX:ident, $RX_CH:path, $RX_CHX:ident, $RX_MAPX:ident, $TX_CH:path, $TX_CHX:ident, $TX_MAPX:ident) => {
+    ($SPIX:ident, $RX_CH:path, $RX_CHSEL:path, $TX_CH:path, $TX_CHSEL:path) => {
         impl<PINS> dma::Receive for SpiRxDma<$SPIX, PINS, $RX_CH> {
             type RxChannel = $RX_CH;
             type TransmittedWord = u8;
@@ -397,7 +398,7 @@ macro_rules! spi_dma {
                     unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
                     false,
                 );
-                channel.cselr().modify(|_, w| w.$RX_CHX().$RX_MAPX());
+                channel.set_request_line($RX_CHSEL).unwrap();
                 channel.ccr().modify(|_, w| {
                     w
                         // memory to memory mode disabled
@@ -432,7 +433,7 @@ macro_rules! spi_dma {
                     unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
                     false,
                 );
-                channel.cselr().modify(|_, w| w.$TX_CHX().$TX_MAPX());
+                channel.set_request_line($TX_CHSEL).unwrap();
                 channel.ccr().modify(|_, w| {
                     w
                         // memory to memory mode disabled
@@ -474,7 +475,7 @@ macro_rules! spi_dma {
                     unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
                     false,
                 );
-                rx_channel.cselr().modify(|_, w| w.$RX_CHX().$RX_MAPX());
+                rx_channel.set_request_line($RX_CHSEL).unwrap();
 
                 rx_channel.ccr().modify(|_, w| {
                     w
@@ -505,7 +506,7 @@ macro_rules! spi_dma {
                     unsafe { &(*$SPIX::ptr()).dr as *const _ as u32 },
                     false,
                 );
-                tx_channel.cselr().modify(|_, w| w.$TX_CHX().$TX_MAPX());
+                tx_channel.set_request_line($TX_CHSEL).unwrap();
 
                 tx_channel.ccr().modify(|_, w| {
                     w
@@ -765,7 +766,7 @@ macro_rules! spi_dma {
     };
 }
 
-spi_dma!(SPI1, dma1::C2, c2s, map1, dma1::C3, c3s, map1);
+spi_dma!(SPI1, dma1::C2, DmaInput::Spi1Rx, dma1::C3, DmaInput::Spi1Tx);
 #[cfg(not(any(
     feature = "stm32l412",
     feature = "stm32l422",
@@ -774,7 +775,7 @@ spi_dma!(SPI1, dma1::C2, c2s, map1, dma1::C3, c3s, map1);
     feature = "stm32l452",
     feature = "stm32l462",
 )))]
-spi_dma!(SPI2, dma1::C4, c4s, map1, dma1::C5, c5s, map1);
+spi_dma!(SPI2, dma1::C4, DmaInput::Spi2Rx, dma1::C5, DmaInput::Spi2Tx);
 // spi_dma!(SPI1, dma2::C3, c3s, map4, dma2::C4, c4s, map4);
 #[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
-spi_dma!(SPI3, dma2::C1, c1s, map3, dma2::C2, c2s, map3);
+spi_dma!(SPI3, dma2::C1, DmaInput::Spi3Rx, dma2::C2, DmaInput::Spi3Tx);
