@@ -241,10 +241,17 @@ macro_rules! hal {
                 }
 
                 /// Get the count of the timer.
-                pub fn count() -> $width {
+                pub fn count(&mut self) -> $width {
                     let cnt = unsafe { (*$TIM::ptr()).cnt.read() };
                     cnt.cnt().bits()
                 }
+
+                // not able to select compilation for timers which support this feature
+                // pub fn set_mms(&mut self, mms_val: u8) {
+                //     // see chapter 27.4.2 in reference manual RM0394
+                //     // unsafe { (*$TIM::ptr()).mms().bits(mms_val) };
+                //     self.tim.cr2.modify(|_, w| unsafe{w.mms().bits(mms_val)} );
+                // }
 
                 /// Releases the TIM peripheral
                 pub fn free(self) -> $TIM {

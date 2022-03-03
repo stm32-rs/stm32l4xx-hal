@@ -127,6 +127,7 @@ pub mod adc;
 #[cfg(not(any(feature = "stm32l412",)))]
 pub mod can;
 pub mod crc;
+
 pub mod datetime;
 pub mod delay;
 pub mod dma;
@@ -135,6 +136,8 @@ pub mod flash;
 pub mod gpio;
 pub mod i2c;
 pub mod lptimer;
+#[cfg(not(any(feature = "stm32l4r9", feature = "stm32l4s9",)))]
+pub mod opamp;
 #[cfg(all(
     feature = "otg_fs",
     any(

@@ -31,6 +31,12 @@ pub struct Vbat;
 /// Core temperature internal signal
 pub struct Temperature;
 
+/// Opamp1 output connected to ADC1
+pub struct Opamp1Out;
+
+/// Opamp1 output connected to ADC1
+pub struct Opamp2Out;
+
 /// Analog to Digital converter interface
 pub struct ADC {
     pub(crate) adc: ADC1,
@@ -221,6 +227,16 @@ impl ADC {
         self.common.ccr.modify(|_, w| w.ch18sel().set_bit());
 
         Vbat {}
+    }
+
+    /// Get the `Opamp1Out`
+    pub fn enable_opamp1_out(&mut self) -> Opamp1Out {
+        Opamp1Out {}
+    }
+
+    /// Get the `Opamp2Out`
+    pub fn enable_opamp2_out(&mut self) -> Opamp2Out {
+        Opamp2Out {}
     }
 
     /// Calculates the system VDDA by sampling the internal VREF channel and comparing
@@ -699,4 +715,6 @@ adc_pins!(
     16, gpio::PB1<Analog>, smpr2, smp16;
     17, Temperature,       smpr2, smp17;
     18, Vbat,              smpr2, smp18;
+    8,  Opamp1Out,  smpr1, smp8;
+    15, Opamp2Out,  smpr2, smp15;
 );
