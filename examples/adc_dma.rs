@@ -1,16 +1,15 @@
 #![no_main]
 #![no_std]
 
-use panic_rtt_target as _;
-use rtt_target::{rprintln, rtt_init_print};
+use defmt::println;
+use panic_probe as _;
+use rtic::app;
 use stm32l4xx_hal::{
     adc::{DmaMode, SampleTime, Sequence, ADC},
     delay::DelayCM,
     dma::{dma1, RxDma, Transfer, W},
     prelude::*,
 };
-
-use rtic::app;
 
 const SEQUENCE_LEN: usize = 3;
 
@@ -29,9 +28,7 @@ const APP: () = {
             unsafe { &mut MEMORY }
         };
 
-        rtt_init_print!();
-
-        rprintln!("Hello from init!");
+        println!("Hello from init!");
 
         let cp = cx.core;
         let mut dcb = cp.DCB;
@@ -90,7 +87,7 @@ const APP: () = {
         let transfer = cx.resources.transfer;
         if let Some(transfer_val) = transfer.take() {
             let (buffer, rx_dma) = transfer_val.wait();
-            rprintln!("DMA measurements: {:?}", buffer);
+            println!("DMA measurements: {:?}", buffer);
             *transfer = Some(Transfer::from_adc_dma(
                 rx_dma,
                 buffer,

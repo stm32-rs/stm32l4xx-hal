@@ -115,6 +115,8 @@ cortex-m-rt = "0.7"
 usb-device = "0.2.3"
 usbd-serial = "0.1.0"
 heapless = "0.5"
+defmt = "0.3"
+panic-probe = { version = "0.3", features = [ "print-defmt" ] }
 
 [dev-dependencies.cortex-m-rtic]
 version = "0.5.9"

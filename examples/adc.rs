@@ -1,16 +1,14 @@
 #![no_main]
 #![no_std]
 
-use panic_rtt_target as _;
-
 use cortex_m_rt::entry;
-use rtt_target::{rprint, rprintln};
+use defmt::println;
+use panic_probe as _;
 use stm32l4xx_hal::{adc::ADC, delay::Delay, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
-    rtt_target::rtt_init_print!();
-    rprint!("Initializing...");
+    println!("Initializing...");
 
     let cp = pac::CorePeripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
@@ -33,10 +31,10 @@ fn main() -> ! {
     let mut gpioc = dp.GPIOC.split(&mut rcc.ahb2);
     let mut a1 = gpioc.pc0.into_analog(&mut gpioc.moder, &mut gpioc.pupdr);
 
-    rprintln!(" done.");
+    println!("Initializing done.");
 
     loop {
         let value = adc.read(&mut a1).unwrap();
-        rprintln!("Value: {}", value);
+        println!("Value: {}", value);
     }
 }

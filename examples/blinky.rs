@@ -3,16 +3,14 @@
 #![no_main]
 
 use cortex_m_rt::{entry, exception, ExceptionFrame};
-// Using RTT for debug + panic handler
-use panic_rtt_target as _; // panic handler
-use rtt_target::{rprintln, rtt_init_print}; // RTT functions
+use defmt::println;
+use panic_probe as _;
 use stm32l4xx_hal as hal; // hal
 use stm32l4xx_hal::{delay::Delay, prelude::*};
 
 #[entry]
 fn main() -> ! {
-    rtt_init_print!();
-    rprintln!("Hello, world!");
+    println!("Hello, world!");
 
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = hal::stm32::Peripherals::take().unwrap();

@@ -4,16 +4,16 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_semihosting;
-
 use cortex_m_rt::entry;
-use stm32l4xx_hal::gpio::Speed;
-use stm32l4xx_hal::otg_fs::{UsbBus, USB};
-use stm32l4xx_hal::prelude::*;
-use stm32l4xx_hal::rcc::{
-    ClockSecuritySystem, CrystalBypass, MsiFreq, PllConfig, PllDivider, PllSource,
+use defmt::println;
+use panic_probe as _;
+use stm32l4xx_hal::{
+    gpio::Speed,
+    otg_fs::{UsbBus, USB},
+    prelude::*,
+    rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq, PllConfig, PllDivider, PllSource},
+    stm32::{Peripherals, CRS, PWR, RCC},
 };
-use stm32l4xx_hal::stm32::{Peripherals, CRS, PWR, RCC};
 use usb_device::prelude::*;
 
 /// Enable CRS (Clock Recovery System)
@@ -114,8 +114,7 @@ unsafe fn main() -> ! {
         .device_class(usbd_serial::USB_CLASS_CDC)
         .build();
 
-    #[cfg(feature = "semihosting")]
-    hprintln!("Polling!").ok();
+    println!("Polling!");
 
     loop {
         if !usb_dev.poll(&mut [&mut usb_serial]) {
@@ -127,6 +126,7 @@ unsafe fn main() -> ! {
         match usb_serial.read(&mut buf) {
             Ok(count) if count > 0 => {
                 // Echo back in upper case
+                println!("received {}", defmt::Debug2Format(&buf[0..count]));
                 for c in buf[0..count].iter_mut() {
                     if 0x61 <= *c && *c <= 0x7a {
                         *c &= !0x20;

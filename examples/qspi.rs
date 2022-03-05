@@ -4,21 +4,14 @@
 #![no_main]
 #![no_std]
 
-extern crate cortex_m;
-#[macro_use(entry, exception)]
-extern crate cortex_m_rt as rt;
-// #[macro_use(block)]
-extern crate nb;
-extern crate panic_semihosting;
-
-extern crate stm32l4xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
-
-use crate::hal::prelude::*;
-use crate::hal::qspi::{Qspi, QspiConfig, QspiMode, QspiReadCommand};
-use crate::rt::ExceptionFrame;
-use cortex_m::asm;
+use cortex_m_rt::entry;
+use defmt::println;
+use panic_probe as _;
+use stm32l4xx_hal as hal;
+use stm32l4xx_hal::{
+    prelude::*,
+    qspi::{Qspi, QspiConfig, QspiMode, QspiReadCommand},
+};
 
 #[entry]
 fn main() -> ! {
@@ -77,15 +70,9 @@ fn main() -> ! {
 
     qspi.transfer(get_id_command, &mut id_arr).unwrap();
 
-    // if all goes well you should reach this breakpoint
-    asm::bkpt();
+    println!("QSPI transfer complete");
 
     loop {
         continue;
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }

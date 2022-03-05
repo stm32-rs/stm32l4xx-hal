@@ -1,14 +1,11 @@
 //! Testing PWM output
-
 #![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate panic_halt;
-
-// use cortex_m::asm;
 use cortex_m_rt::entry;
+use defmt::println;
+use panic_probe as _;
 use stm32l4xx_hal::{delay, prelude::*, stm32};
 
 #[entry]
@@ -53,24 +50,24 @@ fn main() -> ! {
     // NB: if the pins are LEDs, brightness is not
     //     linear in duty value.
     loop {
+        println!("100%");
         pwm.set_duty(max);
         timer.delay_ms(second);
-        // asm::bkpt();
 
+        println!("91%");
         pwm.set_duty(max / 11 * 10);
         timer.delay_ms(second);
-        // asm::bkpt();
 
+        println!("75%");
         pwm.set_duty(3 * max / 4);
         timer.delay_ms(second);
-        // asm::bkpt();
 
+        println!("50%");
         pwm.set_duty(max / 2);
         timer.delay_ms(second);
-        // asm::bkpt();
 
+        println!("25%");
         pwm.set_duty(max / 4);
         timer.delay_ms(second);
-        // asm::bkpt();
     }
 }

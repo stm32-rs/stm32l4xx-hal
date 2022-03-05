@@ -4,9 +4,9 @@
 #![deny(unsafe_code)]
 #![no_main]
 #![no_std]
-extern crate panic_rtt_target;
 
-use rtt_target::rprintln;
+use defmt::println;
+use panic_probe as _;
 use stm32l4xx_hal::{
     flash::ACR,
     gpio::{gpiob::PB13, Output, PinState, PushPull},
@@ -36,9 +36,7 @@ const APP: () = {
 
     #[init]
     fn init(ctx: init::Context) -> init::LateResources {
-        rtt_target::rtt_init_print!();
-
-        rprintln!("Init start");
+        println!("Init start");
         let device = ctx.device;
         // Configure the clock.
         let mut rcc = device.RCC.constrain();
@@ -53,7 +51,7 @@ const APP: () = {
             &mut gpiob.otyper,
             PinState::Low,
         );
-        rprintln!("Clocks = {:#?}", clocks);
+        println!("Clocks = {:#?}", defmt::Debug2Format(&clocks));
         let lptim_config = LowPowerTimerConfig::default()
             .clock_source(ClockSource::LSE)
             .prescaler(PreScaler::U1)
@@ -74,7 +72,7 @@ const APP: () = {
         let timer_tick::Resources { lptim, led } = ctx.resources;
         if lptim.is_event_triggered(Event::AutoReloadMatch) {
             lptim.clear_event_flag(Event::AutoReloadMatch);
-            rprintln!("LPTIM1 tick");
+            println!("LPTIM1 tick");
 
             led.toggle();
         }

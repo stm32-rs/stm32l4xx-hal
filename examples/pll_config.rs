@@ -1,25 +1,17 @@
 //! Test the serial interface
 //!
 //! This example requires you to short (connect) the TX and RX pins.
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate cortex_m;
-#[macro_use(entry, exception)]
-extern crate cortex_m_rt as rt;
-#[macro_use(block)]
-extern crate nb;
-extern crate panic_semihosting;
-
-extern crate stm32l4xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
-
-use crate::hal::prelude::*;
-use crate::hal::serial::{Config, Serial};
-use crate::rt::ExceptionFrame;
-use cortex_m::asm;
+use cortex_m_rt::entry;
+use defmt::println;
+use panic_probe as _;
+use stm32l4xx_hal as hal;
+use stm32l4xx_hal::{
+    prelude::*,
+    serial::{Config, Serial},
+};
 
 #[entry]
 fn main() -> ! {
@@ -66,23 +58,13 @@ fn main() -> ! {
     let sent = b'X';
 
     // The `block!` macro makes an operation block until it finishes
-    // NOTE the error type is `!`
+    nb::block!(tx.write(sent)).unwrap();
+    let received = nb::block!(rx.read()).unwrap();
 
-    block!(tx.write(sent)).ok();
-
-    let received = block!(rx.read()).unwrap();
-
-    assert_eq!(received, sent);
-
-    // if all goes well you should reach this breakpoint
-    asm::bkpt();
+    defmt::assert_eq!(received, sent);
+    println!("message was received");
 
     loop {
         continue;
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }
