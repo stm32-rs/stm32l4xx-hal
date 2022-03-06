@@ -4,8 +4,8 @@
 #![no_main]
 
 use core::{cell::RefCell, ops::DerefMut};
-use cortex_m::interrupt::{self, free, Mutex};
-use cortex_m_rt::{entry, exception, interrupt, ExceptionFrame};
+use cortex_m::interrupt::{free, Mutex};
+use cortex_m_rt::entry;
 use defmt::println;
 use defmt_rtt as _;
 use panic_probe as _;
@@ -13,6 +13,7 @@ use stm32l4xx_hal::{
     self as hal,
     datetime::{Date, Time},
     device::NVIC,
+    interrupt,
     prelude::*,
     rcc::{ClockSecuritySystem, CrystalBypass},
     rtc::{Event, Rtc, RtcClockSource, RtcConfig},
@@ -80,9 +81,4 @@ fn RTC_WKUP() {
             }
         }
     });
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }
