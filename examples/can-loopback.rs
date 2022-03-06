@@ -75,12 +75,15 @@ const APP: () = {
         // Wait for TX to finish
         while !can.is_transmitter_idle() {}
 
-        println!("  - CAN tx complete: {:?}", test_frame);
+        println!(
+            "  - CAN tx complete: {:?}",
+            defmt::Debug2Format(&test_frame)
+        );
 
         // Receive the packet back
         let r = can.receive();
 
-        println!("  - CAN rx {:?}", r);
+        println!("  - CAN rx {:?}", defmt::Debug2Format(&r));
 
         assert_eq!(Ok(test_frame), r);
     }

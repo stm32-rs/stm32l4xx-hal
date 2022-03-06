@@ -2,7 +2,7 @@
 #![no_std]
 #![no_main]
 
-use cortex_m_rt as rt;
+use cortex_m_rt::entry;
 use defmt::println;
 use defmt_rtt as _;
 use hal::{
@@ -10,7 +10,6 @@ use hal::{
     prelude::*,
 };
 use panic_probe as _;
-use rt::{entry, ExceptionFrame};
 use stm32l4xx_hal as hal;
 
 #[entry]
@@ -52,7 +51,7 @@ fn main() -> ! {
     i2c.write_read(MAX17048_ADDR, &[MAX17048_VERSION_REG], &mut buffer)
         .unwrap();
     let version: u16 = u16::from_be_bytes(buffer); // (buffer[0] as u16) << 8 | buffer[1] as u16;
-    println!("Silicon Version: {}", version).ok();
+    println!("Silicon Version: {}", version);
 
     // let soc: u16 = (buffer[0] as u16) + (buffer[1] as u16 / 256);  //& 0xFF00
     // let soc: u16 = (buffer[0] as u16) << 8 & 0xFF00 | (buffer[1] as u16) & 0x00FF;
@@ -60,13 +59,13 @@ fn main() -> ! {
     i2c.write_read(MAX17048_ADDR, &[MAX17048_SOC_REG], &mut buffer)
         .unwrap();
     let soc: u16 = u16::from_be_bytes(buffer);
-    println!("Batt SoC: {}%", soc / 256).ok();
+    println!("Batt SoC: {}%", soc / 256);
 
     const MAX17048_VOLT_REG: u8 = 0x02;
     i2c.write_read(MAX17048_ADDR, &[MAX17048_VOLT_REG], &mut buffer)
         .unwrap();
     let vlt: u16 = u16::from_be_bytes(buffer);
-    println!("Volt: {}", vlt as f32 * 0.000078125).ok();
+    println!("Volt: {}", vlt as f32 * 0.000078125);
 
     loop {
         continue;
