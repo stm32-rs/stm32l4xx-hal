@@ -122,6 +122,7 @@ default-features = false
 features = ["cortex-m-7"]
 
 [profile.dev]
+debug = true
 incremental = false
 codegen-units = 1
 
