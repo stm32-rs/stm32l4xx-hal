@@ -3,9 +3,9 @@
 #![no_std]
 #![no_main]
 
-extern crate panic_semihosting;
-
 use cortex_m_rt::entry;
+use defmt::println;
+use panic_probe as _;
 use stm32l4xx_hal::usb::{Peripheral, UsbBus};
 use stm32l4xx_hal::{prelude::*, stm32};
 use usb_device::prelude::*;
@@ -92,6 +92,7 @@ fn main() -> ! {
             Ok(count) if count > 0 => {
                 led.set_high(); // Turn on
 
+                println!("received {}", &buf[0..count]);
                 // Echo back in upper case
                 for c in buf[0..count].iter_mut() {
                     if 0x61 <= *c && *c <= 0x7a {

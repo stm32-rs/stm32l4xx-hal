@@ -3,29 +3,25 @@
 //!
 //! This is tested on Nucleo-64 STM32L412 over the debuggers VCP.
 //!
-//! This example only compiles for some targets so it is not part of the CI for now.
 
 #![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_main]
 #![no_std]
 
-use hal::{
-    dma::{self, DMAFrame, FrameReader, FrameSender},
-    pac::USART2,
-    prelude::*,
-    rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
-    serial::{self, Config, Serial},
-};
+use defmt::println;
 use heapless::{
     pool,
     pool::singleton::{Box, Pool},
 };
-use panic_halt as _;
+use panic_probe as _;
 use rtic::app;
-use stm32l4xx_hal as hal;
-use stm32l4xx_hal::dma::{RxDma, TxDma};
-use stm32l4xx_hal::serial::{Rx, Tx};
+use stm32l4xx_hal::{
+    dma::{self, DMAFrame, FrameReader, FrameSender, RxDma, TxDma},
+    pac::USART2,
+    prelude::*,
+    rcc::{ClockSecuritySystem, CrystalBypass, MsiFreq},
+    serial::{self, Config, Rx, Serial, Tx},
+};
 
 // The pool gives out `Box<DMAFrame>`s that can hold 8 bytes
 pool!(
@@ -115,6 +111,7 @@ const APP: () = {
     fn serial_isr(cx: serial_isr::Context) {
         // Check for character match
         if cx.resources.frame_reader.check_character_match(true) {
+            println!("character match");
             if let Some(dma_buf) = SerialDMAPool::alloc() {
                 let dma_buf = dma_buf.init(DMAFrame::new());
                 let buf = cx.resources.frame_reader.character_match_interrupt(dma_buf);
@@ -133,7 +130,9 @@ const APP: () = {
         if let Some(dma_buf) = SerialDMAPool::alloc() {
             let dma_buf = dma_buf.init(DMAFrame::new());
 
-            // Erroneous packet as it did not fit in a buffer, throw away the buffer
+            println!(
+                "received erroneous packet as it did not fit in a buffer, throw away the buffer"
+            );
             let _buf = cx
                 .resources
                 .frame_reader
@@ -147,7 +146,7 @@ const APP: () = {
         let fs = cx.resources.frame_sender;
 
         if let Some(_buf) = fs.transfer_complete_interrupt() {
-            // Frame sent, drop the buffer to return it too the pool
+            println!("Frame sent, drop the buffer to return it too the pool");
         }
 
         // Send a new buffer

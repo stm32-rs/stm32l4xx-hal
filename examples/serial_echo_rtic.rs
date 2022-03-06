@@ -1,11 +1,10 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_rtt_target;
-
+use defmt::println;
 use heapless::{consts::U8, spsc};
 use nb::block;
-use rtt_target::{rprint, rprintln};
+use panic_probe as _;
 use stm32l4xx_hal::{
     pac::{self, USART2},
     prelude::*,
@@ -26,8 +25,7 @@ const APP: () = {
     fn init(_: init::Context) -> init::LateResources {
         static mut RX_QUEUE: spsc::Queue<u8, U8> = spsc::Queue(heapless::i::Queue::new());
 
-        rtt_target::rtt_init_print!();
-        rprint!("Initializing... ");
+        println!("Initializing... ");
 
         let p = pac::Peripherals::take().unwrap();
 
@@ -58,7 +56,7 @@ const APP: () = {
         let (tx, rx) = serial.split();
         let (rx_prod, rx_cons) = RX_QUEUE.split();
 
-        rprintln!("done.");
+        println!("done.");
 
         init::LateResources {
             rx,
@@ -76,7 +74,7 @@ const APP: () = {
 
         loop {
             if let Some(b) = rx.dequeue() {
-                rprintln!("Echoing '{}'", b as char);
+                println!("Echoing '{}'", b as char);
                 block!(tx.write(b)).unwrap();
             }
         }
@@ -90,15 +88,14 @@ const APP: () = {
         let b = match rx.read() {
             Ok(b) => b,
             Err(err) => {
-                rprintln!("Error reading from USART: {:?}", err);
+                println!("Error reading from USART: {:?}", defmt::Debug2Format(&err));
                 return;
             }
         };
         match queue.enqueue(b) {
             Ok(()) => (),
             Err(err) => {
-                rprintln!("Error adding received byte to queue: {:?}", err);
-                return;
+                println!("Error adding received byte to queue: {:?}", err);
             }
         }
     }

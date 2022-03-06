@@ -1,10 +1,9 @@
 //! Test the SPI in RX/TX (transfer) DMA mode
-#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
-use panic_rtt_target as _;
-use rtt_target::rprintln;
+use defmt::println;
+use panic_probe as _;
 use stm32l4xx_hal::{
     dma::TransferDma,
     gpio::{PinState, Speed},
@@ -20,8 +19,7 @@ const APP: () = {
     fn init(cx: init::Context) {
         static mut DMA_BUF: [u8; 5] = [0xf0, 0xaa, 0x00, 0xff, 0x0f];
 
-        rtt_target::rtt_init_print!();
-        rprintln!("Initializing... ");
+        println!("Initializing... ");
 
         let dp = cx.device;
 
@@ -34,7 +32,7 @@ const APP: () = {
         //
         // Initialize the clocks to 80 MHz
         //
-        rprintln!("  - Clock init");
+        println!("  - Clock init");
         let clocks = rcc
             .cfgr
             .msi(MsiFreq::RANGE4M)
@@ -77,7 +75,7 @@ const APP: () = {
         let dma_spi = spi.with_rxtx_dma(dma1_channels.2, dma1_channels.3);
 
         // Check the buffer before using it
-        rprintln!("buf pre: 0x{:x?}", &DMA_BUF);
+        println!("buf pre: 0x{:?}", &DMA_BUF);
 
         // Perform transfer and wait for it to finish (blocking), this can also be done using
         // interrupts on the desired DMA channel
@@ -88,7 +86,7 @@ const APP: () = {
 
         // Inspect the extracted buffer, if the MISO is connected to VCC or GND it will be all 0 or
         // 1.
-        rprintln!("buf post: 0x{:x?}", &buf);
+        println!("buf post: 0x{:?}", &buf);
     }
 
     // Idle function so RTT keeps working

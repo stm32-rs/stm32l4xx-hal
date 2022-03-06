@@ -2,18 +2,11 @@
 #![no_main]
 #![no_std]
 
-#[macro_use(entry, exception)]
-extern crate cortex_m_rt as rt;
-extern crate cortex_m;
-extern crate embedded_hal as ehal;
-extern crate panic_semihosting;
-extern crate stm32l4xx_hal as hal;
-
-use crate::ehal::spi::{Mode, Phase, Polarity};
-use crate::hal::prelude::*;
-use crate::hal::spi::Spi;
-use crate::rt::ExceptionFrame;
-use cortex_m::asm;
+use cortex_m_rt::entry;
+use defmt::println;
+use embedded_hal::spi::{Mode, Phase, Polarity};
+use panic_probe as _;
+use stm32l4xx_hal::{self as hal, prelude::*, spi::Spi};
 
 /// SPI mode
 pub const MODE: Mode = Mode {
@@ -84,14 +77,9 @@ fn main() -> ! {
 
     // when you reach this breakpoint you'll be able to inspect the variable `_m` which contains the
     // gyroscope and the temperature sensor readings
-    asm::bkpt();
+    println!("example complete");
 
     loop {
         continue;
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }

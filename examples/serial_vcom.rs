@@ -3,21 +3,15 @@
 #![no_main]
 #![no_std]
 
-extern crate cortex_m;
-#[macro_use(entry, exception)]
-extern crate cortex_m_rt as rt;
-#[macro_use(block)]
-extern crate nb;
-extern crate panic_semihosting;
-
-extern crate stm32l4xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
-
-use crate::hal::prelude::*;
-use crate::hal::serial::{Config, Serial};
-use crate::rt::ExceptionFrame;
-use cortex_m::asm;
+use cortex_m_rt::entry;
+use defmt::println;
+use nb::block;
+use panic_probe as _;
+use stm32l4xx_hal::{
+    self as hal,
+    prelude::*,
+    serial::{Config, Serial},
+};
 
 #[entry]
 fn main() -> ! {
@@ -62,11 +56,11 @@ fn main() -> ! {
     // The `block!` macro makes an operation block until it finishes
     // NOTE the error type is `!`
 
-    block!(tx.write(sent)).ok();
-    block!(tx.write(sent)).ok();
-    block!(tx.write(sent)).ok();
-    block!(tx.write(sent)).ok();
-    block!(tx.write(sent)).ok();
+    block!(tx.write(sent)).unwrap();
+    block!(tx.write(sent)).unwrap();
+    block!(tx.write(sent)).unwrap();
+    block!(tx.write(sent)).unwrap();
+    block!(tx.write(sent)).unwrap();
 
     // when using virtual com port for recieve can causes a framing error
     // On the stm32l476 discovery it is working fine at 115200 baud
@@ -75,14 +69,9 @@ fn main() -> ! {
     assert_eq!(received, sent);
 
     // if all goes well you should reach this breakpoint
-    asm::bkpt();
+    println!("example complete");
 
     loop {
         continue;
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }

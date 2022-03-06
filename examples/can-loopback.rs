@@ -1,7 +1,4 @@
 //! Run the bxCAN peripheral in loopback mode.
-
-#![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 

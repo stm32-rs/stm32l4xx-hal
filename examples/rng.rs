@@ -28,25 +28,6 @@ fn main() -> ! {
         .pclk1(32.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
-    // setup usart
-    let mut gpioa = device.GPIOA.split(&mut rcc.ahb2);
-    let tx = gpioa
-        .pa9
-        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
-    let rx = gpioa
-        .pa10
-        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
-
-    let baud_rate = 9_600; // 115_200;
-    let serial = Serial::usart1(
-        device.USART1,
-        (tx, rx),
-        Config::default().baudrate(baud_rate.bps()),
-        clocks,
-        &mut rcc.apb2,
-    );
-    let (mut tx, _) = serial.split();
-
     // get a timer
     let mut timer = Delay::new(core.SYST, clocks);
 

@@ -4,23 +4,11 @@
 #![no_main]
 #![no_std]
 
-#[macro_use(singleton)]
-extern crate cortex_m;
-#[macro_use(entry, exception)]
-extern crate cortex_m_rt as rt;
-#[macro_use(block)]
-extern crate nb;
-extern crate panic_semihosting;
-
-extern crate stm32l4xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
-
-use crate::hal::dma::CircReadDma;
-use crate::hal::prelude::*;
-use crate::hal::serial::Serial;
-use crate::rt::ExceptionFrame;
-use cortex_m::asm;
+use cortex_m::{asm, singleton};
+use cortex_m_rt::{entry, exception, ExceptionFrame};
+use defmt::println;
+use nb::block;
+use stm32l4xx_hal::{self as hal, dma::CircReadDma, prelude::*, serial::Serial};
 
 #[entry]
 fn main() -> ! {
@@ -57,32 +45,18 @@ fn main() -> ! {
     let sent = b'X';
 
     // The `block!` macro makes an operation block until it finishes
-    // NOTE the error type is `!`
-
-    block!(tx.write(sent)).ok();
-
+    block!(tx.write(sent)).unwrap();
     let buf = singleton!(: [u8; 8] = [0; 8]).unwrap();
-
     let mut circ_buffer = rx.with_dma(channels.6).circ_read(buf);
-
     let mut rx_buf = [0; 8];
     let rx_len = circ_buffer.read(&mut rx_buf).unwrap();
 
-    let _received = &rx_buf[..rx_len];
+    let received = &rx_buf[..rx_len];
+    defmt::assert_eq!([sent], received);
 
-    // let received = block!(rx.read()).unwrap();
-
-    // assert_eq!(received, sent);
-
-    // if all goes well you should reach this breakpoint
-    asm::bkpt();
+    println!("echo received");
 
     loop {
         continue;
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }

@@ -2,22 +2,14 @@
 #![no_std]
 #![no_main]
 
-use crate::hal::delay::Delay;
-use crate::hal::prelude::*;
-use crate::hal::watchdog::IndependentWatchdog;
-use cortex_m_rt::{entry, exception, ExceptionFrame};
-use cortex_m_semihosting as sh;
-use panic_semihosting as _;
-use stm32l4xx_hal as hal;
-
-use crate::sh::hio;
-use core::fmt::Write;
+use cortex_m_rt::entry;
+use defmt::println;
+use panic_probe as _;
+use stm32l4xx_hal::{self as hal, delay::Delay, prelude::*, watchdog::IndependentWatchdog};
 
 #[entry]
 fn main() -> ! {
-    let mut hstdout = hio::hstdout().unwrap();
-
-    writeln!(hstdout, "Hello, world!").unwrap();
+    println!("Hello, world!");
 
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = hal::stm32::Peripherals::take().unwrap();
@@ -47,13 +39,9 @@ fn main() -> ! {
     timer.delay_ms(1000_u32);
 
     watchdog.feed();
-    writeln!(hstdout, "Good bye!").unwrap();
+    println!("Good bye!");
+    // watchdog will reset after 1020 milliseconds
     loop {
         continue;
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }

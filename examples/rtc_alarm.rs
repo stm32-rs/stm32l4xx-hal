@@ -3,33 +3,25 @@
 #![no_std]
 #![no_main]
 
-extern crate cortex_m;
-#[macro_use]
-extern crate cortex_m_rt as rt;
-extern crate cortex_m_semihosting as sh;
-extern crate panic_semihosting;
-extern crate stm32l4xx_hal as hal;
-
-use crate::hal::datetime::{Date, Time};
-use crate::hal::prelude::*;
-use crate::hal::rcc::{ClockSecuritySystem, CrystalBypass};
-use crate::hal::rtc::{Event, Rtc, RtcClockSource, RtcConfig};
-use crate::rt::ExceptionFrame;
-use cortex_m::interrupt::{free, Mutex};
-
-use crate::sh::hio;
-use core::{cell::RefCell, fmt::Write, ops::DerefMut};
-use hal::interrupt;
-use hal::pac;
-use pac::NVIC;
+use core::{cell::RefCell, ops::DerefMut};
+use cortex_m::interrupt::{self, free, Mutex};
+use cortex_m_rt::{entry, exception, interrupt, ExceptionFrame};
+use defmt::println;
+use hal::device::NVIC;
+use panic_probe as _;
+use stm32l4xx_hal::{
+    self as hal,
+    datetime::{Date, Time},
+    prelude::*,
+    rcc::{ClockSecuritySystem, CrystalBypass},
+    rtc::{Event, Rtc, RtcClockSource, RtcConfig},
+};
 
 static RTC: Mutex<RefCell<Option<Rtc>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
-    let mut hstdout = hio::hstdout().unwrap();
-
-    writeln!(hstdout, "Hello, world!").unwrap();
+    println!("Hello, world!");
 
     let mut dp = hal::stm32::Peripherals::take().unwrap();
     dp.RCC.apb2enr.write(|w| w.syscfgen().set_bit());
@@ -65,7 +57,7 @@ fn main() -> ! {
     rtc.listen(&mut dp.EXTI, Event::WakeupTimer);
 
     unsafe {
-        NVIC::unmask(pac::Interrupt::RTC_WKUP);
+        NVIC::unmask(hal::pac::Interrupt::RTC_WKUP);
     }
 
     free(|cs| {
@@ -79,12 +71,11 @@ fn main() -> ! {
 
 #[interrupt]
 fn RTC_WKUP() {
-    let mut hstdout = hio::hstdout().unwrap();
     free(|cs| {
         let mut rtc_ref = RTC.borrow(cs).borrow_mut();
         if let Some(ref mut rtc) = rtc_ref.deref_mut() {
             if rtc.check_interrupt(Event::WakeupTimer, true) {
-                writeln!(hstdout, "RTC Wakeup!").unwrap();
+                println!("RTC Wakeup!");
             }
         }
     });
