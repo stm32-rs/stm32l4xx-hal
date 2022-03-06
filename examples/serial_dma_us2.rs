@@ -4,10 +4,12 @@
 #![no_main]
 #![no_std]
 
-use cortex_m::{asm, singleton};
-use cortex_m_rt::{entry, exception, ExceptionFrame};
+use cortex_m::singleton;
+use cortex_m_rt::entry;
 use defmt::println;
+use defmt_rtt as _;
 use nb::block;
+use panic_probe as _;
 use stm32l4xx_hal::{self as hal, dma::CircReadDma, prelude::*, serial::Serial};
 
 #[entry]

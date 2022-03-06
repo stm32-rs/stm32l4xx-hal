@@ -3,6 +3,7 @@
 #![no_std]
 
 use defmt::println;
+use defmt_rtt as _;
 use panic_probe as _;
 use stm32l4xx_hal::{
     dma::TransferDma,

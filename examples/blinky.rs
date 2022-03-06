@@ -4,6 +4,7 @@
 
 use cortex_m_rt::{entry, exception, ExceptionFrame};
 use defmt::println;
+use defmt_rtt as _;
 use panic_probe as _;
 use stm32l4xx_hal as hal; // hal
 use stm32l4xx_hal::{delay::Delay, prelude::*};

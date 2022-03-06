@@ -2,6 +2,7 @@
 #![no_std]
 
 use defmt::println;
+use defmt_rtt as _;
 use heapless::{consts::U8, spsc};
 use nb::block;
 use panic_probe as _;

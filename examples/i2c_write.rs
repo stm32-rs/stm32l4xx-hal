@@ -4,6 +4,7 @@
 
 use cortex_m_rt as rt;
 use defmt::println;
+use defmt_rtt as _;
 use hal::{
     i2c::{self, I2c},
     prelude::*,

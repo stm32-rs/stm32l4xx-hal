@@ -7,11 +7,12 @@ use core::{cell::RefCell, ops::DerefMut};
 use cortex_m::interrupt::{self, free, Mutex};
 use cortex_m_rt::{entry, exception, interrupt, ExceptionFrame};
 use defmt::println;
-use hal::device::NVIC;
+use defmt_rtt as _;
 use panic_probe as _;
 use stm32l4xx_hal::{
     self as hal,
     datetime::{Date, Time},
+    device::NVIC,
     prelude::*,
     rcc::{ClockSecuritySystem, CrystalBypass},
     rtc::{Event, Rtc, RtcClockSource, RtcConfig},

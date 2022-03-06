@@ -7,6 +7,7 @@ use bxcan::{
     {Frame, StandardId},
 };
 use defmt::println;
+use defmt_rtt as _;
 use panic_probe as _;
 use rtic::app;
 use stm32l4xx_hal::{can::Can, prelude::*};

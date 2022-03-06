@@ -9,6 +9,7 @@
 #![no_std]
 
 use defmt::println;
+use defmt_rtt as _;
 use heapless::{
     pool,
     pool::singleton::{Box, Pool},

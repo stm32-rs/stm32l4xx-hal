@@ -1,10 +1,10 @@
 //! Testing PWM output
-#![deny(unsafe_code)]
 #![no_main]
 #![no_std]
 
 use cortex_m_rt::entry;
 use defmt::println;
+use defmt_rtt as _;
 use panic_probe as _;
 use stm32l4xx_hal::{delay, prelude::*, stm32};
 

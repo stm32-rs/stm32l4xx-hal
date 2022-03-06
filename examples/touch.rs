@@ -5,6 +5,8 @@
 #![no_std]
 
 use cortex_m_rt::entry;
+use defmt::println;
+use defmt_rtt as _;
 use panic_probe as _;
 use stm32l4xx_hal::{self as hal, prelude::*, tsc::Tsc};
 
@@ -51,8 +53,10 @@ fn main() -> ! {
         // try and pass c1, it will detect an error!
         let _touched_c2_again = tsc.read(&mut c2).unwrap();
         if touched < threshold {
+            println!("touch channel 1 is below the threshold");
             led.set_high();
         } else {
+            println!("touch channel 1 is above the threshold");
             led.set_low();
         }
     }

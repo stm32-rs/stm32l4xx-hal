@@ -4,7 +4,9 @@
 
 use cortex_m_rt::entry;
 use defmt::println;
+use defmt_rtt as _;
 use embedded_hal::spi::{Mode, Phase, Polarity};
+use panic_probe as _;
 use stm32l4xx_hal::{self as hal, prelude::*, spi::Spi};
 
 /// SPI mode
