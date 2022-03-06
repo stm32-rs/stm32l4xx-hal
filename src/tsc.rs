@@ -137,7 +137,16 @@ pub enum ChargeDischargeTime {
 }
 
 impl<SPIN> Tsc<SPIN> {
+    #[allow(clippy::self_named_constructors)]
+    #[deprecated = "use `new()` instead"]
     pub fn tsc(tsc: TSC, sample_pin: SPIN, ahb: &mut AHB1, cfg: Option<Config>) -> Self
+    where
+        SPIN: SamplePin<TSC>,
+    {
+        Self::new(tsc, sample_pin, ahb, cfg)
+    }
+
+    pub fn new(tsc: TSC, sample_pin: SPIN, ahb: &mut AHB1, cfg: Option<Config>) -> Self
     where
         SPIN: SamplePin<TSC>,
     {

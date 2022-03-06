@@ -170,7 +170,7 @@ macro_rules! hal {
                     // This operation is sound, as it is an atomic memory access
                     // that does not modify the memory/read value
                     ClockSource::HSI16 => {
-                        assert!(unsafe { (&*RCC::ptr()).cr.read().hsion().bit_is_set() })
+                        assert!(unsafe { (*RCC::ptr()).cr.read().hsion().bit_is_set() })
                     }
                     _ => {}
                 }

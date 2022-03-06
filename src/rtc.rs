@@ -158,7 +158,19 @@ impl RtcConfig {
 }
 
 impl Rtc {
+    #[allow(clippy::self_named_constructors)]
+    #[deprecated = "use `new()` instead"]
     pub fn rtc(
+        rtc: RTC,
+        apb1r1: &mut APB1R1,
+        bdcr: &mut BDCR,
+        pwrcr1: &mut pwr::CR1,
+        rtc_config: RtcConfig,
+    ) -> Self {
+        Self::new(rtc, apb1r1, bdcr, pwrcr1, rtc_config)
+    }
+
+    pub fn new(
         rtc: RTC,
         apb1r1: &mut APB1R1,
         bdcr: &mut BDCR,
@@ -178,9 +190,6 @@ impl Rtc {
 
     /// Get date and time touple
     pub fn get_date_time(&self) -> (Date, Time) {
-        let time;
-        let date;
-
         let sync_p = self.rtc_config.sync_prescaler as u32;
         let micros =
             1_000_000u32 / (sync_p + 1) * (sync_p - self.rtc.ssr.read().ss().bits() as u32);
@@ -191,7 +200,7 @@ impl Rtc {
         // calendar shadow registers until RTC_DR is read.
         let dater = self.rtc.dr.read();
 
-        time = Time::new(
+        let time = Time::new(
             (bcd2_to_byte((timer.ht().bits(), timer.hu().bits())) as u32).hours(),
             (bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())) as u32).minutes(),
             (bcd2_to_byte((timer.st().bits(), timer.su().bits())) as u32).secs(),
@@ -199,7 +208,7 @@ impl Rtc {
             cr.bkp().bit(),
         );
 
-        date = Date::new(
+        let date = Date::new(
             dater.wdu().bits().into(),
             bcd2_to_byte((dater.dt().bits(), dater.du().bits())).into(),
             bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())).into(),

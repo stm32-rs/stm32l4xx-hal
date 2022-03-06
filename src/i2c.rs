@@ -317,7 +317,7 @@ where
             w.start()
                 .set_bit()
                 .sadd()
-                .bits(u16(addr << 1 | 0))
+                .bits(u16(addr << 1))
                 .add10()
                 .clear_bit()
                 .rd_wrn()
@@ -357,7 +357,7 @@ where
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(buffer.len() < 256 && buffer.len() > 0);
+        assert!(buffer.len() < 256 && !buffer.is_empty());
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -369,7 +369,7 @@ where
         // is BUSY or I2C is in slave mode.
         self.i2c.cr2.write(|w| {
             w.sadd()
-                .bits((addr << 1 | 0) as u16)
+                .bits((addr << 1) as u16)
                 .rd_wrn()
                 .read()
                 .nbytes()
@@ -402,8 +402,8 @@ where
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(bytes.len() < 256 && bytes.len() > 0);
-        assert!(buffer.len() < 256 && buffer.len() > 0);
+        assert!(bytes.len() < 256 && !bytes.is_empty());
+        assert!(buffer.len() < 256 && !buffer.is_empty());
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -417,7 +417,7 @@ where
             w.start()
                 .set_bit()
                 .sadd()
-                .bits(u16(addr << 1 | 0))
+                .bits(u16(addr << 1))
                 .add10()
                 .clear_bit()
                 .rd_wrn()

@@ -9,6 +9,7 @@
 //! the STM32L432KC microcontroller. Participation is of course very welcome!
 
 #![no_std]
+#![allow(clippy::upper_case_acronyms)]
 
 #[cfg(not(any(
     feature = "stm32l431",

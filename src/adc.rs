@@ -92,9 +92,9 @@ impl From<u8> for Sequence {
     }
 }
 
-impl Into<u8> for Sequence {
-    fn into(self) -> u8 {
-        match self {
+impl From<Sequence> for u8 {
+    fn from(seq: Sequence) -> u8 {
+        match seq {
             Sequence::One => 0,
             Sequence::Two => 1,
             Sequence::Three => 2,
@@ -592,7 +592,7 @@ impl Default for Resolution {
 }
 
 impl Resolution {
-    fn to_max_count(&self) -> u32 {
+    fn to_max_count(self) -> u32 {
         match self {
             Resolution::Bits12 => (1 << 12) - 1,
             Resolution::Bits10 => (1 << 10) - 1,
