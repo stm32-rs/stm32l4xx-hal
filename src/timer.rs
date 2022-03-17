@@ -80,6 +80,33 @@ pub enum Event {
     TimeOut,
 }
 
+/// Master mode types
+pub enum MasterMode {
+    Reset = 0,
+    Enable = 1,
+    Update = 2,
+    ComparePulse = 3,
+    CompareOC1REF = 4,
+    CompareOC2REF = 5,
+    CompareOC3REF = 6,
+    CompareOC4REF = 7,
+}
+
+impl Into<u8> for MasterMode {
+    fn into(self) -> u8 {
+        match self {
+            MasterMode::Reset => 0,
+            MasterMode::Enable => 1,
+            MasterMode::Update => 2,
+            MasterMode::ComparePulse => 3,
+            MasterMode::CompareOC1REF => 4,
+            MasterMode::CompareOC2REF => 5,
+            MasterMode::CompareOC3REF => 6,
+            MasterMode::CompareOC4REF => 7
+        }
+    }
+}
+
 macro_rules! hal {
     ($($TIM:ident: ($tim:ident, $frname:ident, $apb:ident, $width:ident, $timclk:ident),)+) => {
         $(
@@ -275,6 +302,20 @@ macro_rules! hal {
                     self.pause();
                     self.tim
                 }
+            }   
+        )+
+    }
+}
+
+macro_rules! master_mode {
+    ($($TIM:ident,)+) => {
+        $(
+            impl Timer<$TIM> {
+                pub fn master_mode(&mut self, mode: MasterMode) {
+                    unsafe {
+                        self.tim.cr2.modify(|_, w| w.mms().bits(mode.into()));
+                    }
+                }
             }
         )+
     }
@@ -287,6 +328,9 @@ hal! {
     TIM15: (tim15, free_running_tim15, APB2, u16, timclk2),
     TIM16: (tim16, free_running_tim16, APB2, u16, timclk2),
 }
+
+// no impl for TIM1, TIM7, TIM8, TIM15
+master_mode!(TIM2, TIM6, );
 
 #[cfg(any(
     // feature = "stm32l451",

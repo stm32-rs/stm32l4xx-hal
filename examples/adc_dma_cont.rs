@@ -12,7 +12,7 @@ use stm32l4xx_hal::{
 
 use rtic::app;
 
-const SEQUENCE_LEN: usize = 3;
+const SEQUENCE_LEN: usize = 8;
 
 #[app(device = stm32l4xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
 const APP: () = {
@@ -67,12 +67,13 @@ const APP: () = {
 
         let dma1_channel = dma_channels.1;
 
-        adc.configure_sequence(&mut temp_pin, Sequence::One, SampleTime::Cycles12_5);
-        adc.configure_sequence(&mut temp_pin, Sequence::Two, SampleTime::Cycles247_5);
-        adc.configure_sequence(&mut temp_pin, Sequence::Three, SampleTime::Cycles640_5);
+        let mut gpioa = pac.GPIOA.split(&mut rcc.ahb2);
+        let mut a1 = gpioa.pa0.into_analog(&mut gpioa.moder, &mut gpioa.pupdr);
+
+        adc.configure_sequence(&mut a1, Sequence::One, SampleTime::Cycles12_5);
 
         // Heapless boxes also work very well as buffers for DMA transfers
-        let transfer = Transfer::from_adc(adc, dma1_channel, MEMORY, DmaMode::Oneshot, true);
+        let transfer = Transfer::from_adc(adc, dma1_channel, MEMORY, DmaMode::Oneshot, true, true);
 
         init::LateResources {
             transfer: Some(transfer),
@@ -96,6 +97,7 @@ const APP: () = {
                 rx_dma,
                 buffer,
                 DmaMode::Oneshot,
+                true,
                 true,
             ));
         }
