@@ -102,7 +102,7 @@ impl Into<u8> for MasterMode {
             MasterMode::CompareOC1REF => 4,
             MasterMode::CompareOC2REF => 5,
             MasterMode::CompareOC3REF => 6,
-            MasterMode::CompareOC4REF => 7
+            MasterMode::CompareOC4REF => 7,
         }
     }
 }
@@ -302,7 +302,7 @@ macro_rules! hal {
                     self.pause();
                     self.tim
                 }
-            }   
+            }
         )+
     }
 }
@@ -330,7 +330,7 @@ hal! {
 }
 
 // no impl for TIM1, TIM7, TIM8, TIM15
-master_mode!(TIM2, TIM6, );
+master_mode!(TIM2, TIM6,);
 
 #[cfg(any(
     // feature = "stm32l451",

@@ -72,7 +72,7 @@ const APP: () = {
         adc.configure_sequence(&mut temp_pin, Sequence::Three, SampleTime::Cycles640_5);
 
         // Heapless boxes also work very well as buffers for DMA transfers
-        let transfer = Transfer::from_adc(adc, dma1_channel, MEMORY, DmaMode::Oneshot, true);
+        let transfer = Transfer::from_adc(adc, dma1_channel, MEMORY, DmaMode::Oneshot, true, false);
 
         init::LateResources {
             transfer: Some(transfer),
@@ -97,6 +97,7 @@ const APP: () = {
                 buffer,
                 DmaMode::Oneshot,
                 true,
+                false,
             ));
         }
     }
