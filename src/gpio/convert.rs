@@ -4,10 +4,13 @@ use super::*;
 struct Assert<const L: u8, const R: u8>;
 
 impl<const L: u8, const R: u8> Assert<L, R> {
-    pub const LESS: u8 = R - L - 1;
+    pub const LESS: () = assert!(L < R);
 }
 
-impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE>
+where
+    Self: HL,
+{
     fn set_alternate<const A: u8>(&mut self) {
         #[allow(path_statements, clippy::no_effect)]
         {
@@ -36,8 +39,8 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         mut self,
         _moder: &mut MODER<P>,
         _otyper: &mut OTYPER<P>,
-        _afr: &mut Afr<HL, P>,
-    ) -> Pin<Alternate<PushPull, A>, HL, P, N> {
+        _afr: &mut <Self as HL>::Afr,
+    ) -> Pin<P, N, Alternate<A, PushPull>> {
         self.set_alternate::<A>();
         Pin::new()
     }
@@ -47,8 +50,8 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         self,
         moder: &mut MODER<P>,
         otyper: &mut OTYPER<P>,
-        afr: &mut Afr<HL, P>,
-    ) -> Pin<Alternate<PushPull, A>, HL, P, N> {
+        afr: &mut <Self as HL>::Afr,
+    ) -> Pin<P, N, Alternate<A, PushPull>> {
         self.into_alternate::<A>(moder, otyper, afr)
     }
 
@@ -58,18 +61,20 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         self,
         moder: &mut MODER<P>,
         otyper: &mut OTYPER<P>,
-        afr: &mut Afr<HL, P>,
-    ) -> Pin<Alternate<OpenDrain, A>, HL, P, N> {
+        afr: &mut <Self as HL>::Afr,
+    ) -> Pin<P, N, Alternate<A, OpenDrain>> {
         self.into_alternate::<A>(moder, otyper, afr)
             .set_open_drain()
     }
+}
 
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
     /// Configures the pin to operate as a floating input pin
     pub fn into_floating_input(
         mut self,
         _moder: &mut MODER<P>,
         _pupdr: &mut PUPDR<P>,
-    ) -> Pin<Input<Floating>, HL, P, N> {
+    ) -> Pin<P, N, Input<Floating>> {
         self.mode::<Input<Floating>>();
         Pin::new()
     }
@@ -79,7 +84,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         mut self,
         _moder: &mut MODER<P>,
         _pupdr: &mut PUPDR<P>,
-    ) -> Pin<Input<PullDown>, HL, P, N> {
+    ) -> Pin<P, N, Input<PullDown>> {
         self.mode::<Input<PullDown>>();
         Pin::new()
     }
@@ -89,7 +94,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         mut self,
         _moder: &mut MODER<P>,
         _pupdr: &mut PUPDR<P>,
-    ) -> Pin<Input<PullUp>, HL, P, N> {
+    ) -> Pin<P, N, Input<PullUp>> {
         self.mode::<Input<PullUp>>();
         Pin::new()
     }
@@ -100,7 +105,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         mut self,
         _moder: &mut MODER<P>,
         _otyper: &mut OTYPER<P>,
-    ) -> Pin<Output<OpenDrain>, HL, P, N> {
+    ) -> Pin<P, N, Output<OpenDrain>> {
         self.mode::<Output<OpenDrain>>();
         Pin::new()
     }
@@ -112,7 +117,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         _moder: &mut MODER<P>,
         _otyper: &mut OTYPER<P>,
         initial_state: PinState,
-    ) -> Pin<Output<OpenDrain>, HL, P, N> {
+    ) -> Pin<P, N, Output<OpenDrain>> {
         self._set_state(initial_state);
         self.mode::<Output<OpenDrain>>();
         Pin::new()
@@ -124,7 +129,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         mut self,
         _moder: &mut MODER<P>,
         _otyper: &mut OTYPER<P>,
-    ) -> Pin<Output<PushPull>, HL, P, N> {
+    ) -> Pin<P, N, Output<PushPull>> {
         self._set_low();
         self.mode::<Output<PushPull>>();
         Pin::new()
@@ -137,7 +142,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         _moder: &mut MODER<P>,
         _otyper: &mut OTYPER<P>,
         initial_state: PinState,
-    ) -> Pin<Output<PushPull>, HL, P, N> {
+    ) -> Pin<P, N, Output<PushPull>> {
         self._set_state(initial_state);
         self.mode::<Output<PushPull>>();
         Pin::new()
@@ -148,7 +153,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         mut self,
         _moder: &mut MODER<P>,
         _pupdr: &mut PUPDR<P>,
-    ) -> Pin<Analog, HL, P, N> {
+    ) -> Pin<P, N, Analog> {
         self.mode::<Analog>();
         Pin::new()
     }
@@ -178,14 +183,14 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N>
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE>
 where
     MODE: PinMode,
 {
     fn with_mode<M, F, R>(&mut self, f: F) -> R
     where
         M: PinMode,
-        F: FnOnce(&mut Pin<M, HL, P, N>) -> R,
+        F: FnOnce(&mut Pin<P, N, M>) -> R,
     {
         self.mode::<M>();
 
@@ -204,7 +209,7 @@ where
     /// the pin will be configured back.
     pub fn with_floating_input<R>(
         &mut self,
-        f: impl FnOnce(&mut Pin<Input<Floating>, HL, P, N>) -> R,
+        f: impl FnOnce(&mut Pin<P, N, Input<Floating>>) -> R,
     ) -> R {
         self.with_mode(f)
     }
@@ -215,7 +220,7 @@ where
     /// the pin will be configured back.
     pub fn with_pull_down_input<R>(
         &mut self,
-        f: impl FnOnce(&mut Pin<Input<PullDown>, HL, P, N>) -> R,
+        f: impl FnOnce(&mut Pin<P, N, Input<PullDown>>) -> R,
     ) -> R {
         self.with_mode(f)
     }
@@ -226,7 +231,7 @@ where
     /// the pin will be configured back.
     pub fn with_pull_up_input<R>(
         &mut self,
-        f: impl FnOnce(&mut Pin<Input<PullUp>, HL, P, N>) -> R,
+        f: impl FnOnce(&mut Pin<P, N, Input<PullUp>>) -> R,
     ) -> R {
         self.with_mode(f)
     }
@@ -235,7 +240,7 @@ where
     ///
     /// The closure `f` is called with the reconfigured pin. After it returns,
     /// the pin will be configured back.
-    pub fn with_analog<R>(&mut self, f: impl FnOnce(&mut Pin<Analog, HL, P, N>) -> R) -> R {
+    pub fn with_analog<R>(&mut self, f: impl FnOnce(&mut Pin<P, N, Analog>) -> R) -> R {
         self.with_mode(f)
     }
 
@@ -247,7 +252,7 @@ where
     /// want to control it, use `with_open_drain_output_in_state`
     pub fn with_open_drain_output<R>(
         &mut self,
-        f: impl FnOnce(&mut Pin<Output<OpenDrain>, HL, P, N>) -> R,
+        f: impl FnOnce(&mut Pin<P, N, Output<OpenDrain>>) -> R,
     ) -> R {
         self.with_mode(f)
     }
@@ -262,7 +267,7 @@ where
     pub fn with_open_drain_output_in_state<R>(
         &mut self,
         state: PinState,
-        f: impl FnOnce(&mut Pin<Output<OpenDrain>, HL, P, N>) -> R,
+        f: impl FnOnce(&mut Pin<P, N, Output<OpenDrain>>) -> R,
     ) -> R {
         self._set_state(state);
         self.with_mode(f)
@@ -276,7 +281,7 @@ where
     /// want to control it, use `with_push_pull_output_in_state`
     pub fn with_push_pull_output<R>(
         &mut self,
-        f: impl FnOnce(&mut Pin<Output<PushPull>, HL, P, N>) -> R,
+        f: impl FnOnce(&mut Pin<P, N, Output<PushPull>>) -> R,
     ) -> R {
         self.with_mode(f)
     }
@@ -291,18 +296,18 @@ where
     pub fn with_push_pull_output_in_state<R>(
         &mut self,
         state: PinState,
-        f: impl FnOnce(&mut Pin<Output<PushPull>, HL, P, N>) -> R,
+        f: impl FnOnce(&mut Pin<P, N, Output<PushPull>>) -> R,
     ) -> R {
         self._set_state(state);
         self.with_mode(f)
     }
 }
 
-struct ResetMode<'a, ORIG: PinMode, HL, const P: char, const N: u8> {
-    pin: &'a mut Pin<ORIG, HL, P, N>,
+struct ResetMode<'a, const P: char, const N: u8, ORIG: PinMode> {
+    pin: &'a mut Pin<P, N, ORIG>,
 }
 
-impl<'a, ORIG: PinMode, HL, const P: char, const N: u8> Drop for ResetMode<'a, ORIG, HL, P, N> {
+impl<'a, const P: char, const N: u8, ORIG: PinMode> Drop for ResetMode<'a, P, N, ORIG> {
     fn drop(&mut self) {
         self.pin.mode::<ORIG>();
     }

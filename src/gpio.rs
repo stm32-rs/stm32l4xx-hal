@@ -5,13 +5,14 @@ use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, Toggleable
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
-use crate::pac::{self, Interrupt, EXTI, SYSCFG};
-use crate::rcc::{Enable, AHB2, APB2};
+use crate::rcc::AHB2;
 
 mod convert;
-
+pub use convert::PinMode;
 mod partially_erased;
 pub use partially_erased::{PEPin, PartiallyErasedPin};
+mod exti;
+pub use exti::ExtiPin;
 mod erased;
 pub use erased::{EPin, ErasedPin};
 
@@ -25,7 +26,7 @@ pub trait GpioExt {
 }
 
 /// Input mode (type state)
-pub struct Input<IOCONF> {
+pub struct Input<IOCONF = Floating> {
     _mode: PhantomData<IOCONF>,
 }
 
@@ -37,7 +38,7 @@ pub struct PullDown;
 pub struct PullUp;
 
 /// Output mode (type state)
-pub struct Output<OTYPE> {
+pub struct Output<OTYPE = PushPull> {
     _mode: PhantomData<OTYPE>,
 }
 
@@ -49,7 +50,7 @@ pub struct OpenDrain;
 /// Analog mode (type state)
 pub struct Analog;
 
-pub type Debugger = Alternate<PushPull, 0>;
+pub type Debugger = Alternate<0, PushPull>;
 
 /// GPIO Pin speed selection
 pub enum Speed {
@@ -68,8 +69,8 @@ pub trait PinExt {
 }
 
 /// Alternate mode (type state)
-pub struct Alternate<MODE, const A: u8> {
-    _mode: PhantomData<MODE>,
+pub struct Alternate<const A: u8, OTYPE = PushPull> {
+    _mode: PhantomData<OTYPE>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -79,131 +80,13 @@ pub enum Edge {
     RisingFalling,
 }
 
-mod sealed {
+mod marker {
     /// Marker trait that show if `ExtiPin` can be implemented
     pub trait Interruptable {}
 }
 
-use sealed::Interruptable;
-impl<MODE> Interruptable for Output<MODE> {}
-impl<MODE> Interruptable for Input<MODE> {}
-
-/// External Interrupt Pin
-pub trait ExtiPin {
-    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2);
-    fn trigger_on_edge(&mut self, exti: &mut EXTI, level: Edge);
-    fn enable_interrupt(&mut self, exti: &mut EXTI);
-    fn disable_interrupt(&mut self, exti: &mut EXTI);
-    fn clear_interrupt_pending_bit(&mut self);
-    fn check_interrupt(&self) -> bool;
-    fn interrupt(&self) -> Interrupt;
-}
-
-impl<PIN> ExtiPin for PIN
-where
-    PIN: PinExt,
-    PIN::Mode: Interruptable,
-{
-    /// Make corresponding EXTI line sensitive to this pin
-    #[inline(always)]
-    fn make_interrupt_source(&mut self, syscfg: &mut SYSCFG, apb2: &mut APB2) {
-        // SYSCFG clock must be enabled in order to do register writes
-        SYSCFG::enable(apb2);
-
-        let i = self.pin_id();
-        let port = self.port_id() as u32;
-        let offset = 4 * (i % 4);
-        match i {
-            0..=3 => {
-                syscfg.exticr1.modify(|r, w| unsafe {
-                    w.bits((r.bits() & !(0xf << offset)) | (port << offset))
-                });
-            }
-            4..=7 => {
-                syscfg.exticr2.modify(|r, w| unsafe {
-                    w.bits((r.bits() & !(0xf << offset)) | (port << offset))
-                });
-            }
-            8..=11 => {
-                syscfg.exticr3.modify(|r, w| unsafe {
-                    w.bits((r.bits() & !(0xf << offset)) | (port << offset))
-                });
-            }
-            12..=15 => {
-                syscfg.exticr4.modify(|r, w| unsafe {
-                    w.bits((r.bits() & !(0xf << offset)) | (port << offset))
-                });
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    /// Generate interrupt on rising edge, falling edge or both
-    #[inline(always)]
-    fn trigger_on_edge(&mut self, exti: &mut EXTI, edge: Edge) {
-        let i = self.pin_id();
-        match edge {
-            Edge::Rising => {
-                exti.rtsr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
-                exti.ftsr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << i)) });
-            }
-            Edge::Falling => {
-                exti.ftsr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
-                exti.rtsr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << i)) });
-            }
-            Edge::RisingFalling => {
-                exti.rtsr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
-                exti.ftsr1
-                    .modify(|r, w| unsafe { w.bits(r.bits() | (1 << i)) });
-            }
-        }
-    }
-
-    /// Enable external interrupts from this pin.
-    #[inline(always)]
-    fn enable_interrupt(&mut self, exti: &mut EXTI) {
-        exti.imr1
-            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << self.pin_id())) });
-    }
-
-    /// Disable external interrupts from this pin
-    #[inline(always)]
-    fn disable_interrupt(&mut self, exti: &mut EXTI) {
-        exti.imr1
-            .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << self.pin_id())) });
-    }
-
-    /// Clear the interrupt pending bit for this pin
-    #[inline(always)]
-    fn clear_interrupt_pending_bit(&mut self) {
-        unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << self.pin_id())) };
-    }
-
-    /// Reads the interrupt pending bit for this pin
-    #[inline(always)]
-    fn check_interrupt(&self) -> bool {
-        unsafe { ((*EXTI::ptr()).pr1.read().bits() & (1 << self.pin_id())) != 0 }
-    }
-
-    /// Get the `Interrupt` for this pin.
-    fn interrupt(&self) -> Interrupt {
-        match self.pin_id() {
-            0 => Interrupt::EXTI0,
-            1 => Interrupt::EXTI1,
-            2 => Interrupt::EXTI2,
-            3 => Interrupt::EXTI3,
-            4 => Interrupt::EXTI4,
-            5..=9 => Interrupt::EXTI9_5,
-            10..=15 => Interrupt::EXTI15_10,
-            _ => unreachable!(),
-        }
-    }
-}
+impl<MODE> marker::Interruptable for Output<MODE> {}
+impl<MODE> marker::Interruptable for Input<MODE> {}
 
 /// Opaque MODER register
 pub struct MODER<const P: char> {
@@ -249,22 +132,22 @@ impl<const P: char> PUPDR<P> {
 }
 
 macro_rules! gpio {
-    ($GPIOX:ident, $gpiox:ident, $PXx:ident, $port_id:literal, $extigpionr:expr, $({ $pwrenable:expr },)? [
-        $($PXi:ident: ($pxi:ident, $i:expr, $MODE:ty, $HL:ident, $exticri:ident),)+
+    ($GPIOX:ident, $gpiox:ident, $PXx:ident, $port_id:literal, $({ $pwrenable:expr },)? [
+        $($PXi:ident: ($pxi:ident, $i:expr $(, $MODE:ty)?),)+
     ]) => {
         /// GPIO
         pub mod $gpiox {
             use crate::stm32::$GPIOX;
 
             use crate::rcc::{AHB2, Enable, Reset};
-            use super::{Afr, Analog, GpioExt, Pin, H8, L8, MODER, OTYPER, OSPEEDR, PUPDR};
+            use super::{Afr, Analog, GpioExt, Pin, MODER, OTYPER, OSPEEDR, PUPDR};
 
             /// GPIO parts
             pub struct Parts {
                 /// Opaque AFRH register
-                pub afrh: Afr<H8, $port_id>,
+                pub afrh: Afr<$port_id, true>,
                 /// Opaque AFRL register
-                pub afrl: Afr<L8, $port_id>,
+                pub afrl: Afr<$port_id, false>,
                 /// Opaque MODER register
                 pub moder: MODER<$port_id>,
                 /// Opaque OTYPER register
@@ -275,12 +158,12 @@ macro_rules! gpio {
                 pub pupdr: PUPDR<$port_id>,
                 $(
                     /// Pin
-                    pub $pxi: $PXi<$MODE>,
+                    pub $pxi: $PXi $(<$MODE>)?,
                 )+
             }
 
             $(
-                pub type $PXi<MODE> = Pin<MODE, $HL, $port_id, $i>;
+                pub type $PXi<MODE = Analog> = Pin<$port_id, $i, MODE>;
             )+
 
             impl GpioExt for $GPIOX {
@@ -292,8 +175,8 @@ macro_rules! gpio {
                     $($pwrenable)?
 
                     Parts {
-                        afrh: Afr::new(),
-                        afrl: Afr::new(),
+                        afrh: Afr(()),
+                        afrl: Afr(()),
                         moder: MODER::new(),
                         otyper: OTYPER::new(),
                         ospeedr: OSPEEDR::new(),
@@ -314,21 +197,20 @@ macro_rules! gpio {
 
 /// Generic pin type
 ///
-/// - `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
-/// - `HL` represents high 8 or low 8 pin.
 /// - `P` is port name: `A` for GPIOA, `B` for GPIOB, etc.
 /// - `N` is pin number: from `0` to `15`.
-pub struct Pin<MODE, HL, const P: char, const N: u8> {
-    _mode: PhantomData<(MODE, HL)>,
+/// - `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
+pub struct Pin<const P: char, const N: u8, MODE = Analog> {
+    _mode: PhantomData<MODE>,
 }
 
-impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
     const fn new() -> Self {
         Self { _mode: PhantomData }
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> PinExt for Pin<MODE, HL, P, N> {
+impl<const P: char, const N: u8, MODE> PinExt for Pin<P, N, MODE> {
     type Mode = MODE;
 
     #[inline(always)]
@@ -341,7 +223,7 @@ impl<MODE, HL, const P: char, const N: u8> PinExt for Pin<MODE, HL, P, N> {
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> Pin<Output<MODE>, HL, P, N> {
+impl<const P: char, const N: u8, MODE> Pin<P, N, Output<MODE>> {
     /// Set pin speed
     pub fn set_speed(self, speed: Speed) -> Self {
         let offset = 2 * { N };
@@ -356,7 +238,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<Output<MODE>, HL, P, N> {
     }
 }
 
-impl<HL, const P: char, const N: u8> Pin<Output<OpenDrain>, HL, P, N> {
+impl<const P: char, const N: u8> Pin<P, N, Output<OpenDrain>> {
     /// Enables / disables the internal pull up
     pub fn internal_pull_up(&mut self, _pupdr: &mut PUPDR<P>, on: bool) {
         let offset = 2 * { N };
@@ -369,7 +251,7 @@ impl<HL, const P: char, const N: u8> Pin<Output<OpenDrain>, HL, P, N> {
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8, const A: u8> Pin<Alternate<MODE, A>, HL, P, N> {
+impl<const P: char, const N: u8, const A: u8, MODE> Pin<P, N, Alternate<A, MODE>> {
     /// Set pin speed
     pub fn set_speed(self, speed: Speed) -> Self {
         let offset = 2 * { N };
@@ -395,9 +277,9 @@ impl<MODE, HL, const P: char, const N: u8, const A: u8> Pin<Alternate<MODE, A>, 
     }
 }
 
-impl<HL, const P: char, const N: u8, const A: u8> Pin<Alternate<PushPull, A>, HL, P, N> {
+impl<const P: char, const N: u8, const A: u8> Pin<P, N, Alternate<A, PushPull>> {
     /// Turns pin alternate configuration pin into open drain
-    pub fn set_open_drain(self) -> Pin<Alternate<OpenDrain, A>, HL, P, N> {
+    pub fn set_open_drain(self) -> Pin<P, N, Alternate<A, OpenDrain>> {
         let offset = { N };
         unsafe {
             (*Gpio::<P>::ptr())
@@ -409,12 +291,12 @@ impl<HL, const P: char, const N: u8, const A: u8> Pin<Alternate<PushPull, A>, HL
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
     /// Erases the pin number from the type
     ///
     /// This is useful when you want to collect the pins into an array where you
     /// need all the elements to have the same type
-    pub fn erase_number(self) -> PEPin<MODE, P> {
+    pub fn erase_number(self) -> PEPin<P, MODE> {
         PEPin::new(N)
     }
 
@@ -432,7 +314,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
 // NOTE: The functions in this impl block are "safe", but they
 // are callable when the pin is in modes where they don't make
 // sense.
-impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
+impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
     /// Set the output of the pin regardless of its mode.
     /// Primarily used to set the output value of the pin
     /// before changing its mode to an output to avoid
@@ -467,7 +349,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> Pin<Output<MODE>, HL, P, N> {
+impl<const P: char, const N: u8, MODE> Pin<P, N, Output<MODE>> {
     #[inline]
     pub fn set_high(&mut self) {
         self._set_high()
@@ -509,7 +391,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<Output<MODE>, HL, P, N> {
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> OutputPin for Pin<Output<MODE>, HL, P, N> {
+impl<const P: char, const N: u8, MODE> OutputPin for Pin<P, N, Output<MODE>> {
     type Error = Infallible;
     #[inline]
     fn set_high(&mut self) -> Result<(), Self::Error> {
@@ -523,7 +405,7 @@ impl<MODE, HL, const P: char, const N: u8> OutputPin for Pin<Output<MODE>, HL, P
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> StatefulOutputPin for Pin<Output<MODE>, HL, P, N> {
+impl<const P: char, const N: u8, MODE> StatefulOutputPin for Pin<P, N, Output<MODE>> {
     #[inline]
     fn is_set_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_set_high())
@@ -534,7 +416,7 @@ impl<MODE, HL, const P: char, const N: u8> StatefulOutputPin for Pin<Output<MODE
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> ToggleableOutputPin for Pin<Output<MODE>, HL, P, N> {
+impl<const P: char, const N: u8, MODE> ToggleableOutputPin for Pin<P, N, Output<MODE>> {
     type Error = Infallible;
 
     #[inline(always)]
@@ -544,7 +426,7 @@ impl<MODE, HL, const P: char, const N: u8> ToggleableOutputPin for Pin<Output<MO
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> Pin<Input<MODE>, HL, P, N> {
+impl<const P: char, const N: u8, MODE> Pin<P, N, Input<MODE>> {
     #[inline]
     pub fn is_high(&self) -> bool {
         !self._is_low()
@@ -555,7 +437,7 @@ impl<MODE, HL, const P: char, const N: u8> Pin<Input<MODE>, HL, P, N> {
     }
 }
 
-impl<MODE, HL, const P: char, const N: u8> InputPin for Pin<Input<MODE>, HL, P, N> {
+impl<const P: char, const N: u8, MODE> InputPin for Pin<P, N, Input<MODE>> {
     type Error = Infallible;
     #[inline]
     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -568,7 +450,7 @@ impl<MODE, HL, const P: char, const N: u8> InputPin for Pin<Input<MODE>, HL, P, 
     }
 }
 
-impl<HL, const P: char, const N: u8> Pin<Output<OpenDrain>, HL, P, N> {
+impl<const P: char, const N: u8> Pin<P, N, Output<OpenDrain>> {
     #[inline]
     pub fn is_high(&self) -> bool {
         !self._is_low()
@@ -579,7 +461,7 @@ impl<HL, const P: char, const N: u8> Pin<Output<OpenDrain>, HL, P, N> {
     }
 }
 
-impl<HL, const P: char, const N: u8> InputPin for Pin<Output<OpenDrain>, HL, P, N> {
+impl<const P: char, const N: u8> InputPin for Pin<P, N, Output<OpenDrain>> {
     type Error = Infallible;
     #[inline]
     fn is_high(&self) -> Result<bool, Self::Error> {
@@ -593,128 +475,120 @@ impl<HL, const P: char, const N: u8> InputPin for Pin<Output<OpenDrain>, HL, P, 
 }
 
 /// Opaque AFR register
-pub struct Afr<HL, const P: char> {
-    _afr: PhantomData<HL>,
+pub struct Afr<const P: char, const H: bool>(());
+
+/// Represents high or low configuration register
+pub trait HL {
+    /// Configuration register associated to pin
+    type Afr;
 }
 
-impl<HL, const P: char> Afr<HL, P> {
-    pub(crate) fn new() -> Self {
-        Self { _afr: PhantomData }
+macro_rules! cr {
+    ($high:literal: [$($i:literal),+]) => {
+        $(
+            impl<const P: char, MODE> HL for Pin<P, $i, MODE> {
+                type Afr = Afr<P, $high>;
+            }
+        )+
     }
 }
 
-macro_rules! af {
-    ($HL:ident, $AFR:ident, $afr:ident) => {
-        #[doc(hidden)]
-        pub struct $HL {
-            _0: (),
-        }
+cr!(false: [0, 1, 2, 3, 4, 5, 6, 7]);
+cr!(true: [8, 9, 10, 11, 12, 13, 14, 15]);
 
-        impl<const P: char> Afr<$HL, P> {
-            #[allow(dead_code)]
-            pub(crate) fn afr(&mut self) -> &pac::gpioa::$AFR {
-                unsafe { &(*Gpio::<P>::ptr()).$afr }
-            }
-        }
-    };
-}
-
-af!(H8, AFRH, afrh);
-af!(L8, AFRL, afrl);
-
-gpio!(GPIOA, gpioa, PAx, 'A', 0, [
-    PA0: (pa0, 0, Analog, L8, exticr1),
-    PA1: (pa1, 1, Analog, L8, exticr1),
-    PA2: (pa2, 2, Analog, L8, exticr1),
-    PA3: (pa3, 3, Analog, L8, exticr1),
-    PA4: (pa4, 4, Analog, L8, exticr2),
-    PA5: (pa5, 5, Analog, L8, exticr2),
-    PA6: (pa6, 6, Analog, L8, exticr2),
-    PA7: (pa7, 7, Analog, L8, exticr2),
-    PA8: (pa8, 8, Analog, H8, exticr3),
-    PA9: (pa9, 9, Analog, H8, exticr3),
-    PA10: (pa10, 10, Analog, H8, exticr3),
-    PA11: (pa11, 11, Analog, H8, exticr3),
-    PA12: (pa12, 12, Analog, H8, exticr4),
-    PA13: (pa13, 13, super::Debugger, H8, exticr4), // SWDIO, PullUp VeryHigh speed
-    PA14: (pa14, 14, super::Debugger, H8, exticr4), // SWCLK, PullDown
-    PA15: (pa15, 15, super::Debugger, H8, exticr4), // JTDI, PullUp
+gpio!(GPIOA, gpioa, PAx, 'A', [
+    PA0: (pa0, 0, Analog),
+    PA1: (pa1, 1, Analog),
+    PA2: (pa2, 2, Analog),
+    PA3: (pa3, 3, Analog),
+    PA4: (pa4, 4, Analog),
+    PA5: (pa5, 5, Analog),
+    PA6: (pa6, 6, Analog),
+    PA7: (pa7, 7, Analog),
+    PA8: (pa8, 8, Analog),
+    PA9: (pa9, 9, Analog),
+    PA10: (pa10, 10, Analog),
+    PA11: (pa11, 11, Analog),
+    PA12: (pa12, 12, Analog),
+    PA13: (pa13, 13, super::Debugger), // SWDIO, PullUp VeryHigh speed
+    PA14: (pa14, 14, super::Debugger), // SWCLK, PullDown
+    PA15: (pa15, 15, super::Debugger), // JTDI, PullUp
 ]);
 
-gpio!(GPIOB, gpiob, PBx, 'B', 1, [
-    PB0: (pb0, 0, Analog, L8, exticr1),
-    PB1: (pb1, 1, Analog, L8, exticr1),
-    PB2: (pb2, 2, Analog, L8, exticr1),
-    PB3: (pb3, 3, super::Debugger, L8, exticr1), // SWO
-    PB4: (pb4, 4, super::Debugger, L8, exticr2), // JTRST, PullUp
-    PB5: (pb5, 5, Analog, L8, exticr2),
-    PB6: (pb6, 6, Analog, L8, exticr2),
-    PB7: (pb7, 7, Analog, L8, exticr2),
-    PB8: (pb8, 8, Analog, H8, exticr3),
-    PB9: (pb9, 9, Analog, H8, exticr3),
-    PB10: (pb10, 10, Analog, H8, exticr3),
-    PB11: (pb11, 11, Analog, H8, exticr3),
-    PB12: (pb12, 12, Analog, H8, exticr4),
-    PB13: (pb13, 13, Analog, H8, exticr4),
-    PB14: (pb14, 14, Analog, H8, exticr4),
-    PB15: (pb15, 15, Analog, H8, exticr4),
+gpio!(GPIOB, gpiob, PBx, 'B', [
+    PB0: (pb0, 0, Analog),
+    PB1: (pb1, 1, Analog),
+    PB2: (pb2, 2, Analog),
+    PB3: (pb3, 3, super::Debugger), // SWO
+    PB4: (pb4, 4, super::Debugger), // JTRST, PullUp
+    PB5: (pb5, 5, Analog),
+    PB6: (pb6, 6, Analog),
+    PB7: (pb7, 7, Analog),
+    PB8: (pb8, 8, Analog),
+    PB9: (pb9, 9, Analog),
+    PB10: (pb10, 10, Analog),
+    PB11: (pb11, 11, Analog),
+    PB12: (pb12, 12, Analog),
+    PB13: (pb13, 13, Analog),
+    PB14: (pb14, 14, Analog),
+    PB15: (pb15, 15, Analog),
 ]);
 
-gpio!(GPIOC, gpioc, PCx, 'C', 2, [
-    PC0: (pc0, 0, Analog, L8, exticr1),
-    PC1: (pc1, 1, Analog, L8, exticr1),
-    PC2: (pc2, 2, Analog, L8, exticr1),
-    PC3: (pc3, 3, Analog, L8, exticr1),
-    PC4: (pc4, 4, Analog, L8, exticr2),
-    PC5: (pc5, 5, Analog, L8, exticr2),
-    PC6: (pc6, 6, Analog, L8, exticr2),
-    PC7: (pc7, 7, Analog, L8, exticr2),
-    PC8: (pc8, 8, Analog, H8, exticr3),
-    PC9: (pc9, 9, Analog, H8, exticr3),
-    PC10: (pc10, 10, Analog, H8, exticr3),
-    PC11: (pc11, 11, Analog, H8, exticr3),
-    PC12: (pc12, 12, Analog, H8, exticr4),
-    PC13: (pc13, 13, Analog, H8, exticr4),
-    PC14: (pc14, 14, Analog, H8, exticr4),
-    PC15: (pc15, 15, Analog, H8, exticr4),
+gpio!(GPIOC, gpioc, PCx, 'C', [
+    PC0: (pc0, 0, Analog),
+    PC1: (pc1, 1, Analog),
+    PC2: (pc2, 2, Analog),
+    PC3: (pc3, 3, Analog),
+    PC4: (pc4, 4, Analog),
+    PC5: (pc5, 5, Analog),
+    PC6: (pc6, 6, Analog),
+    PC7: (pc7, 7, Analog),
+    PC8: (pc8, 8, Analog),
+    PC9: (pc9, 9, Analog),
+    PC10: (pc10, 10, Analog),
+    PC11: (pc11, 11, Analog),
+    PC12: (pc12, 12, Analog),
+    PC13: (pc13, 13, Analog),
+    PC14: (pc14, 14, Analog),
+    PC15: (pc15, 15, Analog),
 ]);
 
-gpio!(GPIOD, gpiod, PDx, 'D', 3, [
-    PD0: (pd0, 0, Analog, L8, exticr1),
-    PD1: (pd1, 1, Analog, L8, exticr1),
-    PD2: (pd2, 2, Analog, L8, exticr1),
-    PD3: (pd3, 3, Analog, L8, exticr1),
-    PD4: (pd4, 4, Analog, L8, exticr2),
-    PD5: (pd5, 5, Analog, L8, exticr2),
-    PD6: (pd6, 6, Analog, L8, exticr2),
-    PD7: (pd7, 7, Analog, L8, exticr2),
-    PD8: (pd8, 8, Analog, H8, exticr3),
-    PD9: (pd9, 9, Analog, H8, exticr3),
-    PD10: (pd10, 10, Analog, H8, exticr3),
-    PD11: (pd11, 11, Analog, H8, exticr3),
-    PD12: (pd12, 12, Analog, H8, exticr4),
-    PD13: (pd13, 13, Analog, H8, exticr4),
-    PD14: (pd14, 14, Analog, H8, exticr4),
-    PD15: (pd15, 15, Analog, H8, exticr4),
+gpio!(GPIOD, gpiod, PDx, 'D', [
+    PD0: (pd0, 0, Analog),
+    PD1: (pd1, 1, Analog),
+    PD2: (pd2, 2, Analog),
+    PD3: (pd3, 3, Analog),
+    PD4: (pd4, 4, Analog),
+    PD5: (pd5, 5, Analog),
+    PD6: (pd6, 6, Analog),
+    PD7: (pd7, 7, Analog),
+    PD8: (pd8, 8, Analog),
+    PD9: (pd9, 9, Analog),
+    PD10: (pd10, 10, Analog),
+    PD11: (pd11, 11, Analog),
+    PD12: (pd12, 12, Analog),
+    PD13: (pd13, 13, Analog),
+    PD14: (pd14, 14, Analog),
+    PD15: (pd15, 15, Analog),
 ]);
 
-gpio!(GPIOE, gpioe, PEx, 'E', 4, [
-    PE0: (pe0, 0, Analog, L8, exticr1),
-    PE1: (pe1, 1, Analog, L8, exticr1),
-    PE2: (pe2, 2, Analog, L8, exticr1),
-    PE3: (pe3, 3, Analog, L8, exticr1),
-    PE4: (pe4, 4, Analog, L8, exticr2),
-    PE5: (pe5, 5, Analog, L8, exticr2),
-    PE6: (pe6, 6, Analog, L8, exticr2),
-    PE7: (pe7, 7, Analog, L8, exticr2),
-    PE8: (pe8, 8, Analog, H8, exticr3),
-    PE9: (pe9, 9, Analog, H8, exticr3),
-    PE10: (pe10, 10, Analog, H8, exticr3),
-    PE11: (pe11, 11, Analog, H8, exticr3),
-    PE12: (pe12, 12, Analog, H8, exticr4),
-    PE13: (pe13, 13, Analog, H8, exticr4),
-    PE14: (pe14, 14, Analog, H8, exticr4),
-    PE15: (pe15, 15, Analog, H8, exticr4),
+gpio!(GPIOE, gpioe, PEx, 'E', [
+    PE0: (pe0, 0, Analog),
+    PE1: (pe1, 1, Analog),
+    PE2: (pe2, 2, Analog),
+    PE3: (pe3, 3, Analog),
+    PE4: (pe4, 4, Analog),
+    PE5: (pe5, 5, Analog),
+    PE6: (pe6, 6, Analog),
+    PE7: (pe7, 7, Analog),
+    PE8: (pe8, 8, Analog),
+    PE9: (pe9, 9, Analog),
+    PE10: (pe10, 10, Analog),
+    PE11: (pe11, 11, Analog),
+    PE12: (pe12, 12, Analog),
+    PE13: (pe13, 13, Analog),
+    PE14: (pe14, 14, Analog),
+    PE15: (pe15, 15, Analog),
 ]);
 
 #[cfg(any(
@@ -734,23 +608,23 @@ gpio!(GPIOE, gpioe, PEx, 'E', 4, [
     feature = "stm32l4r9",
     feature = "stm32l4s9",
 ))]
-gpio!(GPIOF, gpiof, PFx, 'F', 5, [
-    PF0: (pf0, 0, Analog, L8, exticr1),
-    PF1: (pf1, 1, Analog, L8, exticr1),
-    PF2: (pf2, 2, Analog, L8, exticr1),
-    PF3: (pf3, 3, Analog, L8, exticr1),
-    PF4: (pf4, 4, Analog, L8, exticr2),
-    PF5: (pf5, 5, Analog, L8, exticr2),
-    PF6: (pf6, 6, Analog, L8, exticr2),
-    PF7: (pf7, 7, Analog, L8, exticr2),
-    PF8: (pf8, 8, Analog, H8, exticr3),
-    PF9: (pf9, 9, Analog, H8, exticr3),
-    PF10: (pf10, 10, Analog, H8, exticr3),
-    PF11: (pf11, 11, Analog, H8, exticr3),
-    PF12: (pf12, 12, Analog, H8, exticr4),
-    PF13: (pf13, 13, Analog, H8, exticr4),
-    PF14: (pf14, 14, Analog, H8, exticr4),
-    PF15: (pf15, 15, Analog, H8, exticr4),
+gpio!(GPIOF, gpiof, PFx, 'F', [
+    PF0: (pf0, 0, Analog),
+    PF1: (pf1, 1, Analog),
+    PF2: (pf2, 2, Analog),
+    PF3: (pf3, 3, Analog),
+    PF4: (pf4, 4, Analog),
+    PF5: (pf5, 5, Analog),
+    PF6: (pf6, 6, Analog),
+    PF7: (pf7, 7, Analog),
+    PF8: (pf8, 8, Analog),
+    PF9: (pf9, 9, Analog),
+    PF10: (pf10, 10, Analog),
+    PF11: (pf11, 11, Analog),
+    PF12: (pf12, 12, Analog),
+    PF13: (pf13, 13, Analog),
+    PF14: (pf14, 14, Analog),
+    PF15: (pf15, 15, Analog),
 ]);
 #[cfg(any(
     // feature = "stm32l471",  // missing PAC support for Port G
@@ -769,25 +643,25 @@ gpio!(GPIOF, gpiof, PFx, 'F', 5, [
     feature = "stm32l4r9",
     feature = "stm32l4s9",
 ))]
-gpio!(GPIOG, gpiog, PGx, 'G', 6,
+gpio!(GPIOG, gpiog, PGx, 'G',
     { unsafe { (*crate::pac::PWR::ptr()).cr2.modify(|_,w| w.iosv().set_bit()); } },
 [
-    PG0: (pg0, 0, Analog, L8, exticr1),
-    PG1: (pg1, 1, Analog, L8, exticr1),
-    PG2: (pg2, 2, Analog, L8, exticr1),
-    PG3: (pg3, 3, Analog, L8, exticr1),
-    PG4: (pg4, 4, Analog, L8, exticr2),
-    PG5: (pg5, 5, Analog, L8, exticr2),
-    PG6: (pg6, 6, Analog, L8, exticr2),
-    PG7: (pg7, 7, Analog, L8, exticr2),
-    PG8: (pg8, 8, Analog, H8, exticr3),
-    PG9: (pg9, 9, Analog, H8, exticr3),
-    PG10: (pg10, 10, Analog, H8, exticr3),
-    PG11: (pg11, 11, Analog, H8, exticr3),
-    PG12: (pg12, 12, Analog, H8, exticr4),
-    PG13: (pg13, 13, Analog, H8, exticr4),
-    PG14: (pg14, 14, Analog, H8, exticr4),
-    PG15: (pg15, 15, Analog, H8, exticr4),
+    PG0: (pg0, 0, Analog),
+    PG1: (pg1, 1, Analog),
+    PG2: (pg2, 2, Analog),
+    PG3: (pg3, 3, Analog),
+    PG4: (pg4, 4, Analog),
+    PG5: (pg5, 5, Analog),
+    PG6: (pg6, 6, Analog),
+    PG7: (pg7, 7, Analog),
+    PG8: (pg8, 8, Analog),
+    PG9: (pg9, 9, Analog),
+    PG10: (pg10, 10, Analog),
+    PG11: (pg11, 11, Analog),
+    PG12: (pg12, 12, Analog),
+    PG13: (pg13, 13, Analog),
+    PG14: (pg14, 14, Analog),
+    PG15: (pg15, 15, Analog),
 ]);
 
 #[cfg(any(
@@ -808,22 +682,22 @@ gpio!(GPIOG, gpiog, PGx, 'G', 6,
   feature = "stm32l4s9",
 ))]
 gpio!(GPIOH, gpioh, PHx, 'H', 7, [
-    PH0: (ph0, 0, Analog, L8, exticr1),
-    PH1: (ph1, 1, Analog, L8, exticr1),
-    PH2: (ph2, 2, Analog, L8, exticr1),
-    PH3: (ph3, 3, Analog, L8, exticr1),
-    PH4: (ph4, 4, Analog, L8, exticr2),
-    PH5: (ph5, 5, Analog, L8, exticr2),
-    PH6: (ph6, 6, Analog, L8, exticr2),
-    PH7: (ph7, 7, Analog, L8, exticr2),
-    PH8: (ph8, 8, Analog, H8, exticr3),
-    PH9: (ph9, 9, Analog, H8, exticr3),
-    PH10: (ph10, 10, Analog, H8, exticr3),
-    PH11: (ph11, 11, Analog, H8, exticr3),
-    PH12: (ph12, 12, Analog, H8, exticr4),
-    PH13: (ph13, 13, Analog, H8, exticr4),
-    PH14: (ph14, 14, Analog, H8, exticr4),
-    PH15: (ph15, 15, Analog, H8, exticr4),
+    PH0: (ph0, 0, Analog),
+    PH1: (ph1, 1, Analog),
+    PH2: (ph2, 2, Analog),
+    PH3: (ph3, 3, Analog),
+    PH4: (ph4, 4, Analog),
+    PH5: (ph5, 5, Analog),
+    PH6: (ph6, 6, Analog),
+    PH7: (ph7, 7, Analog),
+    PH8: (ph8, 8, Analog),
+    PH9: (ph9, 9, Analog),
+    PH10: (ph10, 10, Analog),
+    PH11: (ph11, 11, Analog),
+    PH12: (ph12, 12, Analog),
+    PH13: (ph13, 13, Analog),
+    PH14: (ph14, 14, Analog),
+    PH15: (ph15, 15, Analog),
 ]);
 
 struct Gpio<const P: char>;

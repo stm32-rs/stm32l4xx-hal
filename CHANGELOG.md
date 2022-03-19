@@ -32,6 +32,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+    - `gpio` updates & cleanups: mode after pin numbers (Rust 1.59), default modes
     - Use device-specific features rather than by-peripheral features.
     - Use `fugit` duration nd rate units instead of custom
     - Use const-generics for GPIO (require Rust 1.51)

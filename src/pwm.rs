@@ -6,9 +6,7 @@ use core::mem;
 use crate::hal;
 use crate::stm32::{TIM1, TIM15, TIM2};
 
-use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA15, PA2, PA3, PA8, PA9};
-use crate::gpio::gpiob::{PB10, PB11, PB14, PB3};
-use crate::gpio::Alternate;
+use crate::gpio::{self, Alternate};
 use crate::rcc::{Clocks, Enable, Reset, APB1R1, APB2};
 use crate::time::Hertz;
 
@@ -26,7 +24,7 @@ macro_rules! pins_to_channels_mapping {
     ( $( $TIMX:ident: ( $($PINX:ident),+ ), ( $($ENCHX:ident),+ ), ( $($AF:literal),+ ); )+ ) => {
         $(
             #[allow(unused_parens)]
-            impl<OTYPE> Pins<$TIMX> for ($($PINX<Alternate<OTYPE, $AF>>),+)
+            impl<OTYPE> Pins<$TIMX> for ($(gpio::$PINX<Alternate<$AF, OTYPE>>),+)
             {
                 $(const $ENCHX: bool = true;)+
                 type Channels = ($(Pwm<$TIMX, $ENCHX>),+);

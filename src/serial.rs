@@ -17,7 +17,7 @@ use crate::dma::{
     Transmit, TxDma,
 };
 use crate::dmamux::{DmaInput, DmaMux};
-use crate::gpio::{self, Alternate, OpenDrain, PushPull};
+use crate::gpio::{self, Alternate, OpenDrain};
 use crate::pac;
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
@@ -963,37 +963,37 @@ macro_rules! impl_pin_traits {
             $(
                 $(
                     impl private::SealedTx for
-                        gpio::$tx<Alternate<PushPull, $af>> {}
+                        gpio::$tx<Alternate<$af>> {}
                     impl TxPin<pac::$instance> for
-                        gpio::$tx<Alternate<PushPull, $af>> {}
+                        gpio::$tx<Alternate<$af>> {}
                 )*
 
                 $(
                     impl private::SealedTxHalfDuplex for
-                        gpio::$tx<Alternate<OpenDrain, $af>> {}
+                        gpio::$tx<Alternate<$af, OpenDrain>> {}
                     impl TxHalfDuplexPin<pac::$instance> for
-                        gpio::$tx<Alternate<OpenDrain, $af>> {}
+                        gpio::$tx<Alternate<$af, OpenDrain>> {}
                 )*
 
                 $(
                     impl private::SealedRx for
-                        gpio::$rx<Alternate<PushPull, $af>> {}
+                        gpio::$rx<Alternate<$af>> {}
                     impl RxPin<pac::$instance> for
-                        gpio::$rx<Alternate<PushPull, $af>> {}
+                        gpio::$rx<Alternate<$af>> {}
                 )*
 
                 $(
                     impl private::SealedRtsDe for
-                        gpio::$rts_de<Alternate<PushPull, $af>> {}
+                        gpio::$rts_de<Alternate<$af>> {}
                     impl RtsDePin<pac::$instance> for
-                        gpio::$rts_de<Alternate<PushPull, $af>> {}
+                        gpio::$rts_de<Alternate<$af>> {}
                 )*
 
                 $(
                     impl private::SealedCts for
-                        gpio::$cts<Alternate<PushPull, $af>> {}
+                        gpio::$cts<Alternate<$af>> {}
                     impl CtsPin<pac::$instance> for
-                        gpio::$cts<Alternate<PushPull, $af>> {}
+                        gpio::$cts<Alternate<$af>> {}
                 )*
             )*
         )*

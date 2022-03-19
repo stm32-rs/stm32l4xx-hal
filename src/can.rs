@@ -20,8 +20,8 @@ pub trait Pins: sealed::Sealed {
 macro_rules! pins {
     ($($PER:ident => ($tx:ident<$txaf:literal>, $rx:ident<$rxaf:literal>),)+) => {
         $(
-            impl crate::can::sealed::Sealed for ($tx<crate::gpio::Alternate<PushPull, $txaf, >>, $rx<crate::gpio::Alternate<PushPull, $rxaf>>) {}
-            impl crate::can::Pins for ($tx<crate::gpio::Alternate<PushPull, $txaf, >>, $rx<crate::gpio::Alternate<PushPull, $rxaf>>) {
+            impl crate::can::sealed::Sealed for ($tx<crate::gpio::Alternate<$txaf>>, $rx<crate::gpio::Alternate<$rxaf>>) {}
+            impl crate::can::Pins for ($tx<crate::gpio::Alternate<$txaf>>, $rx<crate::gpio::Alternate<$rxaf>>) {
                 type Instance = $PER;
             }
         )+
@@ -33,7 +33,6 @@ mod common_pins {
         gpioa::{PA11, PA12},
         gpiob::{PB8, PB9},
         gpiod::{PD0, PD1},
-        PushPull,
     };
     use crate::pac::CAN1;
 
@@ -48,10 +47,7 @@ mod common_pins {
 // L4x1
 #[cfg(any(feature = "stm32l431", feature = "stm32l451", feature = "stm32l471"))]
 mod pb13_pb12_af10 {
-    use crate::gpio::{
-        gpiob::{PB12, PB13},
-        PushPull,
-    };
+    use crate::gpio::gpiob::{PB12, PB13};
     use crate::pac::CAN1;
     pins! { CAN1 => (PB13<10>, PB12<10>), }
 }

@@ -5,10 +5,7 @@
 use crate::rcc::{Enable, Reset};
 use crate::stm32;
 
-use crate::gpio::{
-    gpioa::{PA11, PA12},
-    Alternate, PushPull,
-};
+use crate::gpio::{Alternate, PA11, PA12};
 use crate::time::Hertz;
 
 pub use synopsys_usb_otg::UsbBus;
@@ -19,8 +16,8 @@ pub struct USB {
     pub usb_device: stm32::OTG_FS_DEVICE,
     pub usb_pwrclk: stm32::OTG_FS_PWRCLK,
     // TODO: check type
-    pub pin_dm: PA11<Alternate<PushPull, 10>>,
-    pub pin_dp: PA12<Alternate<PushPull, 10>>,
+    pub pin_dm: PA11<Alternate<10>>,
+    pub pin_dp: PA12<Alternate<10>>,
     pub hclk: Hertz,
 }
 

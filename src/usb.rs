@@ -9,14 +9,13 @@ use crate::rcc::{Enable, Reset};
 use crate::stm32::USB;
 use stm32_usbd::UsbPeripheral;
 
-use crate::gpio::gpioa::{PA11, PA12};
-use crate::gpio::{Alternate, PushPull};
+use crate::gpio::{Alternate, PA11, PA12};
 pub use stm32_usbd::UsbBus;
 
 pub struct Peripheral {
     pub usb: USB,
-    pub pin_dm: PA11<Alternate<PushPull, 10>>,
-    pub pin_dp: PA12<Alternate<PushPull, 10>>,
+    pub pin_dm: PA11<Alternate<10>>,
+    pub pin_dp: PA12<Alternate<10>>,
 }
 
 unsafe impl Sync for Peripheral {}
