@@ -147,6 +147,7 @@ pub mod lptimer;
         feature = "stm32l486",
         feature = "stm32l496",
         feature = "stm32l4a6",
+        feature = "stm32l4r5",
     )
 ))]
 pub mod otg_fs;
