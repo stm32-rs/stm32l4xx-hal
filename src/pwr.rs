@@ -60,7 +60,7 @@ impl Pwr {
                 Ok(())
             },
             VosRange::LowPower => {
-                if clocks.sysclk() > 26.MHz::<1,1>() {
+                if clocks.sysclk() > 26.MHz::<1, 1>() {
                     Err(Error::SysClkTooHighVos)
                 } else {
                     unsafe {
@@ -76,7 +76,7 @@ impl Pwr {
 
     /// Switches the system into low power run mode
     pub fn low_power_run(&mut self, clocks: &Clocks) -> Result<(), Error> {
-        if clocks.sysclk() > 2.MHz::<1,1>() {
+        if clocks.sysclk() > 2.MHz::<1, 1>() {
             Err(Error::SysClkTooHighLpr)
         } else {
             self.cr1.reg().modify(|_, w| w.lpr().set_bit());
