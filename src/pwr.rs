@@ -1,9 +1,10 @@
 //! Power management
 
+use bitfield::{bitfield, BitRange};
 use crate::rcc::{Clocks, Enable, APB1R1};
 use crate::stm32::{pwr, PWR};
-use crate::time::U32Ext;
 use cortex_m::peripheral::SCB;
+use fugit::RateExtU32;
 
 /// PWR error
 #[non_exhaustive]
@@ -23,20 +24,16 @@ pub enum VosRange {
     LowPower = 0b10,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WakeUpSource {
-    #[doc = "Internal wake-up source, RTC, IWDG etc"]
-    Internal,
-    #[doc = "Wake-up button 1"]
-    WKUP1,
-    #[doc = "Wake-up button 2"]
-    WKUP2,
-    #[doc = "Wake-up button 3"]
-    WKUP3,
-    #[doc = "Wake-up button 4"]
-    WKUP4,
-    #[doc = "Wake-up button 5"]
-    WKUP5,
+bitfield! {
+  pub struct WakeUpSource(u16);
+  impl Debug;
+  // The fields default to u16
+  pub wkup1, set_wkup1: 0;
+  pub wkup2, set_wkup2: 1;
+  pub wkup3, set_wkup3: 2;
+  pub wkup4, set_wkup4: 3;
+  pub wkup5, set_wkup5: 4;
+  pub internal_wkup, set_internal_wkup: 15;
 }
 
 pub struct Pwr {
@@ -63,7 +60,7 @@ impl Pwr {
                 Ok(())
             },
             VosRange::LowPower => {
-                if clocks.sysclk() > 26.mhz().into() {
+                if clocks.sysclk() > 26.MHz::<1,1>() {
                     Err(Error::SysClkTooHighVos)
                 } else {
                     unsafe {
@@ -79,7 +76,7 @@ impl Pwr {
 
     /// Switches the system into low power run mode
     pub fn low_power_run(&mut self, clocks: &Clocks) -> Result<(), Error> {
-        if clocks.sysclk() > 2.mhz().into() {
+        if clocks.sysclk() > 2.MHz::<1,1>() {
             Err(Error::SysClkTooHighLpr)
         } else {
             self.cr1.reg().modify(|_, w| w.lpr().set_bit());
@@ -88,16 +85,12 @@ impl Pwr {
     }
 
     /// Enters 'Shutdown' low power mode.
-    pub fn shutdown(&mut self, wkup: &[WakeUpSource], scb: &mut SCB) -> ! {
-        for source in wkup {
-            match source {
-                WakeUpSource::Internal => self.cr3.reg().modify(|_, w| w.ewf().set_bit()),
-                WakeUpSource::WKUP1 => self.cr3.reg().modify(|_, w| w.ewup1().set_bit()),
-                WakeUpSource::WKUP2 => self.cr3.reg().modify(|_, w| w.ewup2().set_bit()),
-                WakeUpSource::WKUP3 => self.cr3.reg().modify(|_, w| w.ewup3().set_bit()),
-                WakeUpSource::WKUP4 => self.cr3.reg().modify(|_, w| w.ewup4().set_bit()),
-                WakeUpSource::WKUP5 => self.cr3.reg().modify(|_, w| w.ewup5().set_bit()),
-            }
+    pub fn shutdown(&mut self, wkup: &WakeUpSource, scb: &mut SCB) -> ! {
+        unsafe { self.cr3.reg().modify(|_, w| w.bits(wkup.bit_range(0, 7))); }
+
+        if wkup.internal_wkup() {
+            // Can't apply directly due to the APC and RPS bits
+            self.cr3.reg().modify(|_, w| w.ewf().set_bit())
         }
         scb.set_sleepdeep();
         self.scr.reg().write(|w| {
@@ -122,23 +115,8 @@ impl Pwr {
 
     /// Returns the reason, why wakeup from shutdown happened. In case there is more then one,
     /// a single random reason will be returned
-    pub fn read_wakeup_reason(&mut self) -> Option<WakeUpSource> {
-        let status = self.sr1.reg().read();
-        if status.wufi().bit_is_set() {
-            Some(WakeUpSource::Internal)
-        } else if status.cwuf5().bit_is_set() {
-            Some(WakeUpSource::WKUP5)
-        } else if status.cwuf4().bit_is_set() {
-            Some(WakeUpSource::WKUP4)
-        } else if status.cwuf3().bit_is_set() {
-            Some(WakeUpSource::WKUP3)
-        } else if status.cwuf2().bit_is_set() {
-            Some(WakeUpSource::WKUP2)
-        } else if status.cwuf1().bit_is_set() {
-            Some(WakeUpSource::WKUP1)
-        } else {
-            None
-        }
+    pub fn read_wakeup_reason(&mut self) -> WakeUpSource {
+        WakeUpSource(self.sr1.reg().read().bits() as u16)
     }
 }
 
