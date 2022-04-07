@@ -3,12 +3,57 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [v0.7.0] - 2021-04-04
 
-## Changed
+### Added
 
+    - Add delay implementation based on `cortex_m::asm::delay`.
+    - Implement `RngCore` and `CryptoRng` for the hardware RNG.
+    - Support analog to digital converters (ADC).
+    - Support SPI slave mode.
+    - Add DMA and interrupt support for SPI and ADC peripherals.
+    - Add support for measuring Vref, Vbat and temperature.
+    - Add alternate function 0 to GPIO.
+    - Add preliminary bxCAN support.
+    - Add more GPIO combinations for I2C and PWM peripherals.
+    - Add wakeup clock sources to RTC config.
+    - Support RTC domain backup registers.
+    - Support I2C on stm32l4x3 devices.
+    - Support I2C3 peripheral on stm32l4x6 devices.
+    - Experimental support for the Synopsis USB library.
+    - Experimental support for USB OTG FS for stm32l4x5 and stm32l4x6 devices.
+    - Support stm32l4r9 devices.
+
+### Changed
+
+    - Use device-specific features rather than by-peripheral features.
     - Use `fugit` duration nd rate units instead of custom
     - Use const-generics for GPIO (require Rust 1.51)
+    - Import I2C implementation from `stm32h7xx-hal` crate.
+    - Use a `Config` struct for initializing I2C peripherals.
+    - Check that the clock requested for the low-power timer is enabled.
+    - Take `clocks` argument by value when setting up low-power timer.
+    - Use sane low-power timer defaults (LSI, no prescaler).
+    - Make `LowPowerTimer<_>::set_autoreload()` public.
+    - Enable SPI2 for all stm32l4x2 devices as some of them have it.
+    - Target hardfp by default since stm32l4 cores are Cortex-M4F.
+    - Require typed input when converting from milliseconds to hertz.
+    - Rework alternate function typestates.
+    - Use MSI as default/fallback clock source for SYSCLK.
+    - Use specialized PAC for stm32l412 and stm32l422 devices.
+    - Add `toggeable` trait to GPIO pins.
+    - Update `stm32l4` dependency.
+
+### Fixed
+
+    - Fix TIM1 PWM frequency computation.
+    - Fix TIM5 counter width.
+    - Fix PSC computation off-by-one error.
+    - Change wait states values according to datasheet.
+    - Fix incorrect I2C2 on PC0/PC1 on stm32l4x3 devices.
+    - Swap QSPI pins and remove conflicting/wrong implementations.
+    - Add power on GPIOG pins.
+    - Support 0 byte writes on I2C.
 
 ## [v0.6.0] - 2020-12-11
 
@@ -197,7 +242,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Initial release
 
-[Unreleased]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.6.0...HEAD
+[v0.7.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/stm32-rs/stm32l4xx-hal/compare/v0.3.6...v0.4.0

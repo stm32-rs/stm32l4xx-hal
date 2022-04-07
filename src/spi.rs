@@ -72,6 +72,7 @@ macro_rules! hal {
         $(
             impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
+                #[allow(unused_unsafe)]  // Necessary for stm32l4r9
                 pub fn $spiX(
                     spi: $SPIX,
                     pins: (SCK, MISO, MOSI),
@@ -189,6 +190,7 @@ macro_rules! hal {
                 }
 
                 /// Change the baud rate of the SPI
+                #[allow(unused_unsafe)]  // Necessary for stm32l4r9
                 pub fn reclock(&mut self, freq: Hertz, clocks: Clocks) {
                     self.spi.cr1.modify(|_, w| w.spe().clear_bit());
                     self.spi.cr1.modify(|_, w| unsafe {
