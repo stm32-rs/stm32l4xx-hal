@@ -96,7 +96,7 @@ stm32l4a6 = [ "stm32l4/stm32l4x6" ]
 # L4+ series PAC support??
 #stm32l4p5 = [ "stm32l4/stm32l4x5" ]
 #stm32l4q5 = [ "stm32l4/stm32l4x5" ]
-#stm32l4r5 = [ "stm32l4/stm32l4x5" ]
+stm32l4r5 = [ "stm32l4/stm32l4r5" ]
 #stm32l4s5 = [ "stm32l4/stm32l4x5" ]
 
 # L4x7
