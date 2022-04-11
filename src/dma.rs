@@ -848,6 +848,7 @@ macro_rules! dma {
 
                             self.payload.channel.set_memory_address(unsafe { new_buf.buffer_as_ptr().add(diff) } as u32, true);
                             self.payload.channel.set_transfer_length((new_buf.max_len() - diff) as u16);
+                            unsafe { old_buf.set_len(got_data_len - diff) };
                             let received_buffer = core::mem::replace(&mut self.buffer, next_frame);
 
                             // NOTE(compiler_fence) operations on `buffer` should not be reordered after
