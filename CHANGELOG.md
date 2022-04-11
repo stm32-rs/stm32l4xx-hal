@@ -3,7 +3,13 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [v0.7.0] - 2021-04-04
+
+## [v0.7.1] - 2022-04-11
+
+### Fixed
+
+    - Shorten old buffer when we have extra characters in DMA buffer after a character match.
+## [v0.7.0] - 2022-04-04
 
 ### Added
 
