@@ -158,6 +158,23 @@ impl RtcConfig {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
+pub enum RtcCalibrationCyclePeriod {
+    /// 8-second calibration period
+    Period8,
+    /// 16-second calibration period
+    Period16,
+    /// 32-second calibration period
+    Period32,
+}
+
+impl Default for RtcCalibrationCyclePeriod {
+    fn default() -> Self {
+        RtcCalibrationCyclePeriod::Period32
+    }
+}
+
 impl Rtc {
     pub fn rtc(
         rtc: RTC,
@@ -477,6 +494,48 @@ impl Rtc {
         });
 
         self.rtc_config = rtc_config;
+    }
+
+    const RTC_CALR_MIN_OFFSET_PPM: f32 = -487.1;
+    const RTC_CALR_MAX_OFFSET_PPM: f32 = 488.5;
+    const RTC_CALR_RESOLUTION_PPM: f32 = 0.9537;
+
+    /// Calibrate the RTC's PPM offset.
+    pub fn set_ppm_offset(&mut self, mut offset: f32, period: RtcCalibrationCyclePeriod) {
+        if offset < Self::RTC_CALR_MIN_OFFSET_PPM {
+            offset = Self::RTC_CALR_MIN_OFFSET_PPM;
+        } else if offset > Self::RTC_CALR_MAX_OFFSET_PPM {
+            offset = Self::RTC_CALR_MAX_OFFSET_PPM;
+        }
+
+        offset = offset / Self::RTC_CALR_RESOLUTION_PPM;
+
+        self.write(false, |rtc| {
+            rtc.calr.modify(|_, mut w| unsafe {
+                match period {
+                    RtcCalibrationCyclePeriod::Period8 => {
+                        w = w.calw8().set_bit();
+                    }
+                    RtcCalibrationCyclePeriod::Period16 => {
+                        w = w.calw16().set_bit();
+                    }
+                    RtcCalibrationCyclePeriod::Period32 => {
+                        w = w.calw8().clear_bit();
+                        w = w.calw16().clear_bit();
+                    }
+                }
+
+                // Extra pulses during calibration cycle period: CALP * 512 - CALM
+                if offset > 0.0 {
+                    w.calp().set_bit().calm().bits(512 - offset as u16)
+                } else {
+                    // Make sure negative numbers are `floor`ed correctly.
+                    offset -= 1.0 - f32::EPSILON;
+
+                    w.calp().clear_bit().calm().bits((offset * -1.0) as u16)
+                }
+            });
+        })
     }
 
     /// Access the wakeup timer
