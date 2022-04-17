@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "stm32l4xx-hal"
 version = "0.7.1"
