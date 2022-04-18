@@ -1,13 +1,12 @@
 //! Timers
 
 use crate::hal::timer::{CountDown, Periodic};
-// missing PAC support
-/*
+
 #[cfg(any(
-    feature = "stm32l451",
+    // feature = "stm32l451",
     feature = "stm32l452",
     feature = "stm32l462",
-    feature = "stm32l471",
+    // feature = "stm32l471",
     feature = "stm32l475",
     feature = "stm32l476",
     feature = "stm32l485",
@@ -20,11 +19,11 @@ use crate::hal::timer::{CountDown, Periodic};
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9",
+    // feature = "stm32l4r9",
+    // feature = "stm32l4s9",
 ))]
 use crate::stm32::TIM3;
-*/
+
 #[cfg(not(any(
     feature = "stm32l412",
     feature = "stm32l422",
@@ -174,7 +173,6 @@ macro_rules! hal {
                     // Trigger an update event to load the prescaler value to the clock
                     tim.egr.write(|w| w.ug().set_bit());
 
-
                     // The above line raises an update event which will indicate
                     // that the timer is already finished. Since this is not the case,
                     // it should be cleared
@@ -265,14 +263,11 @@ hal! {
     TIM16: (tim16, free_running_tim16, APB2, u16),
 }
 
-// missing PAC support
-// RCC_APB1RSTR1->TIM3RST not defined
-/*
 #[cfg(any(
-    feature = "stm32l451",
+    // feature = "stm32l451",
     feature = "stm32l452",
     feature = "stm32l462",
-    feature = "stm32l471",
+    // feature = "stm32l471",
     feature = "stm32l475",
     feature = "stm32l476",
     feature = "stm32l485",
@@ -285,13 +280,12 @@ hal! {
     // feature = "stm32l4s5",
     // feature = "stm32l4r7",
     // feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9",
+    // feature = "stm32l4r9",
+    // feature = "stm32l4s9",
 ))]
 hal! {
-    TIM3:  (tim3, free_running_tim3, tim3en, tim3rst, APB1R1, u32),
+    TIM3:  (tim3, free_running_tim3, APB1R1, u16),
 }
-*/
 
 #[cfg(not(any(
     feature = "stm32l412",
