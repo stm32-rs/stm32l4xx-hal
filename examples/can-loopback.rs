@@ -1,7 +1,4 @@
 //! Run the bxCAN peripheral in loopback mode.
-
-#![deny(unsafe_code)]
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -9,17 +6,16 @@ use bxcan::{
     filter::Mask32,
     {Frame, StandardId},
 };
-use panic_halt as _;
+use defmt::println;
+use defmt_rtt as _;
+use panic_probe as _;
 use rtic::app;
-use rtt_target::{rprintln, rtt_init_print};
 use stm32l4xx_hal::{can::Can, prelude::*};
 
 #[app(device = stm32l4xx_hal::stm32, peripherals = true)]
 const APP: () = {
     #[init]
     fn init(cx: init::Context) {
-        rtt_init_print!();
-
         let dp = cx.device;
 
         let mut flash = dp.FLASH.constrain();
@@ -30,7 +26,7 @@ const APP: () = {
         // Set the clocks to 80 MHz
         let _clocks = rcc.cfgr.sysclk(80.MHz()).freeze(&mut flash.acr, &mut pwr);
 
-        rprintln!("  - CAN init");
+        println!("  - CAN init");
 
         let can = {
             let rx =
@@ -79,12 +75,15 @@ const APP: () = {
         // Wait for TX to finish
         while !can.is_transmitter_idle() {}
 
-        rprintln!("  - CAN tx complete: {:?}", test_frame);
+        println!(
+            "  - CAN tx complete: {:?}",
+            defmt::Debug2Format(&test_frame)
+        );
 
         // Receive the packet back
         let r = can.receive();
 
-        rprintln!("  - CAN rx {:?}", r);
+        println!("  - CAN rx {:?}", defmt::Debug2Format(&r));
 
         assert_eq!(Ok(test_frame), r);
     }

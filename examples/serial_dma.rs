@@ -4,23 +4,18 @@
 #![no_main]
 #![no_std]
 
-#[macro_use(singleton)]
-extern crate cortex_m;
-#[macro_use(entry, exception)]
-extern crate cortex_m_rt as rt;
-#[macro_use(block)]
-extern crate nb;
-extern crate panic_semihosting;
-
-extern crate stm32l4xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
-
-use crate::hal::dma::CircReadDma;
-use crate::hal::prelude::*;
-use crate::hal::serial::{Config, Serial};
-use crate::rt::ExceptionFrame;
-use cortex_m::asm;
+use cortex_m::singleton;
+use cortex_m_rt::entry;
+use defmt::println;
+use defmt_rtt as _;
+use nb::block;
+use panic_probe as _;
+use stm32l4xx_hal::{
+    self as hal,
+    dma::CircReadDma,
+    prelude::*,
+    serial::{Config, Serial},
+};
 
 #[entry]
 fn main() -> ! {
@@ -122,8 +117,7 @@ fn main() -> ! {
     assert_eq!(rx_len, 8);
     assert_eq!(&rx_buf[..8], b"abcdefgh");
 
-    // if all goes well you should reach this breakpoint
-    asm::bkpt();
+    println!("example completed");
 
     loop {
         continue;
@@ -132,18 +126,8 @@ fn main() -> ! {
 
 fn send(tx: &mut impl embedded_hal::serial::Write<u8>, data: &[u8]) {
     for byte in data {
-        if let Err(_) = block!(tx.write(*byte)) {
-            panic!("serial tx failed");
+        if let Err(_e) = block!(tx.write(*byte)) {
+            panic!("error occurred while sending bytes");
         }
     }
-
-    // waste some time so that the data will be received completely
-    for _ in 0..10000 {
-        cortex_m::asm::nop();
-    }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }

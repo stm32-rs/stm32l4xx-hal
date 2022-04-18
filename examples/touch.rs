@@ -4,16 +4,11 @@
 #![no_main]
 #![no_std]
 
-extern crate cortex_m;
-#[macro_use(entry, exception)]
-extern crate cortex_m_rt as rt;
-extern crate panic_semihosting;
-
-extern crate stm32l4xx_hal as hal;
-
-use crate::hal::prelude::*;
-use crate::hal::tsc::Tsc;
-use crate::rt::ExceptionFrame;
+use cortex_m_rt::entry;
+use defmt::println;
+use defmt_rtt as _;
+use panic_probe as _;
+use stm32l4xx_hal::{self as hal, prelude::*, tsc::Tsc};
 
 #[entry]
 fn main() -> ! {
@@ -28,8 +23,6 @@ fn main() -> ! {
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
     let _clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
-    // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
-    // let clocks = rcc.cfgr.sysclk(64.MHz()).pclk1(32.MHz()).freeze(&mut flash.acr);
 
     // let mut delay = Delay::new(cp.SYST, clocks);
     let mut led = gpiob
@@ -60,14 +53,11 @@ fn main() -> ! {
         // try and pass c1, it will detect an error!
         let _touched_c2_again = tsc.read(&mut c2).unwrap();
         if touched < threshold {
+            println!("touch channel 1 is below the threshold");
             led.set_high();
         } else {
+            println!("touch channel 1 is above the threshold");
             led.set_low();
         }
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }

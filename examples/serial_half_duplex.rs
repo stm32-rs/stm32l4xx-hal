@@ -3,25 +3,19 @@
 //! This example requires you to hook-up a pullup resistor on the TX pin. RX pin is not used.
 //! Resistor value depends on the baurate and line caracteristics, 1KOhms works well in most cases.
 //! Half-Duplex mode internally connect TX to RX, meaning that bytes sent will also be received.
-#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-extern crate cortex_m;
-#[macro_use(entry, exception)]
-extern crate cortex_m_rt as rt;
-#[macro_use(block)]
-extern crate nb;
-extern crate panic_semihosting;
-
-extern crate stm32l4xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
-
-use crate::hal::prelude::*;
-use crate::hal::serial::{Config, Serial};
-use crate::rt::ExceptionFrame;
-use cortex_m::asm;
+use cortex_m_rt::entry;
+use defmt::println;
+use defmt_rtt as _;
+use nb::block;
+use panic_probe as _;
+use stm32l4xx_hal::{
+    self as hal,
+    prelude::*,
+    serial::{Config, Serial},
+};
 
 #[entry]
 fn main() -> ! {
@@ -64,25 +58,14 @@ fn main() -> ! {
     let (mut tx, mut rx) = serial.split();
 
     let sent = b'X';
-
     // The `block!` macro makes an operation block until it finishes
-    // NOTE the error type is `!`
-
-    block!(tx.write(sent)).ok();
-
+    block!(tx.write(sent)).unwrap();
     let received = block!(rx.read()).unwrap();
 
     assert_eq!(received, sent);
-
-    // if all goes well you should reach this breakpoint
-    asm::bkpt();
+    println!("example complete");
 
     loop {
         continue;
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }

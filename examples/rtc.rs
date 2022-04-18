@@ -3,30 +3,22 @@
 #![no_std]
 #![no_main]
 
-extern crate cortex_m;
-#[macro_use]
-extern crate cortex_m_rt as rt;
-extern crate cortex_m_semihosting as sh;
-extern crate panic_semihosting;
-extern crate stm32l4xx_hal as hal;
-// #[macro_use(block)]
-// extern crate nb;
-
-use crate::hal::datetime::{Date, Time};
-use crate::hal::delay::Delay;
-use crate::hal::prelude::*;
-use crate::hal::rcc::{ClockSecuritySystem, CrystalBypass};
-use crate::hal::rtc::{Rtc, RtcClockSource, RtcConfig};
-use crate::rt::ExceptionFrame;
-
-use crate::sh::hio;
-use core::fmt::Write;
+use cortex_m_rt::entry;
+use defmt::println;
+use defmt_rtt as _;
+use panic_probe as _;
+use stm32l4xx_hal::{
+    self as hal,
+    datetime::{Date, Time},
+    delay::Delay,
+    prelude::*,
+    rcc::{ClockSecuritySystem, CrystalBypass},
+    rtc::{Rtc, RtcClockSource, RtcConfig},
+};
 
 #[entry]
 fn main() -> ! {
-    let mut hstdout = hio::hstdout().unwrap();
-
-    writeln!(hstdout, "Hello, world!").unwrap();
+    println!("Hello, world!");
 
     let cp = cortex_m::Peripherals::take().unwrap();
     let dp = hal::stm32::Peripherals::take().unwrap();
@@ -62,15 +54,10 @@ fn main() -> ! {
 
     let (rtc_date, rtc_time) = rtc.get_date_time();
 
-    writeln!(hstdout, "Time: {:?}", rtc_time).unwrap();
-    writeln!(hstdout, "Date: {:?}", rtc_date).unwrap();
-    writeln!(hstdout, "Good bye!").unwrap();
+    println!("Time: {:?}", defmt::Debug2Format(&rtc_time));
+    println!("Date: {:?}", defmt::Debug2Format(&rtc_date));
+    println!("Good bye!");
     loop {
         continue;
     }
-}
-
-#[exception]
-unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
-    panic!("{:#?}", ef);
 }
