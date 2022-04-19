@@ -150,6 +150,26 @@ impl<MODE, HL, const P: char, const N: u8> Pin<MODE, HL, P, N> {
         _pupdr: &mut PUPDR<P>,
     ) -> Pin<Analog, HL, P, N> {
         self.mode::<Analog>();
+
+        #[cfg(any(
+            feature = "stm32l471",
+            feature = "stm32l475",
+            feature = "stm32l476",
+            feature = "stm32l485",
+            feature = "stm32l486",
+        ))]
+        {
+            // On STM32L47x/L48x devices, before any conversion of an input channel coming from
+            // GPIO pads, it is necessary to configure the corresponding GPIOx_ASCR register
+            // in the GPIO, in addition to the I/O configuration in analog mode.
+            let offset = { N };
+            unsafe {
+                (*Gpio::<P>::ptr())
+                    .ascr
+                    .modify(|r, w| w.bits(r.bits() | (1 << offset)))
+            };
+        }
+
         Pin::new()
     }
 
