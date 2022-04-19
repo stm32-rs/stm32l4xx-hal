@@ -11,8 +11,8 @@ extern crate panic_semihosting;
 extern crate stm32l4xx_hal as hal;
 // #[macro_use(block)]
 // extern crate nb;
+use time::{Date, Time};
 
-use crate::hal::datetime::{Date, Time};
 use crate::hal::delay::Delay;
 use crate::hal::prelude::*;
 use crate::hal::rcc::{ClockSecuritySystem, CrystalBypass};
@@ -20,6 +20,7 @@ use crate::hal::rtc::{Rtc, RtcClockSource, RtcConfig};
 use crate::rt::ExceptionFrame;
 
 use crate::sh::hio;
+use core::convert::TryInto;
 use core::fmt::Write;
 
 #[entry]
@@ -51,19 +52,19 @@ fn main() -> ! {
         RtcConfig::default().clock_config(RtcClockSource::LSE),
     );
 
-    let time = Time::new(21.hours(), 57.minutes(), 32.secs(), 0.micros(), false);
-    let date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
+    let time = Time::from_hms(21, 57, 32).unwrap();
+    let date = Date::from_calendar_date(2018, 4.try_into().unwrap(), 24).unwrap();
 
-    rtc.set_date_time(date, time);
+    rtc.set_datetime(&date.with_time(time));
 
     timer.delay_ms(1000_u32);
     timer.delay_ms(1000_u32);
     timer.delay_ms(1000_u32);
 
-    let (rtc_date, rtc_time) = rtc.get_date_time();
+    let rtc_datetime = rtc.get_datetime();
 
-    writeln!(hstdout, "Time: {:?}", rtc_time).unwrap();
-    writeln!(hstdout, "Date: {:?}", rtc_date).unwrap();
+    writeln!(hstdout, "Time: {:?}", rtc_datetime.time()).unwrap();
+    writeln!(hstdout, "Date: {:?}", rtc_datetime.date()).unwrap();
     writeln!(hstdout, "Good bye!").unwrap();
     loop {
         continue;

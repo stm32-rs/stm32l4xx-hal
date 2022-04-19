@@ -44,7 +44,7 @@ This crate requires one of the following features enabled:
     stm32l431, stm32l451, stm32l471
     stm32l412, stm32l422, stm32l432, stm32l442, stm32l452, stm32l462
     stm32l433, stm32l443
-    stm32l475, 
+    stm32l475,
     stm32l476, stm32l486, stm32l496, stm32l4a6
     stm32l4r9, stm32l4s9
 "
@@ -127,7 +127,6 @@ pub mod adc;
 #[cfg(not(any(feature = "stm32l412",)))]
 pub mod can;
 pub mod crc;
-pub mod datetime;
 pub mod delay;
 pub mod dma;
 pub mod dmamux;

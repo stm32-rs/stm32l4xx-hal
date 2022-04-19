@@ -57,6 +57,10 @@ version = "0.2.4"
 features = ["cortex-m", "fs"]
 optional = true
 
+[dependencies.time]
+version = "0.3"
+default-features = false
+
 [package.metadata.docs.rs]
 features = ["rt", "stm32l432", "stm32-usbd"]
 
