@@ -10,15 +10,15 @@ extern crate cortex_m_semihosting as sh;
 extern crate panic_semihosting;
 extern crate stm32l4xx_hal as hal;
 
-use crate::hal::datetime::{Date, Time};
 use crate::hal::prelude::*;
 use crate::hal::rcc::{ClockSecuritySystem, CrystalBypass};
 use crate::hal::rtc::{Event, Rtc, RtcClockSource, RtcConfig};
 use crate::rt::ExceptionFrame;
 use cortex_m::interrupt::{free, Mutex};
+use time::{Date, Time};
 
 use crate::sh::hio;
-use core::{cell::RefCell, fmt::Write, ops::DerefMut};
+use core::{cell::RefCell, convert::TryInto, fmt::Write, ops::DerefMut};
 use hal::interrupt;
 use hal::pac;
 use pac::NVIC;
@@ -51,10 +51,10 @@ fn main() -> ! {
         RtcConfig::default().clock_config(RtcClockSource::LSE),
     );
 
-    let time = Time::new(21.hours(), 57.minutes(), 32.secs(), 0.micros(), false);
-    let date = Date::new(1.day(), 24.date(), 4.month(), 2018.year());
+    let time = Time::from_hms(21, 57, 32).unwrap();
+    let date = Date::from_calendar_date(2018, 4.try_into().unwrap(), 24).unwrap();
 
-    rtc.set_date_time(date, time);
+    rtc.set_datetime(&date.with_time(time));
 
     // Set alarm A for 1 minute
     // let alarm_time = Time::new(21.hours(), 57.minutes(), 37.secs(), 0.micros(), false);

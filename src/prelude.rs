@@ -4,7 +4,6 @@ pub use crate::hal::digital::v2::*;
 pub use crate::hal::prelude::*; // embedded hal traits // for some reason v2 is not exported in the ehal prelude
 
 pub use crate::crc::CrcExt as _stm32l4_hal_CrcExt;
-pub use crate::datetime::U32Ext as _stm32l4_hal_datetime_U32Ext;
 pub use crate::dma::DmaExt as _stm32l4_hal_DmaExt;
 pub use crate::flash::FlashExt as _stm32l4_hal_FlashExt;
 pub use crate::gpio::ExtiPin as _stm32l4_hal_ExtiPin;

@@ -1,5 +1,7 @@
 //! RTC peripheral abstraction
 
+use core::convert::TryInto;
+
 /// refer to AN4759 to compare features of RTC2 and RTC3
 #[cfg(not(any(
     feature = "stm32l412",
@@ -32,11 +34,10 @@ pub mod rtc3;
 ))]
 pub use rtc3 as rtc_registers;
 
-use fugit::ExtU32;
+use time::{Date, PrimitiveDateTime, Time};
 use void::Void;
 
 use crate::{
-    datetime::*,
     hal::timer::{self, Cancel as _},
     pwr,
     rcc::{APB1R1, BDCR},
@@ -176,49 +177,51 @@ impl Rtc {
         rtc_struct
     }
 
-    /// Get date and time touple
-    pub fn get_date_time(&self) -> (Date, Time) {
-        let time;
-        let date;
-
-        let sync_p = self.rtc_config.sync_prescaler as u32;
-        let micros =
-            1_000_000u32 / (sync_p + 1) * (sync_p - self.rtc.ssr.read().ss().bits() as u32);
-        let timer = self.rtc.tr.read();
-        let cr = self.rtc.cr.read();
-
-        // Reading either RTC_SSR or RTC_TR locks the values in the higher-order
-        // calendar shadow registers until RTC_DR is read.
-        let dater = self.rtc.dr.read();
-
-        time = Time::new(
-            (bcd2_to_byte((timer.ht().bits(), timer.hu().bits())) as u32).hours(),
-            (bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())) as u32).minutes(),
-            (bcd2_to_byte((timer.st().bits(), timer.su().bits())) as u32).secs(),
-            micros.micros(),
-            cr.bkp().bit(),
-        );
-
-        date = Date::new(
-            dater.wdu().bits().into(),
-            bcd2_to_byte((dater.dt().bits(), dater.du().bits())).into(),
-            bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())).into(),
-            (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16).into(),
-        );
-
-        (date, time)
-    }
-
-    /// Set Date and Time
-    pub fn set_date_time(&mut self, date: Date, time: Time) {
+    /// Set date and time.
+    pub fn set_datetime(&mut self, datetime: &PrimitiveDateTime) {
         self.write(true, |rtc| {
-            set_time_raw(rtc, time);
-            set_date_raw(rtc, date);
+            set_time_raw(rtc, datetime.time());
+            set_date_raw(rtc, datetime.date());
         })
     }
 
+    /// Get date and time.
+    pub fn get_datetime(&self) -> PrimitiveDateTime {
+        let sync_p = self.rtc_config.sync_prescaler as u32;
+        let ssr = self.rtc.ssr.read();
+        let micro = 1_000_000u32 / (sync_p + 1) * (sync_p - ssr.ss().bits() as u32);
+        let tr = self.rtc.tr.read();
+        let second = bcd2_to_byte((tr.st().bits(), tr.su().bits()));
+        let minute = bcd2_to_byte((tr.mnt().bits(), tr.mnu().bits()));
+        let hour = bcd2_to_byte((tr.ht().bits(), tr.hu().bits()));
+        // Reading either RTC_SSR or RTC_TR locks the values in the higher-order
+        // calendar shadow registers until RTC_DR is read.
+        let dr = self.rtc.dr.read();
+
+        // let weekday = dr.wdu().bits();
+        let day = bcd2_to_byte((dr.dt().bits(), dr.du().bits()));
+        let month = bcd2_to_byte((dr.mt().bit() as u8, dr.mu().bits()));
+        let year = bcd2_to_byte((dr.yt().bits(), dr.yu().bits())) as u16 + 1970_u16;
+
+        let time = Time::from_hms_micro(hour, minute, second, micro).unwrap();
+        let date = Date::from_calendar_date(year.into(), month.try_into().unwrap(), day).unwrap();
+
+        date.with_time(time)
+    }
+
+    /// Check if daylight savings time is active.
+    pub fn get_daylight_savings(&self) -> bool {
+        let cr = self.rtc.cr.read();
+        cr.bkp().bit()
+    }
+
+    /// Enable/disable daylight savings time.
+    pub fn set_daylight_savings(&mut self, daylight_savings: bool) {
+        self.write(true, |rtc| set_daylight_savings_raw(rtc, daylight_savings))
+    }
+
     /// Set Time
-    /// Note: If setting both time and date, use set_date_time(...) to avoid errors.
+    /// Note: If setting both time and date, use set_datetime(...) to avoid errors.
     pub fn set_time(&mut self, time: Time) {
         self.write(true, |rtc| {
             set_time_raw(rtc, time);
@@ -226,7 +229,7 @@ impl Rtc {
     }
 
     /// Set Date
-    /// Note: If setting both time and date, use set_date_time(...) to avoid errors.
+    /// Note: If setting both time and date, use set_datetime(...) to avoid errors.
     pub fn set_date(&mut self, date: Date) {
         self.write(true, |rtc| {
             set_date_raw(rtc, date);
@@ -240,10 +243,10 @@ impl Rtc {
     /// Sets the time at which an alarm will be triggered
     /// This also clears the alarm flag if it is set
     pub fn set_alarm(&mut self, alarm: Alarm, date: Date, time: Time) {
-        let (dt, du) = byte_to_bcd2(date.date as u8);
-        let (ht, hu) = byte_to_bcd2(time.hours as u8);
-        let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
-        let (st, su) = byte_to_bcd2(time.seconds as u8);
+        let (dt, du) = byte_to_bcd2(date.day() as u8);
+        let (ht, hu) = byte_to_bcd2(time.hour() as u8);
+        let (mnt, mnu) = byte_to_bcd2(time.minute() as u8);
+        let (st, su) = byte_to_bcd2(time.second() as u8);
 
         self.write(false, |rtc| match alarm {
             Alarm::AlarmA => {
@@ -652,9 +655,9 @@ impl timer::Cancel for WakeupTimer<'_> {
 /// Raw set time
 /// Expects init mode enabled and write protection disabled
 fn set_time_raw(rtc: &RTC, time: Time) {
-    let (ht, hu) = byte_to_bcd2(time.hours as u8);
-    let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
-    let (st, su) = byte_to_bcd2(time.seconds as u8);
+    let (ht, hu) = byte_to_bcd2(time.hour() as u8);
+    let (mnt, mnu) = byte_to_bcd2(time.minute() as u8);
+    let (st, su) = byte_to_bcd2(time.second() as u8);
 
     rtc.tr.write(|w| unsafe {
         w.ht()
@@ -672,16 +675,18 @@ fn set_time_raw(rtc: &RTC, time: Time) {
             .pm()
             .clear_bit()
     });
+}
 
-    rtc.cr.modify(|_, w| w.bkp().bit(time.daylight_savings));
+fn set_daylight_savings_raw(rtc: &RTC, daylight_savings: bool) {
+    rtc.cr.modify(|_, w| w.bkp().bit(daylight_savings));
 }
 
 /// Raw set date
 /// Expects init mode enabled and write protection disabled
 fn set_date_raw(rtc: &RTC, date: Date) {
-    let (dt, du) = byte_to_bcd2(date.date as u8);
-    let (mt, mu) = byte_to_bcd2(date.month as u8);
-    let yr = date.year as u16;
+    let (dt, du) = byte_to_bcd2(date.day() as u8);
+    let (mt, mu) = byte_to_bcd2(date.month() as u8);
+    let yr = date.year() as u16;
     let yr_offset = (yr - 1970_u16) as u8;
     let (yt, yu) = byte_to_bcd2(yr_offset);
 
@@ -699,7 +704,7 @@ fn set_date_raw(rtc: &RTC, date: Date) {
             .yu()
             .bits(yu)
             .wdu()
-            .bits(date.day as u8)
+            .bits(date.weekday().number_from_monday() as u8)
     });
 }
 
