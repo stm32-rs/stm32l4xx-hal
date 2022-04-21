@@ -496,45 +496,66 @@ impl Rtc {
         self.rtc_config = rtc_config;
     }
 
-    const RTC_CALR_MIN_OFFSET_PPM: f32 = -487.1;
-    const RTC_CALR_MAX_OFFSET_PPM: f32 = 488.5;
+    const RTC_CALR_MIN_PPM: f32 = -487.1;
+    const RTC_CALR_MAX_PPM: f32 = 488.5;
     const RTC_CALR_RESOLUTION_PPM: f32 = 0.9537;
 
-    /// Calibrate the RTC's PPM offset.
+    /// Calibrate the clock drift.
     ///
-    /// `offset` ranges from -487.1 ppm to 488.5 ppm and is clamped to this range.
-    pub fn set_ppm_offset(&mut self, mut offset: f32, period: RtcCalibrationCyclePeriod) {
-        if offset < Self::RTC_CALR_MIN_OFFSET_PPM {
-            offset = Self::RTC_CALR_MIN_OFFSET_PPM;
-        } else if offset > Self::RTC_CALR_MAX_OFFSET_PPM {
-            offset = Self::RTC_CALR_MAX_OFFSET_PPM;
+    /// `clock_drift` can be adjusted from -487.1 ppm to 488.5 ppm and is clamped to this range.
+    ///
+    /// ### Note
+    ///
+    /// To perform a calibration when `async_prescaler` is less then 3, `sync_prescaler`
+    /// has to be reduced accordingly (see RM0351 Rev 9, sec 38.3.12).
+    pub fn calibrate(&mut self, mut clock_drift: f32, period: RtcCalibrationCyclePeriod) {
+        if clock_drift < Self::RTC_CALR_MIN_PPM {
+            clock_drift = Self::RTC_CALR_MIN_PPM;
+        } else if clock_drift > Self::RTC_CALR_MAX_PPM {
+            clock_drift = Self::RTC_CALR_MAX_PPM;
         }
 
-        offset = offset / Self::RTC_CALR_RESOLUTION_PPM;
+        clock_drift = clock_drift / Self::RTC_CALR_RESOLUTION_PPM;
 
         self.write(false, |rtc| {
             rtc.calr.modify(|_, mut w| unsafe {
                 match period {
                     RtcCalibrationCyclePeriod::Period8 => {
-                        w = w.calw8().set_bit();
+                        w.calw8().set_bit().calw16().clear_bit();
                     }
                     RtcCalibrationCyclePeriod::Period16 => {
-                        w = w.calw16().set_bit();
+                        w.calw8().clear_bit().calw16().set_bit();
                     }
                     RtcCalibrationCyclePeriod::Period32 => {
-                        w = w.calw8().clear_bit();
-                        w = w.calw16().clear_bit();
+                        w.calw8().clear_bit().calw16().clear_bit();
                     }
                 }
 
                 // Extra pulses during calibration cycle period: CALP * 512 - CALM
-                if offset > 0.0 {
-                    w.calp().set_bit().calm().bits(512 - offset as u16)
-                } else {
-                    // Make sure negative numbers are `floor`ed correctly.
-                    offset -= 1.0 - f32::EPSILON;
+                //
+                // CALP sets whether pulses are added or omitted.
+                //
+                // CALM contains how many pulses (out of 512) are masked in a
+                // given calibration cycle period.
+                if clock_drift > 0.0 {
+                    // Maximum (about 512.2) rounds to 512.
+                    clock_drift += 0.5;
 
-                    w.calp().clear_bit().calm().bits((offset * -1.0) as u16)
+                    // When the offset is positive (0 to 512), the opposite of
+                    // the offset (512 - offset) is masked, i.e. for the
+                    // maximum offset (512), 0 pulses are masked.
+                    w.calp().set_bit().calm().bits(512 - clock_drift as u16)
+                } else {
+                    // Minimum (about -510.7) rounds to -511.
+                    clock_drift -= 0.5;
+
+                    // When the offset is negative or zero (-511 to 0),
+                    // the absolute offset is masked, i.e. for the minimum
+                    // offset (-511), 511 pulses are masked.
+                    w.calp()
+                        .clear_bit()
+                        .calm()
+                        .bits((clock_drift * -1.0) as u16)
                 }
             });
         })
