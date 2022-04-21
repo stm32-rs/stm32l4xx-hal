@@ -501,6 +501,8 @@ impl Rtc {
     const RTC_CALR_RESOLUTION_PPM: f32 = 0.9537;
 
     /// Calibrate the RTC's PPM offset.
+    ///
+    /// `offset` ranges from -487.1 ppm to 488.5 ppm and is clamped to this range.
     pub fn set_ppm_offset(&mut self, mut offset: f32, period: RtcCalibrationCyclePeriod) {
         if offset < Self::RTC_CALR_MIN_OFFSET_PPM {
             offset = Self::RTC_CALR_MIN_OFFSET_PPM;
