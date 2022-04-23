@@ -263,7 +263,7 @@ bus! {
     // feature = "stm32l4s7",
     feature = "stm32l4r9",
     feature = "stm32l4s9",
-    )))]
+)))]
 bus! {
     ADC2 => (AHB2, adcen, adcfssmen, adcrst), // 13
     QUADSPI => (AHB3, qspien, qspismen, qspirst), // 8
@@ -350,6 +350,8 @@ bus! {
     feature = "stm32l4a6",
 ))]
 bus! {
+    ADC3 => (AHB2, adcen, adcfssmen, adcrst), // 13
+
     CAN2 => (APB1R1, can2en, can2smen, can2rst), // 26
 
     HASH => (AHB2, hash1en, hash1smen, hash1rst), // 17
