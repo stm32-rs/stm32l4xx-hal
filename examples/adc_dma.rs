@@ -4,7 +4,7 @@
 use panic_rtt_target as _;
 use rtt_target::{rprintln, rtt_init_print};
 use stm32l4xx_hal::{
-    adc::{Adc, DmaMode, SampleTime, Sequence},
+    adc::{Adc, AdcCommon, DmaMode, SampleTime, Sequence},
     delay::DelayCM,
     dma::{dma1, RxDma, Transfer, W},
     pac::ADC1,
@@ -55,7 +55,8 @@ const APP: () = {
 
         let mut delay = DelayCM::new(clocks);
 
-        let mut adc = Adc::adc1(pac.ADC1, true, &mut rcc.ahb2, &mut rcc.ccipr, &mut delay);
+        let adc_common = AdcCommon::new(pac.ADC_COMMON, &mut rcc.ahb2);
+        let mut adc = Adc::adc1(pac.ADC1, adc_common, &mut rcc.ccipr, &mut delay);
 
         let mut temp_pin = adc.enable_temperature(&mut delay);
 

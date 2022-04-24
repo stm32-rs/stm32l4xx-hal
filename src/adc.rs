@@ -2,9 +2,12 @@
 
 use core::{
     convert::Infallible,
+    marker::PhantomData,
     ops::DerefMut,
     sync::atomic::{self, Ordering},
 };
+
+use stable_deref_trait::StableDeref;
 
 use crate::{
     dma::{dma1, Event as DMAEvent, RxDma, Transfer, TransferPayload, W},
@@ -18,8 +21,6 @@ use crate::{
     rcc::{Enable, Reset, AHB2, CCIPR},
     signature::{VrefCal, VtempCalHigh, VtempCalLow, VDDA_CALIB_MV},
 };
-
-use stable_deref_trait::StableDeref;
 
 /// Internal voltage reference channel, used for calibration.
 pub struct Vref {
@@ -36,9 +37,75 @@ pub struct Temperature {
     _0: (),
 }
 
+/// Wrapper for safely sharing [`ADC_COMMON`](pac::ADC_COMMON) between `Adc`s.
+#[derive(Clone, Copy)]
+pub struct AdcCommon {
+    _0: PhantomData<pac::ADC_COMMON>,
+    #[allow(unused)]
+    csr: AdcCommonCsr,
+    ccr: AdcCommonCcr,
+    #[allow(unused)]
+    cdr: AdcCommonCdr,
+}
+
+#[derive(Clone, Copy)]
+struct AdcCommonCsr {
+    _0: PhantomData<stm32l4::Reg<pac::adc_common::csr::CSR_SPEC>>,
+}
+
+#[derive(Clone, Copy)]
+struct AdcCommonCcr {
+    _0: PhantomData<stm32l4::Reg<pac::adc_common::ccr::CCR_SPEC>>,
+}
+
+#[derive(Clone, Copy)]
+struct AdcCommonCdr {
+    _0: PhantomData<stm32l4::Reg<pac::adc_common::cdr::CDR_SPEC>>,
+}
+
+impl AdcCommonCcr {
+    #[inline]
+    fn read(&self) -> pac::adc_common::ccr::R {
+        let adc_common = unsafe { &*pac::ADC_COMMON::ptr() };
+        adc_common.ccr.read()
+    }
+
+    #[inline]
+    fn modify<F>(&mut self, f: F)
+    where
+        for<'w> F: FnOnce(
+            &pac::adc_common::ccr::R,
+            &'w mut pac::adc_common::ccr::W,
+        ) -> &'w mut stm32l4::W<pac::adc_common::ccr::CCR_SPEC>,
+    {
+        cortex_m::interrupt::free(|_| {
+            let adc_common = unsafe { &*pac::ADC_COMMON::ptr() };
+            adc_common.ccr.modify(|r, w| f(r, w))
+        })
+    }
+}
+
+impl AdcCommon {
+    /// Enable and reset [`ADC_COMMON`](pac::ADC_COMMON) peripheral.
+    pub fn new(adc_common: pac::ADC_COMMON, ahb: &mut AHB2) -> Self {
+        <pac::ADC_COMMON>::enable(ahb);
+        <pac::ADC_COMMON>::reset(ahb);
+
+        drop(adc_common);
+
+        Self {
+            _0: PhantomData,
+            csr: AdcCommonCsr { _0: PhantomData },
+            ccr: AdcCommonCcr { _0: PhantomData },
+            cdr: AdcCommonCdr { _0: PhantomData },
+        }
+    }
+}
+
 /// Analog to Digital converter interface
 pub struct Adc<ADC> {
-    pub(crate) adc: ADC,
+    adc: ADC,
+    adc_common: AdcCommon,
     resolution: Resolution,
     sample_time: SampleTime,
     calibrated_vdda: u32,
@@ -448,15 +515,13 @@ macro_rules! adc {
         /// Check if the internal voltage reference channel is enabled.
         #[inline]
         pub fn is_vref_enabled(&self) -> bool {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.read().vrefen().bit_is_set()
+            self.adc_common.ccr.read().vrefen().bit_is_set()
         }
 
         /// Enable the internal voltage reference channel.
         #[inline]
         pub fn enable_vref(&mut self, delay: &mut impl DelayUs<u32>) -> Vref {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.modify(|_, w| w.vrefen().set_bit());
+            self.adc_common.ccr.modify(|_, w| w.vrefen().set_bit());
 
             // "Table 24. Embedded internal voltage reference" states that it takes a maximum of 12 us
             // to stabilize the internal voltage reference, we wait a little more.
@@ -468,8 +533,7 @@ macro_rules! adc {
         /// Disable the internal voltage reference channel.
         #[inline]
         pub fn disable_vref(&mut self) {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.modify(|_, w| w.vrefen().clear_bit());
+            self.adc_common.ccr.modify(|_, w| w.vrefen().clear_bit());
         }
     };
 
@@ -483,15 +547,13 @@ macro_rules! adc {
         /// Check if the battery voltage monitoring channel is enabled.
         #[inline]
         pub fn is_vbat_enabled(&self) -> bool {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.read().ch18sel().bit_is_set()
+            self.adc_common.ccr.read().ch18sel().bit_is_set()
         }
 
         /// Enable the battery voltage monitoring channel.
         #[inline]
         pub fn enable_vbat(&mut self) -> Vbat {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.modify(|_, w| w.ch18sel().set_bit());
+            self.adc_common.ccr.modify(|_, w| w.ch18sel().set_bit());
 
             Vbat { _0: () }
         }
@@ -500,7 +562,7 @@ macro_rules! adc {
         #[inline]
         pub fn disable_vbat(&mut self) {
             let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.modify(|_, w| w.ch18sel().clear_bit());
+            self.adc_common.ccr.modify(|_, w| w.ch18sel().clear_bit());
         }
     };
 
@@ -511,14 +573,12 @@ macro_rules! adc {
     (@vts: $adc_type:ident => ($common_type:ident)) => {
         /// Check if the internal temperature sensor channel is enabled.
         pub fn is_temperature_enabled(&self) -> bool {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.read().ch17sel().bit_is_set()
+            self.adc_common.ccr.read().ch17sel().bit_is_set()
         }
 
         /// Enable the internal temperature sensor channel.
         pub fn enable_temperature(&mut self, delay: &mut impl DelayUs<u32>) -> Temperature {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.modify(|_, w| w.ch17sel().set_bit());
+            self.adc_common.ccr.modify(|_, w| w.ch17sel().set_bit());
 
             // FIXME: This note from the reference manual is currently not possible
             // rm0351 section 18.4.32 pg580 (L47/L48/L49/L4A models)
@@ -536,8 +596,7 @@ macro_rules! adc {
 
         /// Disable the internal temperature sensor channel.
         pub fn disable_temperature(&mut self) {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
-            common.ccr.modify(|_, w| w.ch17sel().clear_bit())
+            self.adc_common.ccr.modify(|_, w| w.ch17sel().clear_bit())
         }
     };
 
@@ -568,20 +627,13 @@ macro_rules! adc {
     ($($adc_type:ident => ($constructor_fn_name:ident, $common_type:ident)),+ $(,)?) => {
         $(
             impl Adc<pac::$adc_type> {
-                /// Enables the ADC clock, resets the peripheral and runs calibration.
+                /// Enable the ADC clock and runs calibration.
                 pub fn $constructor_fn_name(
                     adc: pac::$adc_type,
-                    reset: bool,
-                    ahb: &mut AHB2,
+                    adc_common: AdcCommon,
                     ccipr: &mut CCIPR,
                     delay: &mut impl DelayUs<u32>,
                 ) -> Self {
-                    <pac::$adc_type>::enable(ahb);
-
-                    if reset {
-                        <pac::$adc_type>::reset(ahb);
-                    }
-
                     // Select system clock as ADC clock source
                     ccipr.ccipr().modify(|_, w| {
                         // This is sound, as `0b11` is a valid value for this field.
@@ -619,6 +671,7 @@ macro_rules! adc {
 
                     let mut s = Self {
                         adc,
+                        adc_common,
                         resolution: Resolution::default(),
                         sample_time: SampleTime::default(),
                         calibrated_vdda: VDDA_CALIB_MV,
@@ -675,7 +728,7 @@ macro_rules! adc {
                 /// Configure the channel for a specific step in the sequence.
                 ///
                 /// Automatically sets the sequence length to the farthes sequence
-                /// index that has been used so far. Use [`ADC::reset_sequence`] to
+                /// index that has been used so far. Use [`Adc::reset_sequence`] to
                 /// reset the sequence length.
                 pub fn configure_sequence<C>(
                     &mut self,
@@ -726,7 +779,7 @@ macro_rules! adc {
                 }
 
                 /// Private: length must be `actual sequence length - 1`, so not API-friendly.
-                /// Use [`ADC::reset_sequence`] and [`ADC::configure_sequence`] instead
+                /// Use [`Adc::reset_sequence`] and [`Adc::configure_sequence`] instead
                 #[inline]
                 fn set_sequence_length(&mut self, length: u8) {
                     self.adc.sqr1.modify(|_, w| unsafe { w.l().bits(length) });
