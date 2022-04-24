@@ -5,7 +5,7 @@ use crate::hal::digital::v2::{InputPin, OutputPin, StatefulOutputPin, Toggleable
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
-use crate::pac::{self, EXTI, SYSCFG};
+use crate::pac::{self, Interrupt, EXTI, SYSCFG};
 use crate::rcc::{Enable, AHB2, APB2};
 
 mod convert;
@@ -96,6 +96,7 @@ pub trait ExtiPin {
     fn disable_interrupt(&mut self, exti: &mut EXTI);
     fn clear_interrupt_pending_bit(&mut self);
     fn check_interrupt(&self) -> bool;
+    fn interrupt(&self) -> Interrupt;
 }
 
 impl<PIN> ExtiPin for PIN
@@ -187,6 +188,20 @@ where
     #[inline(always)]
     fn check_interrupt(&self) -> bool {
         unsafe { ((*EXTI::ptr()).pr1.read().bits() & (1 << self.pin_id())) != 0 }
+    }
+
+    /// Get the `Interrupt` for this pin.
+    fn interrupt(&self) -> Interrupt {
+        match self.pin_id() {
+            0 => Interrupt::EXTI0,
+            1 => Interrupt::EXTI1,
+            2 => Interrupt::EXTI2,
+            3 => Interrupt::EXTI3,
+            4 => Interrupt::EXTI4,
+            5..=9 => Interrupt::EXTI9_5,
+            10..=15 => Interrupt::EXTI15_10,
+            _ => unreachable!(),
+        }
     }
 }
 
