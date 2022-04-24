@@ -69,7 +69,7 @@ use fugit::RateExtU32;
 
 /// Hardware timers
 pub struct Timer<TIM> {
-    clocks: Clocks,
+    clock: Hertz,
     tim: TIM,
     timeout: Hertz,
 }
@@ -81,7 +81,7 @@ pub enum Event {
 }
 
 macro_rules! hal {
-    ($($TIM:ident: ($tim:ident, $frname:ident, $apb:ident, $width:ident),)+) => {
+    ($($TIM:ident: ($tim:ident, $frname:ident, $apb:ident, $width:ident, $timclk:ident),)+) => {
         $(
             impl Periodic for Timer<$TIM> {}
 
@@ -98,7 +98,7 @@ macro_rules! hal {
                     self.pause();
 
                     self.timeout = timeout.into();
-                    let ticks = self.clocks.pclk1() / self.timeout; // TODO: Check pclk that timer is on.
+                    let ticks = self.clock / self.timeout; // TODO check pclk that timer is on
                     let psc = u16((ticks - 1) / (1 << 16)).unwrap();
 
                     self.tim.psc.write(|w| unsafe { w.psc().bits(psc) });
@@ -150,8 +150,10 @@ macro_rules! hal {
                     <$TIM>::enable(apb);
                     <$TIM>::reset(apb);
 
+                    let clock = clocks.$timclk();
+
                     let mut timer = Timer {
-                        clocks,
+                        clock,
                         tim,
                         timeout: 0.Hz(),
                     };
@@ -173,9 +175,11 @@ macro_rules! hal {
                     <$TIM>::enable(apb);
                     <$TIM>::reset(apb);
 
-                    let psc = clocks.pclk1() / frequency - 1;
+                    let clock = clocks.$timclk();
 
-                    debug_assert!(clocks.pclk1() >= frequency);
+                    let psc = clock / frequency - 1;
+
+                    debug_assert!(clock >= frequency);
                     debug_assert!(frequency.raw() > 0);
                     debug_assert!(psc <= core::u16::MAX.into());
 
@@ -206,7 +210,7 @@ macro_rules! hal {
                     });
 
                     Timer {
-                        clocks,
+                        clock,
                         tim,
                         timeout: frequency,
                     }
@@ -277,11 +281,11 @@ macro_rules! hal {
 }
 
 hal! {
-    TIM2:  (tim2, free_running_tim2, APB1R1, u32),
-    TIM6:  (tim6, free_running_tim6, APB1R1, u16),
-    //TIM7:  (tim7, free_running_tim7, APB1R1, u16),
-    TIM15: (tim15, free_running_tim15, APB2, u16),
-    TIM16: (tim16, free_running_tim16, APB2, u16),
+    TIM2:  (tim2, free_running_tim2, APB1R1, u32, timclk1),
+    TIM6:  (tim6, free_running_tim6, APB1R1, u16, timclk1),
+    //TIM7:  (tim7, free_running_tim7, APB1R1, u16, timclk1),
+    TIM15: (tim15, free_running_tim15, APB2, u16, timclk2),
+    TIM16: (tim16, free_running_tim16, APB2, u16, timclk2),
 }
 
 #[cfg(any(
@@ -305,7 +309,7 @@ hal! {
     // feature = "stm32l4s9",
 ))]
 hal! {
-    TIM3:  (tim3, free_running_tim3, APB1R1, u16),
+    TIM3:  (tim3, free_running_tim3, APB1R1, u16, timclk1),
 }
 
 #[cfg(not(any(
@@ -316,7 +320,7 @@ hal! {
     feature = "stm32l462",
 )))]
 hal! {
-    TIM7:  (tim7, free_running_tim7, APB1R1, u16),
+    TIM7:  (tim7, free_running_tim7, APB1R1, u16, timclk1),
 }
 
 #[cfg(any(
@@ -336,7 +340,7 @@ hal! {
     // feature = "stm32l4s9",
 ))]
 hal! {
-    TIM4:  (tim4, free_running_tim4, APB1R1, u16),
-    TIM5:  (tim5, free_running_tim5, APB1R1, u32),
-    TIM17: (tim17, free_running_tim17, APB2, u16),
+    TIM4:  (tim4, free_running_tim4, APB1R1, u16, timclk1),
+    TIM5:  (tim5, free_running_tim5, APB1R1, u32, timclk1),
+    TIM17: (tim17, free_running_tim17, APB2, u16, timclk2),
 }

@@ -687,6 +687,16 @@ impl CFGR {
 
         let pclk2: u32 = hclk / u32(ppre2);
 
+        // RM0394 Rev 4, page 188
+        // 6.2.14 Timer clock
+        //
+        // The timer clock frequencies are automatically defined by hardware. There are two cases:
+        // 1. If the APB prescaler equals 1, the timer clock frequencies are set to the same
+        // frequency as that of the APB domain.
+        // 2. Otherwise, they are set to twice (×2) the frequency of the APB domain.
+        let timclk1 = if ppre1 == 1 { pclk1 } else { 2 * pclk1 };
+        let timclk2 = if ppre2 == 1 { pclk2 } else { 2 * pclk2 };
+
         assert!(pclk2 <= sysclk);
 
         // adjust flash wait states
@@ -806,6 +816,8 @@ impl CFGR {
             ppre1,
             ppre2,
             sysclk: sysclk.Hz(),
+            timclk1: timclk1.Hz(),
+            timclk2: timclk2.Hz(),
             pll_source: pllconf.map(|_| pll_source),
         }
     }
@@ -903,6 +915,8 @@ pub struct Clocks {
     ppre1: u8,
     ppre2: u8,
     sysclk: Hertz,
+    timclk1: Hertz,
+    timclk2: Hertz,
     pll_source: Option<PllSource>,
 }
 
@@ -961,5 +975,15 @@ impl Clocks {
     /// Returns the system (core) frequency
     pub fn sysclk(&self) -> Hertz {
         self.sysclk
+    }
+
+    /// Returns the frequency for timers on APB1
+    pub fn timclk1(&self) -> Hertz {
+        self.timclk1
+    }
+
+    /// Returns the frequency for timers on APB2
+    pub fn timclk2(&self) -> Hertz {
+        self.timclk2
     }
 }
