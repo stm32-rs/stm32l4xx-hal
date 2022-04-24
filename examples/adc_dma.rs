@@ -58,7 +58,7 @@ const APP: () = {
         let adc_common = AdcCommon::new(pac.ADC_COMMON, &mut rcc.ahb2);
         let mut adc = Adc::adc1(pac.ADC1, adc_common, &mut rcc.ccipr, &mut delay);
 
-        let mut temp_pin = adc.enable_temperature(&mut delay);
+        let mut temp_pin = adc.enable_temperature(&mut delay).unwrap();
 
         let dma1_channel = dma_channels.1;
 

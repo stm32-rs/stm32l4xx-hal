@@ -505,11 +505,13 @@ macro_rules! adc {
         // Use for calibration in constructor.
         #[inline]
         fn calibrate_internal(&mut self, delay: &mut impl DelayUs<u32>) {
-          let mut vref = self.enable_vref(delay);
+            let vref = self.enable_vref(delay);
 
-          self.calibrate(&mut vref);
+            self.calibrate(&mut Vref { _0: () });
 
-          self.disable_vref();
+            if let Some(vref) = vref {
+                self.disable_vref(vref);
+            }
         }
 
         /// Check if the internal voltage reference channel is enabled.
@@ -519,20 +521,29 @@ macro_rules! adc {
         }
 
         /// Enable the internal voltage reference channel.
+        ///
+        /// Returns `Some(Vref)` if the channel was enabled or `None` if it was already enabled before.
         #[inline]
-        pub fn enable_vref(&mut self, delay: &mut impl DelayUs<u32>) -> Vref {
+        pub fn enable_vref(&mut self, delay: &mut impl DelayUs<u32>) -> Option<Vref> {
+            if self.is_vref_enabled() {
+                return None
+            }
+
             self.adc_common.ccr.modify(|_, w| w.vrefen().set_bit());
 
             // "Table 24. Embedded internal voltage reference" states that it takes a maximum of 12 us
             // to stabilize the internal voltage reference, we wait a little more.
             delay.delay_us(15);
 
-            Vref { _0: () }
+            Some(Vref { _0: () })
         }
+
 
         /// Disable the internal voltage reference channel.
         #[inline]
-        pub fn disable_vref(&mut self) {
+        pub fn disable_vref(&mut self, vref: Vref) {
+            drop(vref);
+
             self.adc_common.ccr.modify(|_, w| w.vrefen().clear_bit());
         }
     };
@@ -551,17 +562,24 @@ macro_rules! adc {
         }
 
         /// Enable the battery voltage monitoring channel.
+        ///
+        ///
+        /// Returns `Some(Vbat)` if the channel was enabled or `None` if it was already enabled before.
         #[inline]
-        pub fn enable_vbat(&mut self) -> Vbat {
-            self.adc_common.ccr.modify(|_, w| w.ch18sel().set_bit());
+        pub fn enable_vbat(&mut self) -> Option<Vbat> {
+            if self.is_vbat_enabled() {
+                return None
+            }
 
-            Vbat { _0: () }
+            self.adc_common.ccr.modify(|_, w| w.ch18sel().set_bit());
+            Some(Vbat { _0: () })
         }
 
         /// Disable the battery voltage monitoring channel.
         #[inline]
-        pub fn disable_vbat(&mut self) {
-            let common = unsafe { &*<pac::$common_type>::ptr() };
+        pub fn disable_vbat(&mut self, vbat: Vbat) {
+            drop(vbat);
+
             self.adc_common.ccr.modify(|_, w| w.ch18sel().clear_bit());
         }
     };
@@ -577,7 +595,13 @@ macro_rules! adc {
         }
 
         /// Enable the internal temperature sensor channel.
-        pub fn enable_temperature(&mut self, delay: &mut impl DelayUs<u32>) -> Temperature {
+        ///
+        /// Returns `Some(Temperature)` if the channel was enabled or `None` if it was already enabled before.
+        pub fn enable_temperature(&mut self, delay: &mut impl DelayUs<u32>) -> Option<Temperature> {
+            if self.is_temperature_enabled() {
+                return None
+            }
+
             self.adc_common.ccr.modify(|_, w| w.ch17sel().set_bit());
 
             // FIXME: This note from the reference manual is currently not possible
@@ -591,11 +615,13 @@ macro_rules! adc {
             // 120us is used in the ST HAL code
             delay.delay_us(150);
 
-            Temperature { _0: () }
+            Some(Temperature { _0: () })
         }
 
         /// Disable the internal temperature sensor channel.
-        pub fn disable_temperature(&mut self) {
+        pub fn disable_temperature(&mut self, temperature: Temperature) {
+            drop(temperature);
+
             self.adc_common.ccr.modify(|_, w| w.ch17sel().clear_bit())
         }
     };
