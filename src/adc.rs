@@ -420,6 +420,7 @@ impl Resolution {
 ///
 /// The default setting is 2.5 ADC clock cycles.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[repr(u8)]
 pub enum SampleTime {
     /// 2.5 ADC clock cycles
     Cycles2_5 = 0b000,
@@ -457,23 +458,41 @@ pub trait Channel<T>: EmbeddedHalChannel<T, ID = u8> {
     fn set_sample_time(&mut self, adc: &mut T, sample_time: SampleTime);
 }
 
+macro_rules! impl_embedded_hal_channel {
+    ($pin:ty => ($adc_type:ident, $chan:expr)) => {
+        impl EmbeddedHalChannel<pac::$adc_type> for $pin {
+            type ID = u8;
+
+            fn channel() -> Self::ID {
+                $chan
+            }
+        }
+    };
+}
+
+macro_rules! impl_channel {
+    ($pin:ty => ($adc_type:ident, $smpr:ident, $smp:ident, $($min_sample_time:expr)?)) => {
+        impl Channel<pac::$adc_type> for $pin {
+            #[inline]
+            fn set_sample_time(&mut self, adc: &mut pac::$adc_type, sample_time: SampleTime) {
+                $(
+                    let sample_time = $min_sample_time;
+                )*
+
+                adc.$smpr.modify(|_, w| {
+                    // This is sound, as all `SampleTime` values are valid for this field.
+                    unsafe { w.$smp().bits(sample_time as u8) }
+                })
+            }
+        }
+    };
+}
+
 macro_rules! adc_pins {
-    ($($pin:ty => ($adc_type:ident, $chan:expr, $smpr:ident, $smp:ident),)+ $(,)?) => {
+    ($($pin:ty => ($adc_type:ident, $chan:expr, $smpr:ident, $smp:ident $(, $min_sample_time:expr)?),)+ $(,)?) => {
         $(
-            impl EmbeddedHalChannel<pac::$adc_type> for $pin {
-                type ID = u8;
-
-                fn channel() -> Self::ID { $chan }
-            }
-
-            impl Channel<pac::$adc_type> for $pin {
-                fn set_sample_time(&mut self, adc: &mut pac::$adc_type, sample_time: SampleTime) {
-                    adc.$smpr.modify(|_, w| {
-                        // This is sound, as all `SampleTime` values are valid for this field.
-                        unsafe { w.$smp().bits(sample_time as u8) }
-                    })
-                }
-            }
+            impl_embedded_hal_channel!($pin => ($adc_type, $chan));
+            impl_channel!($pin =>($adc_type, $smpr, $smp, $($min_sample_time)*));
         )*
     };
 }
@@ -484,33 +503,20 @@ macro_rules! adc {
         /// the result with the value stored at the factory. If the chip's VDDA is not stable, run
         /// this before each ADC conversion.
         #[inline]
-        pub fn calibrate(&mut self, vref: &mut Vref) {
-            let vref_cal = VrefCal::get().read();
-            let old_sample_time = self.sample_time;
+        pub fn calibrate(&mut self, delay: &mut impl DelayUs<u32>) {
+            let vref = self.enable_vref(delay);
 
-            // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
-            // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
-            // some headroom.
-            self.set_sample_time(SampleTime::Cycles640_5);
+            let vref_cal = VrefCal::get().read();
 
             // This can't actually fail, it's just in a result to satisfy hal trait
-            let vref_samp = self.read(vref).unwrap();
-
-            self.set_sample_time(old_sample_time);
+            let vref_samp = self.read(&mut Vref { _0: () }).unwrap();
 
             // Safety: DIV by 0 is possible if vref_samp is 0
             self.calibrated_vdda = (VDDA_CALIB_MV * u32::from(vref_cal)) / u32::from(vref_samp);
-        }
 
-        // Use for calibration in constructor.
-        #[inline]
-        fn calibrate_internal(&mut self, delay: &mut impl DelayUs<u32>) {
-            let vref = self.enable_vref(delay);
-
-            self.calibrate(&mut Vref { _0: () });
-
+            // Disable VREF again if it was disabled before.
             if let Some(vref) = vref {
-                self.disable_vref(vref);
+                self.disable_vref(vref)
             }
         }
 
@@ -538,7 +544,6 @@ macro_rules! adc {
             Some(Vref { _0: () })
         }
 
-
         /// Disable the internal voltage reference channel.
         #[inline]
         pub fn disable_vref(&mut self, vref: Vref) {
@@ -551,7 +556,7 @@ macro_rules! adc {
     // Provide a stub implementation for ADCs that do not have a means of sampling VREF.
     (@no_vref: $adc_type:ident => ($common_type:ident)) => {
         #[inline]
-        fn calibrate_internal(&mut self, _delay: &mut impl DelayUs<u32>) {}
+        fn calibrate(&mut self, _delay: &mut impl DelayUs<u32>) {}
     };
 
     (@vbat: $adc_type:ident => ($common_type:ident)) => {
@@ -703,7 +708,7 @@ macro_rules! adc {
                         calibrated_vdda: VDDA_CALIB_MV,
                     };
 
-                    s.calibrate_internal(delay);
+                    s.calibrate(delay);
 
                     s
                 }
@@ -873,7 +878,10 @@ macro_rules! adc {
 adc!(ADC1 => (adc1, ADC_COMMON));
 
 adc_pins!(
-    Vref              => (ADC1, 0,  smpr1, smp0),
+    // “Table 25. Embedded internal voltage reference” in the STM32L496xx datasheet states that
+    // the sample time needs to be at least 4 us. With 640.5 ADC cycles at 80 MHz, we have a
+    // minimum of 8 us, leaving some headroom.
+    Vref              => (ADC1, 0,  smpr1, smp0, SampleTime::Cycles640_5),
     gpio::PC0<Analog> => (ADC1, 1,  smpr1, smp1),
     gpio::PC1<Analog> => (ADC1, 2,  smpr1, smp2),
     gpio::PC2<Analog> => (ADC1, 3,  smpr1, smp3),
