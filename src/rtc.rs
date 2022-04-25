@@ -162,16 +162,16 @@ impl RtcConfig {
 #[repr(u8)]
 pub enum RtcCalibrationCyclePeriod {
     /// 8-second calibration period
-    Period8,
+    Seconds8,
     /// 16-second calibration period
-    Period16,
+    Seconds16,
     /// 32-second calibration period
-    Period32,
+    Seconds32,
 }
 
 impl Default for RtcCalibrationCyclePeriod {
     fn default() -> Self {
-        RtcCalibrationCyclePeriod::Period32
+        RtcCalibrationCyclePeriod::Seconds32
     }
 }
 
@@ -520,13 +520,13 @@ impl Rtc {
         self.write(false, |rtc| {
             rtc.calr.modify(|_, mut w| unsafe {
                 match period {
-                    RtcCalibrationCyclePeriod::Period8 => {
+                    RtcCalibrationCyclePeriod::Seconds8 => {
                         w.calw8().set_bit().calw16().clear_bit();
                     }
-                    RtcCalibrationCyclePeriod::Period16 => {
+                    RtcCalibrationCyclePeriod::Seconds16 => {
                         w.calw8().clear_bit().calw16().set_bit();
                     }
-                    RtcCalibrationCyclePeriod::Period32 => {
+                    RtcCalibrationCyclePeriod::Seconds32 => {
                         w.calw8().clear_bit().calw16().clear_bit();
                     }
                 }
