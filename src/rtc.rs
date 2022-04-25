@@ -518,7 +518,7 @@ impl Rtc {
         clock_drift = clock_drift / Self::RTC_CALR_RESOLUTION_PPM;
 
         self.write(false, |rtc| {
-            rtc.calr.modify(|_, mut w| unsafe {
+            rtc.calr.modify(|_, w| unsafe {
                 match period {
                     RtcCalibrationCyclePeriod::Seconds8 => {
                         w.calw8().set_bit().calw16().clear_bit();
