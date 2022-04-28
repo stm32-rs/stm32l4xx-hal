@@ -28,6 +28,7 @@ embedded-dma = "0.1"
 bxcan = ">=0.4, <0.7"
 fugit = "0.3.5"
 bitfield = "0.13.2"
+sdio-host = "0.7.0"
 
 [dependencies.rand_core]
 version = "0.6.2"
