@@ -690,43 +690,43 @@ pub mod config {
     #[derive(Debug, Clone, Copy)]
     pub enum ExternalTrigger {
         /// TIM1 compare channel 1
-        Tim_1_cc_1,
+        Tim1CC1,
         /// TIM1 compare channel 2
-        Tim_1_cc_2,
+        Tim1CC2,
         /// TIM1 compare channel 3
-        Tim_1_cc_3,
+        Tim1CC3,
         /// TIM2 compare channel 2
-        Tim_2_cc_2,
+        Tim2CC2,
         /// TIM3 trigger out
-        Tim_3_trgo,
+        Tim3TRGO,
         /// External interupt line 11
-        Exti_11,
+        Exti11,
         /// TIM1 trigger out
-        Tim_1_trgo,
+        Tim1TRGO,
         /// TIM1 trigger out 2
-        Tim_1_trgo2,
+        Tim1TRGO2,
         /// TIM2 trigger out
-        Tim_2_trgo,
+        Tim2TRGO,
         /// TIM6 trigger out
-        Tim_6_trgo,
+        Tim6TRGO,
         /// TIM15 trigger out
-        Tim_15_trgo,
+        Tim15TRGO,
     }
 
     impl From<ExternalTrigger> for u8 {
         fn from(et: ExternalTrigger) -> u8 {
             match et {
-                ExternalTrigger::Tim_1_cc_1 => 0b0000,  // EXT0
-                ExternalTrigger::Tim_1_cc_2 => 0b0001,  // EXT1
-                ExternalTrigger::Tim_1_cc_3 => 0b0010,  // EXT2
-                ExternalTrigger::Tim_2_cc_2 => 0b0011,  // EXT3
-                ExternalTrigger::Tim_3_trgo => 0b0100,  // EXT4
-                ExternalTrigger::Exti_11 => 0b0110,     // EXT6
-                ExternalTrigger::Tim_1_trgo => 0b1001,  // EXT9
-                ExternalTrigger::Tim_1_trgo2 => 0b1010, // EXT10
-                ExternalTrigger::Tim_2_trgo => 0b1011,  // EXT11
-                ExternalTrigger::Tim_6_trgo => 0b1101,  // EXT13
-                ExternalTrigger::Tim_15_trgo => 0b1110, // EXT14
+                ExternalTrigger::Tim1CC1 => 0b0000,   // EXT0
+                ExternalTrigger::Tim1CC2 => 0b0001,   // EXT1
+                ExternalTrigger::Tim1CC3 => 0b0010,   // EXT2
+                ExternalTrigger::Tim2CC2 => 0b0011,   // EXT3
+                ExternalTrigger::Tim3TRGO => 0b0100,  // EXT4
+                ExternalTrigger::Exti11 => 0b0110,    // EXT6
+                ExternalTrigger::Tim1TRGO => 0b1001,  // EXT9
+                ExternalTrigger::Tim1TRGO2 => 0b1010, // EXT10
+                ExternalTrigger::Tim2TRGO => 0b1011,  // EXT11
+                ExternalTrigger::Tim6TRGO => 0b1101,  // EXT13
+                ExternalTrigger::Tim15TRGO => 0b1110, // EXT14
             }
         }
     }
@@ -760,7 +760,7 @@ pub mod config {
 
     impl Default for ExternalTriggerConfig {
         fn default() -> Self {
-            Self(TriggerMode::Disabled, ExternalTrigger::Tim_1_cc_1)
+            Self(TriggerMode::Disabled, ExternalTrigger::Tim1CC1)
         }
     }
 }

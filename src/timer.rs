@@ -311,10 +311,11 @@ macro_rules! master_mode {
     ($($TIM:ident,)+) => {
         $(
             impl Timer<$TIM> {
+                // NOTE(allow) `w.mms().bits()` is unsafe for TIM6 but sage for TIM2 due to
+                // some SVD omission.
+                #[allow(unused_unsafe)]
                 pub fn master_mode(&mut self, mode: MasterMode) {
-                    unsafe {
-                        self.tim.cr2.modify(|_, w| w.mms().bits(mode.into()));
-                    }
+                    self.tim.cr2.modify(|_, w| unsafe { w.mms().bits(mode.into()) });
                 }
             }
         )+

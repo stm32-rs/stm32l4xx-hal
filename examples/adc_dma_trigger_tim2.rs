@@ -65,7 +65,7 @@ const APP: () = {
             &mut delay,
             config::ExternalTriggerConfig(
                 config::TriggerMode::RisingEdge,
-                config::ExternalTrigger::Tim_2_trgo,
+                config::ExternalTrigger::Tim2TRGO,
             ),
         );
 
