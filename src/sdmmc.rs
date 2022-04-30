@@ -1,4 +1,9 @@
-use core::{fmt, ops::ControlFlow};
+#![cfg(feature = "sdmmc")]
+
+use core::{
+    fmt,
+    ops::{ControlFlow, Deref, DerefMut},
+};
 
 use fugit::HertzU32 as Hertz;
 use sdio_host::{
@@ -12,7 +17,6 @@ use crate::{
     pac::{sdmmc1, SDMMC1},
     rcc::{Clocks, Enable, Reset, APB2},
 };
-
 pub trait PinClk {}
 pub trait PinCmd {}
 pub trait PinD0 {}
@@ -147,12 +151,8 @@ pub enum Error {
     WrongResponseSize,
 }
 
-macro_rules! try_datapath {
-    ($sta:ident) => {
-        if $sta.rxoverr().bit() {
-            return Err(Error::RxOverFlow);
-        }
-
+macro_rules! datapath_err {
+    ($sta:expr) => {
         if $sta.dcrcfail().bit() {
             return Err(Error::DataCrcFail);
         }
@@ -160,6 +160,26 @@ macro_rules! try_datapath {
         if $sta.dtimeout().bit() {
             return Err(Error::Timeout);
         }
+    };
+}
+
+macro_rules! datapath_rx_err {
+    ($sta:expr) => {
+        if $sta.rxoverr().bit() {
+            return Err(Error::RxOverFlow);
+        }
+
+        datapath_err!($sta)
+    };
+}
+
+macro_rules! datapath_tx_err {
+    ($sta:expr) => {
+        if $sta.rxoverr().bit() {
+            return Err(Error::RxOverFlow);
+        }
+
+        datapath_err!($sta)
     };
 }
 
@@ -385,45 +405,22 @@ impl Sdmmc {
         Ok(())
     }
 
-    pub fn read_block(&mut self, addr: u32, buf: &mut [u8; 512]) -> Result<(), Error> {
-        let card = self.card()?;
-
-        let addr = match card.capacity() {
-            CardCapacity::StandardCapacity => addr * 512,
-            _ => addr,
-        };
-
-        self.cmd(common_cmd::set_block_length(512))?;
-
-        self.start_datapath_transfer(512, 9, Dir::CardToHost);
-        self.cmd(common_cmd::read_single_block(addr))?;
-
-        let mut i = 0;
-        loop {
-            match self.read_fifo_hf(|bits| {
-                buf[i..(i + 4)].copy_from_slice(&bits.to_be_bytes());
-                i += 4;
-            })? {
-                ControlFlow::Break(()) => {
-                    if i == buf.len() {
-                        return Ok(());
-                    } else {
-                        return Err(Error::WrongResponseSize);
-                    }
-                }
-                ControlFlow::Continue(()) => continue,
-            }
-        }
+    #[inline]
+    pub fn read_block<B: DerefMut<Target = [u8; 512]>>(
+        &mut self,
+        addr: u32,
+        block: B,
+    ) -> Result<(), Error> {
+        self.read_blocks(addr, &mut [block])
     }
 
     #[inline]
-    pub fn read_blocks(&mut self, addr: u32, buf: &mut [u8]) -> Result<(), Error> {
+    pub fn read_blocks<B: DerefMut<Target = [u8; 512]>>(
+        &mut self,
+        addr: u32,
+        blocks: &mut [B],
+    ) -> Result<(), Error> {
         let card = self.card()?;
-
-        assert!(
-            buf.len() % 512 == 0,
-            "Buffer length must be a multiple of 512."
-        );
 
         let addr = match card.capacity() {
             CardCapacity::StandardCapacity => addr * 512,
@@ -432,19 +429,28 @@ impl Sdmmc {
 
         self.cmd(common_cmd::set_block_length(512))?;
 
-        self.start_datapath_transfer(buf.len() as u32, 9, Dir::CardToHost);
-        self.cmd(common_cmd::read_multiple_blocks(addr))?;
+        let bytes = blocks.len() * 512;
+        self.start_datapath_transfer(bytes as u32, 9, Dir::CardToHost);
+
+        match blocks.len() {
+            0 => return Ok(()),
+            1 => self.cmd(common_cmd::read_single_block(addr))?,
+            _ => self.cmd(common_cmd::read_multiple_blocks(addr))?,
+        }
 
         let mut i = 0;
         loop {
             match self.read_fifo_hf(|bits| {
-                buf[i..(i + 4)].copy_from_slice(&bits.to_be_bytes());
+                let start = i % 512;
+                blocks[i / 512][start..(start + 4)].copy_from_slice(&bits.to_be_bytes());
                 i += 4;
             })? {
                 ControlFlow::Break(()) => {
-                    self.cmd(common_cmd::stop_transmission())?;
+                    if blocks.len() > 1 {
+                        self.cmd(common_cmd::stop_transmission())?;
+                    }
 
-                    if i == buf.len() {
+                    if i == bytes {
                         return Ok(());
                     } else {
                         return Err(Error::WrongResponseSize);
@@ -455,21 +461,89 @@ impl Sdmmc {
         }
     }
 
-    pub fn write_block(&mut self, addr: u32, block: &[u8; 512]) -> Result<(), Error> {
-        self.card()?;
+    pub fn write_block<B: Deref<Target = [u8; 512]>>(
+        &mut self,
+        addr: u32,
+        block: B,
+    ) -> Result<(), Error> {
+        self.write_blocks(addr, &[block])
+    }
 
-        todo!()
+    fn write_blocks<B: Deref<Target = [u8; 512]>>(
+        &mut self,
+        addr: u32,
+        blocks: &[B],
+    ) -> Result<(), Error> {
+        let card = self.card()?;
+
+        let addr = match card.capacity() {
+            CardCapacity::StandardCapacity => addr * 512,
+            _ => addr,
+        };
+
+        let bytes = blocks.len() * 512;
+        self.cmd(common_cmd::set_block_length(512))?;
+        self.start_datapath_transfer(bytes as u32, 9, Dir::HostToCard);
+
+        match blocks.len() {
+            0 => return Ok(()),
+            1 => self.cmd(common_cmd::write_single_block(addr))?,
+            _ => self.cmd(common_cmd::write_multiple_blocks(addr))?,
+        }
+
+        let mut i = 0;
+        loop {
+            let sta = self.sdmmc.sta.read();
+
+            datapath_tx_err!(sta);
+
+            if i == bytes {
+                // If we sent all data, wait for transfer to end.
+                if sta.dbckend().bit() {
+                    if blocks.len() > 1 {
+                        self.cmd(common_cmd::stop_transmission())?;
+                    }
+
+                    break;
+                }
+            } else {
+                // If the FIFO is half-empty, send some data.
+                if sta.txfifohe().bit() {
+                    for _ in 0..8 {
+                        let block = &blocks[i / 512];
+                        let start = i % 512;
+
+                        let bits = u32::from_be_bytes([
+                            block[start],
+                            block[start + 1],
+                            block[start + 2],
+                            block[start + 3],
+                        ]);
+                        self.sdmmc.fifo.write(|w| unsafe { w.bits(bits.to_be()) });
+                        i += 4;
+                    }
+                }
+            }
+        }
+
+        let timeout: u32 = 0xffff_ffff;
+        for _ in 0..timeout {
+            if self.card_ready()? {
+                return Ok(());
+            }
+        }
+
+        Err(Error::SoftwareTimeout)
     }
 
     /// Read eight 32-bit values from a half-full FIFO.
     #[inline]
     fn read_fifo_hf(&mut self, mut f: impl FnMut(u32) -> ()) -> Result<ControlFlow<(), ()>, Error> {
-        // TODO: Better timeout value.
         let timeout: u32 = 0xffff_ffff;
         for _ in 0..timeout {
             let sta = self.sdmmc.sta.read();
 
-            try_datapath!(sta);
+            datapath_rx_err!(sta);
 
             if sta.dbckend().bit() {
                 return Ok(ControlFlow::Break(()));
@@ -556,26 +630,31 @@ impl Sdmmc {
 
         let mut scr = [0; 2];
 
-        'outer: for n in scr.iter_mut().rev() {
-            loop {
-                let sta = self.sdmmc.sta.read();
+        let mut i = scr.len();
 
-                try_datapath!(sta);
+        let timeout: u32 = 0xffff_ffff;
+        for _ in 0..timeout {
+            let sta = self.sdmmc.sta.read();
 
-                if sta.dataend().bit() {
-                    break 'outer;
+            datapath_rx_err!(sta);
+
+            if i == 0 {
+                if sta.dbckend().bit() {
+                    return Ok(SCR::from(scr));
                 }
-
+            } else {
                 if sta.rxdavl().bit_is_set() {
-                    let bits = u32::from_be(self.sdmmc.fifo.read().bits());
-                    *n = bits.to_le();
+                    i -= 1;
 
-                    continue 'outer;
+                    let bits = u32::from_be(self.sdmmc.fifo.read().bits());
+                    scr[i] = bits.to_le();
+
+                    continue;
                 }
             }
         }
 
-        return Ok(SCR::from(scr));
+        return Err(Error::SoftwareTimeout);
     }
 
     pub fn power_card(&mut self, on: bool) {
@@ -719,6 +798,7 @@ pub struct SdmmcBlockDevice<SDMMC> {
     sdmmc: core::cell::RefCell<SDMMC>,
 }
 
+#[cfg(feature = "embedded-sdmmc")]
 impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc> {
     type Error = Error;
 
@@ -728,15 +808,8 @@ impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc> {
         start_block_idx: embedded_sdmmc::BlockIdx,
         _reason: &str,
     ) -> Result<(), Self::Error> {
-        let start = start_block_idx.0;
         let mut sdmmc = self.sdmmc.borrow_mut();
-        for block_idx in start..(start + blocks.len() as u32) {
-            sdmmc.read_block(
-                block_idx,
-                &mut blocks[(block_idx - start) as usize].contents,
-            )?;
-        }
-        Ok(())
+        sdmmc.read_blocks(start_block_idx.0, blocks)
     }
 
     fn write(
@@ -746,10 +819,7 @@ impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc> {
     ) -> Result<(), Self::Error> {
         let start = start_block_idx.0;
         let mut sdmmc = self.sdmmc.borrow_mut();
-        for block_idx in start..(start + blocks.len() as u32) {
-            sdmmc.write_block(block_idx, &blocks[(block_idx - start) as usize].contents)?;
-        }
-        Ok(())
+        sdmmc.write_blocks(start_block_idx.0, blocks)
     }
 
     fn num_blocks(&self) -> Result<embedded_sdmmc::BlockCount, Self::Error> {
