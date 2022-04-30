@@ -106,7 +106,12 @@ macro_rules! pins {
     }
 }
 
-#[cfg(any(feature = "stm32l496",))]
+#[cfg(any(
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6"
+))]
 pins! {
   CLK: [gpio::PC12<Alternate<PushPull, 12>>]
   CMD: [gpio::PD2<Alternate<PushPull, 12>>]
