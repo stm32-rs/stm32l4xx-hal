@@ -149,7 +149,7 @@ pub enum ClockFreq {
 }
 
 /// Error during SDMMC operations.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Error {
     /// No card detected.
     NoCard,
@@ -344,7 +344,7 @@ impl Sdmmc {
 
         let check_pattern = 0xaa;
         self.cmd(sd_cmd::send_if_cond(1, check_pattern))?;
-        let cic = CIC::from(self.sdmmc.resp1.read().bits());
+        let cic = CIC::from(self.sdmmc.resp1.read().bits().to_le());
 
         let card_version = if cic.pattern() == 0xAA {
             SdCardVersion::V2
@@ -376,7 +376,7 @@ impl Sdmmc {
                 Err(err) => return Err(err),
             }
 
-            let ocr = OCR::from(self.sdmmc.resp1.read().bits());
+            let ocr = OCR::from(self.sdmmc.resp1.read().bits().to_le());
             if !ocr.is_busy() {
                 // Power up done
                 break ocr;
@@ -385,21 +385,21 @@ impl Sdmmc {
 
         self.cmd(common_cmd::all_send_cid())?;
         card.cid = CID::from([
-            self.sdmmc.resp1.read().bits(),
-            self.sdmmc.resp2.read().bits(),
-            self.sdmmc.resp3.read().bits(),
-            self.sdmmc.resp4.read().bits(),
+          self.sdmmc.resp4.read().bits().to_le(),
+          self.sdmmc.resp3.read().bits().to_le(),
+          self.sdmmc.resp2.read().bits().to_le(),
+          self.sdmmc.resp1.read().bits().to_le(),
         ]);
 
         self.cmd(sd_cmd::send_relative_address())?;
-        card.rca = RCA::from(self.sdmmc.resp1.read().bits());
+        card.rca = RCA::from(self.sdmmc.resp1.read().bits().to_le());
 
         self.cmd(common_cmd::send_csd(card.rca.address()))?;
         card.csd = CSD::from([
-            self.sdmmc.resp1.read().bits(),
-            self.sdmmc.resp2.read().bits(),
-            self.sdmmc.resp3.read().bits(),
-            self.sdmmc.resp4.read().bits(),
+          self.sdmmc.resp4.read().bits().to_le(),
+          self.sdmmc.resp3.read().bits().to_le(),
+          self.sdmmc.resp2.read().bits().to_le(),
+          self.sdmmc.resp1.read().bits().to_le(),
         ]);
 
         self.select_card(card.rca.address())?;
@@ -668,8 +668,7 @@ impl Sdmmc {
 
         self.cmd(common_cmd::card_status(card.address(), false))?;
 
-        let r1 = self.sdmmc.resp1.read().bits();
-        Ok(CardStatus::from(r1))
+        Ok(CardStatus::from(self.sdmmc.resp1.read().bits().to_le()))
     }
 
     /// Check if card is done writing/reading and back in transfer state.
