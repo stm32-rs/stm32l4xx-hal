@@ -167,38 +167,73 @@ pub enum Error {
     TxUnderrun,
 }
 
-macro_rules! datapath_err {
-    ($sta:expr) => {
+macro_rules! sta_rx_tx_err {
+    ($sta:expr, $sdmmc:expr) => {
         if $sta.dcrcfail().bit() {
+            clear_static_data_flags(&$sdmmc.icr);
+
             return Err(Error::DataCrc);
         }
 
         if $sta.dtimeout().bit() {
+            clear_static_data_flags(&$sdmmc.icr);
+
             return Err(Error::Timeout);
         }
     };
 }
 
-macro_rules! datapath_rx_err {
-    ($sta:expr) => {
-        if $sta.rxoverr().bit() {
+macro_rules! sta_rx {
+    ($sdmmc:expr) => {{
+        let sta = $sdmmc.sta.read();
+
+        if sta.rxoverr().bit() {
+            clear_static_data_flags(&$sdmmc.icr);
+
             return Err(Error::RxOverrun);
         }
 
-        datapath_err!($sta)
-    };
+        sta_rx_tx_err!(sta, $sdmmc);
+
+        sta
+    }};
 }
 
-macro_rules! datapath_tx_err {
-    ($sta:expr) => {
-        if $sta.rxoverr().bit() {
-            return Err(Error::RxOverrun);
+macro_rules! sta_tx {
+    ($sdmmc:expr) => {{
+        let sta = $sdmmc.sta.read();
+
+        if sta.txunderr().bit() {
+            clear_static_data_flags(&$sdmmc.icr);
+
+            return Err(Error::TxUnderrun);
         }
 
-        datapath_err!($sta)
-    };
+        sta_rx_tx_err!(sta, $sdmmc);
+
+        sta
+    }};
 }
 
+#[inline]
+fn clear_static_data_flags(icr: &sdmmc1::ICR) {
+    icr.modify(|_, w| {
+        w.dcrcfailc()
+            .set_bit()
+            .dtimeoutc()
+            .set_bit()
+            .txunderrc()
+            .set_bit()
+            .rxoverrc()
+            .set_bit()
+            .dataendc()
+            .set_bit()
+            .dbckendc()
+            .set_bit()
+    })
+}
+
+#[inline]
 fn clear_all_interrupts(icr: &sdmmc1::ICR) {
     icr.modify(|_, w| {
         w.ccrcfailc()
@@ -440,40 +475,64 @@ impl Sdmmc {
 
         self.cmd(common_cmd::set_block_length(512))?;
 
-        let bytes = blocks.len() * 512;
-        self.start_datapath_transfer(bytes as u32, 9, Dir::CardToHost);
+        let block_count = blocks.len();
+        let byte_count = block_count * 512;
+        self.start_datapath_transfer(byte_count as u32, 9, Dir::CardToHost);
 
-        match blocks.len() {
+        match block_count {
             0 => return Ok(()),
             1 => self.cmd(common_cmd::read_single_block(addr))?,
             _ => self.cmd(common_cmd::read_multiple_blocks(addr))?,
         }
 
+        let mut current_block = &mut blocks[0];
+
         let mut i = 0;
         let timeout: u32 = 0xffff_ffff;
         for _ in 0..timeout {
-            let sta = self.sdmmc.sta.read();
+            let sta = sta_rx!(self.sdmmc);
 
-            datapath_rx_err!(sta);
-
-            if i == bytes {
+            // If we received all data, wait for transfer to end.
+            if i == byte_count {
                 if sta.dbckend().bit() {
-                    if blocks.len() > 1 {
+                    clear_static_data_flags(&self.sdmmc.icr);
+
+                    if block_count > 1 {
                         self.cmd(common_cmd::stop_transmission())?;
                     }
 
                     return Ok(());
                 }
-            } else if sta.rxfifohf().bit() {
-                for _ in 0..8 {
-                    let bits = u32::from_be(self.sdmmc.fifo.read().bits());
-                    let start = i % 512;
-                    blocks[i / 512][start..(start + 4)].copy_from_slice(&bits.to_be_bytes());
-                    i += 4;
+            }
+            // If the FIFO is half-full, receive some data.
+            else if sta.rxfifohf().bit() {
+                let offset = i % 512;
+
+                // SAFETY: We always read exactly 32 bytes from the FIFO into
+                // a 512-byte block. We move to the next block if needed before
+                // the next iteration.
+                //
+                // NOTE: This is needed since checked access takes to long and
+                // results in a FIFO overrun error on higher clock speeds.
+                unsafe {
+                    for j in 0..8 {
+                        let current_block = current_block.as_mut_ptr() as *mut [u8; 4];
+                        let current_bytes = &mut *current_block.add(offset / 4 + j);
+
+                        let bytes = u32::from_be(self.sdmmc.fifo.read().bits()).to_be_bytes();
+                        *current_bytes = bytes;
+                    }
+                }
+
+                i += 4 * 8;
+
+                if i % 512 == 0 && i != byte_count {
+                    current_block = &mut blocks[i / 512];
                 }
             }
         }
 
+        clear_static_data_flags(&self.sdmmc.icr);
         Err(Error::SoftwareTimeout)
     }
 
@@ -499,9 +558,9 @@ impl Sdmmc {
             _ => addr,
         };
 
-        let bytes = blocks.len() * 512;
+        let byte_count = blocks.len() * 512;
         self.cmd(common_cmd::set_block_length(512))?;
-        self.start_datapath_transfer(bytes as u32, 9, Dir::HostToCard);
+        self.start_datapath_transfer(byte_count as u32, 9, Dir::HostToCard);
 
         match blocks.len() {
             0 => return Ok(()),
@@ -509,40 +568,53 @@ impl Sdmmc {
             _ => self.cmd(common_cmd::write_multiple_blocks(addr))?,
         }
 
+        let mut current_block = &blocks[0];
+
         let mut i = 0;
         loop {
-            let sta = self.sdmmc.sta.read();
+            let sta = sta_tx!(self.sdmmc);
 
-            datapath_tx_err!(sta);
-
-            if i == bytes {
-                // If we sent all data, wait for transfer to end.
+            // If we sent all data, wait for transfer to end.
+            if i == byte_count {
                 if sta.dbckend().bit() {
+                    clear_static_data_flags(&self.sdmmc.icr);
+
                     if blocks.len() > 1 {
                         self.cmd(common_cmd::stop_transmission())?;
                     }
 
                     break;
                 }
-            } else {
-                // If the FIFO is half-empty, send some data.
-                if sta.txfifohe().bit() {
-                    for _ in 0..8 {
-                        let block = &blocks[i / 512];
-                        let start = i % 512;
+            }
+            // If the FIFO is half-empty, send some data.
+            else if sta.txfifohe().bit() {
+                let offset = i % 512;
 
-                        let bits = u32::from_be_bytes([
-                            block[start],
-                            block[start + 1],
-                            block[start + 2],
-                            block[start + 3],
-                        ]);
-                        self.sdmmc.fifo.write(|w| unsafe { w.bits(bits.to_be()) });
-                        i += 4;
+                // SAFETY: We always write exactly 32 bytes into the FIFO from
+                // a 512-byte block. We move to the next block if needed before
+                // the next iteration.
+                //
+                // NOTE: This is needed since checked access takes to long and
+                // results in a FIFO underrun error on higher clock speeds.
+                unsafe {
+                    for j in 0..8 {
+                        let current_block = current_block.as_ptr() as *const [u8; 4];
+                        let current_bytes = &*current_block.add(offset / 4 + j);
+
+                        let bits = u32::from_be_bytes(*current_bytes).to_be();
+                        self.sdmmc.fifo.write(|w| w.bits(bits));
                     }
+                }
+
+                i += 4 * 8;
+
+                if i % 512 == 0 && i != byte_count {
+                    current_block = &blocks[i / 512];
                 }
             }
         }
+
+        clear_static_data_flags(&self.sdmmc.icr);
 
         let timeout: u32 = 0xffff_ffff;
         for _ in 0..timeout {
@@ -631,23 +703,22 @@ impl Sdmmc {
 
         let timeout: u32 = 0xffff_ffff;
         for _ in 0..timeout {
-            let sta = self.sdmmc.sta.read();
+            let sta = sta_rx!(self.sdmmc);
 
-            datapath_rx_err!(sta);
-
+            // If we received all data, wait for transfer to end.
             if i == 0 {
                 if sta.dbckend().bit() {
+                    clear_static_data_flags(&self.sdmmc.icr);
+
                     return Ok(SCR::from(scr));
                 }
-            } else {
-                if sta.rxdavl().bit_is_set() {
-                    i -= 1;
+            } else if sta.rxdavl().bit_is_set() {
+                i -= 1;
 
-                    let bits = u32::from_be(self.sdmmc.fifo.read().bits());
-                    scr[i] = bits.to_le();
+                let bits = u32::from_be(self.sdmmc.fifo.read().bits());
+                scr[i] = bits.to_le();
 
-                    continue;
-                }
+                continue;
             }
         }
 
@@ -688,12 +759,13 @@ impl Sdmmc {
         let mut i = sd_status.len();
         let timeout: u32 = 0xffff_ffff;
         for _ in 0..timeout {
-            let sta = self.sdmmc.sta.read();
+            let sta = sta_rx!(self.sdmmc);
 
-            datapath_rx_err!(sta);
-
+            // If we received all data, wait for transfer to end.
             if i == 0 {
                 if sta.dbckend().bit() {
+                    clear_static_data_flags(&self.sdmmc.icr);
+
                     return Ok(SDStatus::from(sd_status));
                 }
             } else if sta.rxfifohf().bit() {
@@ -764,29 +836,33 @@ impl Sdmmc {
         for _ in 0..timeout {
             let sta = self.sdmmc.sta.read();
 
+            // Command transfer still in progress.
             if sta.cmdact().bit_is_set() {
-                // Command transfer still in progress.
                 continue;
             }
 
-            if cmd.response_len() == ResponseLen::Zero {
-                if sta.ctimeout().bit() {
-                    return Err(Error::Timeout);
-                }
+            if sta.ctimeout().bit() {
+                self.sdmmc.icr.modify(|_, w| w.ctimeoutc().set_bit());
 
+                return Err(Error::Timeout);
+            }
+
+            if cmd.response_len() == ResponseLen::Zero {
                 if sta.cmdsent().bit() {
+                    self.sdmmc.icr.modify(|_, w| w.cmdsentc().set_bit());
+
                     return Ok(());
                 }
             } else {
-                if sta.ctimeout().bit() {
-                    return Err(Error::Timeout);
-                }
-
                 if sta.ccrcfail().bit() {
+                    self.sdmmc.icr.modify(|_, w| w.ccrcfailc().set_bit());
+
                     return Err(Error::CommandCrc);
                 }
 
                 if sta.cmdrend().bit() {
+                    self.sdmmc.icr.modify(|_, w| w.cmdrendc().set_bit());
+
                     return Ok(());
                 }
             }
