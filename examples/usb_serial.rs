@@ -6,6 +6,7 @@
 extern crate panic_semihosting;
 
 use cortex_m_rt::entry;
+use stm32l4xx_hal::rcc::Clk48Source;
 use stm32l4xx_hal::usb::{Peripheral, UsbBus};
 use stm32l4xx_hal::{prelude::*, stm32};
 use usb_device::prelude::*;
@@ -43,7 +44,28 @@ fn main() -> ! {
 
     let _clocks = rcc
         .cfgr
-        .hsi48(true)
+        // Needed for USB.
+        .clk48_source({
+            #[cfg(any(
+                feature = "stm32l476",
+                feature = "stm32l486",
+                feature = "stm32l496",
+                feature = "stm32l4a6"
+            ))]
+            {
+                Clk48Source::Hsi48
+            }
+
+            #[cfg(not(any(
+                feature = "stm32l476",
+                feature = "stm32l486",
+                feature = "stm32l496",
+                feature = "stm32l4a6"
+            )))]
+            {
+                Clk48Source::Msi
+            }
+        })
         .sysclk(80.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 

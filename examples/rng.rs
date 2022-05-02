@@ -40,16 +40,25 @@ fn main() -> ! {
 
     let clocks = rcc
         .cfgr
-        // needed for RNG
+        // Needed for RNG.
         .clk48_source({
-            if cfg!(any(
+            #[cfg(any(
                 feature = "stm32l476",
                 feature = "stm32l486",
                 feature = "stm32l496",
                 feature = "stm32l4a6"
-            )) {
+            ))]
+            {
                 Clk48Source::Hsi48
-            } else {
+            }
+
+            #[cfg(not(any(
+                feature = "stm32l476",
+                feature = "stm32l486",
+                feature = "stm32l496",
+                feature = "stm32l4a6"
+            )))]
+            {
                 Clk48Source::Msi
             }
         })
