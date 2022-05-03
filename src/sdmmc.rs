@@ -928,6 +928,8 @@ pub struct FatFsCursor<SDMMC> {
     sdmmc: SDMMC,
     pos: u64,
     partition_info: Option<(u32, u32)>,
+    block: [u8; 512],
+    current_block: Option<u32>,
 }
 
 impl FatFsCursor<Sdmmc> {
@@ -936,6 +938,8 @@ impl FatFsCursor<Sdmmc> {
             sdmmc,
             pos: 0,
             partition_info: None,
+            block: [0; 512],
+            current_block: None,
         }
     }
 
@@ -982,9 +986,6 @@ impl<SDMMC> IoBase for FatFsCursor<SDMMC> {
 #[cfg(feature = "fatfs")]
 impl Seek for FatFsCursor<Sdmmc> {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
-        let itm = unsafe { &mut *cortex_m::peripheral::ITM::PTR };
-        // cortex_m::itm::write_fmt(&mut itm.stim[0], format_args!("Seek from {} to {:?}\n", self.pos, pos));
-
         // TODO: Use `checked_add_signed` when stable.
         let new_pos = match pos {
             SeekFrom::Start(offset) => offset as i128,
@@ -1019,9 +1020,14 @@ impl Read for FatFsCursor<Sdmmc> {
         let offset = (pos % 512) as usize;
         let len = buf.len().min(512 - offset);
 
-        let mut block = [0; 512];
-        self.sdmmc.read_block(addr, &mut block)?;
-        buf[0..len].copy_from_slice(&block[offset..(offset + len)]);
+        // Only read the block if we have not already read it.
+        if self.current_block != Some(addr) {
+            self.sdmmc.read_block(addr, &mut self.block)?;
+            self.current_block = Some(addr);
+        }
+
+        buf[0..len].copy_from_slice(&self.block[offset..(offset + len)]);
+
         self.pos += len as u64;
 
         Ok(len)
@@ -1046,10 +1052,16 @@ impl Write for FatFsCursor<Sdmmc> {
         let offset = (pos % 512) as usize;
         let len = buf.len().min(512 - offset);
 
-        let mut block = [0; 512];
-        self.sdmmc.read_block(addr, &mut block)?;
-        block[offset..(offset + len)].copy_from_slice(&buf[0..len]);
-        self.sdmmc.write_block(addr, &block)?;
+        // Only read the block if we have not already read it.
+        if self.current_block != Some(addr) {
+            self.current_block = None;
+            self.sdmmc.read_block(addr, &mut self.block)?;
+        }
+
+        self.block[offset..(offset + len)].copy_from_slice(&buf[0..len]);
+        self.sdmmc.write_block(addr, &self.block)?;
+        self.current_block = Some(addr);
+
         self.pos += len as u64;
 
         Ok(len)
