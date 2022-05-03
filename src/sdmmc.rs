@@ -216,6 +216,20 @@ macro_rules! sta_tx {
 }
 
 #[inline]
+fn clear_static_command_flags(icr: &sdmmc1::ICR) {
+    icr.modify(|_, w| {
+        w.ccrcfailc()
+            .set_bit()
+            .ctimeoutc()
+            .set_bit()
+            .cmdrendc()
+            .set_bit()
+            .cmdsentc()
+            .set_bit()
+    })
+}
+
+#[inline]
 fn clear_static_data_flags(icr: &sdmmc1::ICR) {
     icr.modify(|_, w| {
         w.dcrcfailc()
@@ -235,34 +249,10 @@ fn clear_static_data_flags(icr: &sdmmc1::ICR) {
 
 #[inline]
 fn clear_all_interrupts(icr: &sdmmc1::ICR) {
-    icr.modify(|_, w| {
-        w.ccrcfailc()
-            .set_bit()
-            .ctimeoutc()
-            .set_bit()
-            .ceataendc()
-            .set_bit()
-            .cmdrendc()
-            .set_bit()
-            .cmdsentc()
-            .set_bit()
-            .dataendc()
-            .set_bit()
-            .dbckendc()
-            .set_bit()
-            .dcrcfailc()
-            .set_bit()
-            .dtimeoutc()
-            .set_bit()
-            .sdioitc()
-            .set_bit()
-            .stbiterrc()
-            .set_bit()
-            .rxoverrc()
-            .set_bit()
-            .txunderrc()
-            .set_bit()
-    });
+    clear_static_command_flags(icr);
+    clear_static_data_flags(icr);
+
+    icr.modify(|_, w| w.sdioitc().set_bit());
 }
 
 /// An initialized SD card.
@@ -772,7 +762,9 @@ impl Sdmmc {
                 for _ in 0..8 {
                     i -= 1;
                     let bits = u32::from_be(self.sdmmc.fifo.read().bits());
-                    sd_status[i] = bits.to_le();
+                    unsafe {
+                        *sd_status.get_unchecked_mut(i) = bits.to_le();
+                    }
                 }
             }
         }
@@ -808,9 +800,6 @@ impl Sdmmc {
     fn cmd<R: common_cmd::Resp>(&self, cmd: Cmd<R>) -> Result<(), Error> {
         while self.sdmmc.sta.read().cmdact().bit_is_set() {}
 
-        // Clear the interrupts before we start
-        clear_all_interrupts(&self.sdmmc.icr);
-
         self.sdmmc
             .arg
             .write(|w| unsafe { w.cmdarg().bits(cmd.arg) });
@@ -842,31 +831,33 @@ impl Sdmmc {
             }
 
             if sta.ctimeout().bit() {
-                self.sdmmc.icr.modify(|_, w| w.ctimeoutc().set_bit());
+                clear_static_command_flags(&self.sdmmc.icr);
 
                 return Err(Error::Timeout);
             }
 
             if cmd.response_len() == ResponseLen::Zero {
                 if sta.cmdsent().bit() {
-                    self.sdmmc.icr.modify(|_, w| w.cmdsentc().set_bit());
+                    clear_static_command_flags(&self.sdmmc.icr);
 
                     return Ok(());
                 }
             } else {
                 if sta.ccrcfail().bit() {
-                    self.sdmmc.icr.modify(|_, w| w.ccrcfailc().set_bit());
+                    clear_static_command_flags(&self.sdmmc.icr);
 
                     return Err(Error::CommandCrc);
                 }
 
                 if sta.cmdrend().bit() {
-                    self.sdmmc.icr.modify(|_, w| w.cmdrendc().set_bit());
+                    clear_static_command_flags(&self.sdmmc.icr);
 
                     return Ok(());
                 }
             }
         }
+
+        clear_static_command_flags(&self.sdmmc.icr);
 
         Err(Error::SoftwareTimeout)
     }
