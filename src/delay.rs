@@ -106,7 +106,7 @@ impl DelayCM {
     ///
     /// # Safety
     /// Sysclk must be the same as the actual clock frequency of the chip
-    pub unsafe fn new_unchecked(sysclk: Hertz) -> Self {
+    pub const unsafe fn new_unchecked(sysclk: Hertz) -> Self {
         DelayCM { sysclk }
     }
 }
