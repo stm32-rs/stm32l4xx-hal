@@ -165,6 +165,24 @@ pub enum Error {
     RxOverrun,
     /// Transmit FIFO underrun.
     TxUnderrun,
+    /// Invalid input.
+    InvalidInput,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoCard => "no card",
+            Self::CommandCrc => "command CRC check failed",
+            Self::DataCrc => "data block CRC check failed",
+            Self::Timeout => "timeout",
+            Self::SoftwareTimeout => "software timeout",
+            Self::RxOverrun => "receive FIFO overrun",
+            Self::TxUnderrun => "transmit FIFO underrun",
+            Self::InvalidInput => "invalid input",
+        }
+        .fmt(f)
+    }
 }
 
 macro_rules! sta_rx_tx_err {
@@ -932,8 +950,8 @@ pub struct FatFsCursor<SDMMC> {
     current_block: Option<u32>,
 }
 
-impl FatFsCursor<Sdmmc> {
-    pub fn new(sdmmc: Sdmmc) -> Self {
+impl<SDMMC> FatFsCursor<SDMMC> {
+    pub fn new(sdmmc: SDMMC) -> Self {
         Self {
             sdmmc,
             pos: 0,
@@ -942,14 +960,19 @@ impl FatFsCursor<Sdmmc> {
             current_block: None,
         }
     }
+}
 
+impl<SDMMC> FatFsCursor<SDMMC>
+where
+    SDMMC: AsMut<Sdmmc>,
+{
     pub fn partition_info(&mut self) -> Result<(u32, u32), Error> {
         if let Some(partition_info) = self.partition_info {
             return Ok(partition_info);
         }
 
         let mut block = [0; 512];
-        self.sdmmc.read_block(0, &mut block)?;
+        self.sdmmc.as_mut().read_block(0, &mut block)?;
 
         // TODO: Support other partitions.
         let partition1_info = &block[446..][..16];
@@ -971,20 +994,33 @@ impl FatFsCursor<Sdmmc> {
     }
 }
 
+impl AsMut<Sdmmc> for Sdmmc {
+    fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
 #[cfg(feature = "fatfs")]
-impl IntoStorage<FatFsCursor<Sdmmc>> for Sdmmc {
-    fn into_storage(self) -> FatFsCursor<Sdmmc> {
+impl<'sdmmc> IntoStorage<FatFsCursor<&'sdmmc mut Sdmmc>> for &'sdmmc mut Sdmmc {
+    fn into_storage(self) -> FatFsCursor<&'sdmmc mut Sdmmc> {
         FatFsCursor::new(self)
     }
 }
 
 #[cfg(feature = "fatfs")]
 impl<SDMMC> IoBase for FatFsCursor<SDMMC> {
-    type Error = fatfs::Error<Error>;
+    type Error = Error;
 }
 
 #[cfg(feature = "fatfs")]
-impl Seek for FatFsCursor<Sdmmc> {
+impl<SDMMC> IoBase for &mut FatFsCursor<SDMMC> {
+    type Error = Error;
+}
+
+impl<SDMMC> Seek for FatFsCursor<SDMMC>
+where
+    SDMMC: AsMut<Sdmmc>,
+{
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
         // TODO: Use `checked_add_signed` when stable.
         let new_pos = match pos {
@@ -1008,13 +1044,29 @@ impl Seek for FatFsCursor<Sdmmc> {
 }
 
 #[cfg(feature = "fatfs")]
-impl Read for FatFsCursor<Sdmmc> {
-    #[track_caller]
+impl<SDMMC> Seek for &mut FatFsCursor<SDMMC>
+where
+    SDMMC: AsMut<Sdmmc>,
+{
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
+        (*self).seek(pos)
+    }
+}
+
+#[cfg(feature = "fatfs")]
+impl<SDMMC> Read for FatFsCursor<SDMMC>
+where
+    SDMMC: AsMut<Sdmmc>,
+{
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         let (start, end) = self.partition_info()?;
 
         let end = end as u64 * 512;
-        let pos = self.pos.min(end);
+        let pos = self.pos;
+
+        if pos >= end {
+            return Ok(0);
+        }
 
         let addr = start + (pos / 512) as u32;
         let offset = (pos % 512) as usize;
@@ -1022,7 +1074,7 @@ impl Read for FatFsCursor<Sdmmc> {
 
         // Only read the block if we have not already read it.
         if self.current_block != Some(addr) {
-            self.sdmmc.read_block(addr, &mut self.block)?;
+            self.sdmmc.as_mut().read_block(addr, &mut self.block)?;
             self.current_block = Some(addr);
         }
 
@@ -1037,15 +1089,28 @@ impl Read for FatFsCursor<Sdmmc> {
 }
 
 #[cfg(feature = "fatfs")]
-impl Write for FatFsCursor<Sdmmc> {
+impl<SDMMC> Read for &mut FatFsCursor<SDMMC>
+where
+    SDMMC: AsMut<Sdmmc>,
+{
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        (*self).read(buf)
+    }
+}
+
+#[cfg(feature = "fatfs")]
+impl<SDMMC> Write for FatFsCursor<SDMMC>
+where
+    SDMMC: AsMut<Sdmmc>,
+{
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         let (start, end) = self.partition_info()?;
 
         let end = end as u64 * 512;
         let pos = self.pos;
 
-        if pos + buf.len() as u64 >= end {
-            return Err(Self::Error::NotEnoughSpace);
+        if pos >= end {
+            return Ok(0);
         }
 
         let addr = start + (pos / 512) as u32;
@@ -1053,13 +1118,13 @@ impl Write for FatFsCursor<Sdmmc> {
         let len = buf.len().min(512 - offset);
 
         // Only read the block if we have not already read it.
-        if self.current_block != Some(addr) {
+        if self.current_block != Some(addr) && len != 512 {
             self.current_block = None;
-            self.sdmmc.read_block(addr, &mut self.block)?;
+            self.sdmmc.as_mut().read_block(addr, &mut self.block)?;
         }
 
         self.block[offset..(offset + len)].copy_from_slice(&buf[0..len]);
-        self.sdmmc.write_block(addr, &self.block)?;
+        self.sdmmc.as_mut().write_block(addr, &self.block)?;
         self.current_block = Some(addr);
 
         self.pos += len as u64;
@@ -1071,5 +1136,19 @@ impl Write for FatFsCursor<Sdmmc> {
 
     fn flush(&mut self) -> Result<(), Self::Error> {
         Ok(())
+    }
+}
+
+#[cfg(feature = "fatfs")]
+impl<SDMMC> Write for &mut FatFsCursor<SDMMC>
+where
+    SDMMC: AsMut<Sdmmc>,
+{
+    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        (*self).write(buf)
+    }
+
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        (*self).flush()
     }
 }

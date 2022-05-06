@@ -45,6 +45,7 @@ use crate::{
 };
 
 /// Interrupt event
+#[derive(Debug)]
 pub enum Event {
     WakeupTimer,
     AlarmA,
@@ -52,6 +53,7 @@ pub enum Event {
     Timestamp,
 }
 
+#[derive(Debug)]
 pub enum Alarm {
     AlarmA,
     AlarmB,
@@ -67,6 +69,7 @@ impl From<Alarm> for Event {
 }
 
 /// RTC Abstraction
+#[derive(Debug)]
 pub struct Rtc {
     rtc: RTC,
     rtc_config: RtcConfig,
@@ -856,5 +859,30 @@ impl embedded_sdmmc::TimeSource for Rtc {
             minutes: minute,
             seconds: second,
         }
+    }
+}
+
+#[cfg(feature = "fatfs")]
+impl fatfs::TimeProvider for Rtc {
+    fn get_current_date(&self) -> fatfs::Date {
+        let (year, month, day) = self.date_raw();
+
+        fatfs::Date::new(year.into(), month.into(), day.into())
+    }
+
+    fn get_current_date_time(&self) -> fatfs::DateTime {
+        let (hour, minute, second) = self.time_raw();
+        let micro = self.microsecond_raw();
+        let (year, month, day) = self.date_raw();
+
+        let time = fatfs::Time::new(
+            hour.into(),
+            minute.into(),
+            second.into(),
+            (micro / 1000) as u16,
+        );
+        let date = fatfs::Date::new(year.into(), month.into(), day.into());
+
+        fatfs::DateTime::new(date, time)
     }
 }
