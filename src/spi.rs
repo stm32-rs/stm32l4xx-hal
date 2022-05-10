@@ -70,6 +70,21 @@ pub struct Spi<SPI, PINS> {
 macro_rules! hal {
     ($($SPIX:ident: ($spiX:ident, $spiX_slave:ident, $pclkX:ident),)+) => {
         $(
+            impl<PINS> Spi<$SPIX, PINS> {
+                /// Enable the SPI peripheral.
+                #[allow(unused)] // Only used for DMA.
+                #[inline]
+                fn enable(&mut self) {
+                    self.spi.cr1.modify(|_, w| w.spe().set_bit());
+                }
+
+                /// Disable the SPI peripheral.
+                #[inline]
+                fn disable(&mut self) {
+                    self.spi.cr1.modify(|_, w| w.spe().clear_bit());
+                }
+            }
+
             impl<SCK, MISO, MOSI> Spi<$SPIX, (SCK, MISO, MOSI)> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
                 #[allow(unused_unsafe)]  // Necessary for stm32l4r9
@@ -192,7 +207,7 @@ macro_rules! hal {
                 /// Change the baud rate of the SPI
                 #[allow(unused_unsafe)]  // Necessary for stm32l4r9
                 pub fn reclock(&mut self, freq: Hertz, clocks: Clocks) {
-                    self.spi.cr1.modify(|_, w| w.spe().clear_bit());
+                    self.disable();
                     self.spi.cr1.modify(|_, w| unsafe {
                         w.br().bits(Self::compute_baud_rate(clocks.$pclkX(), freq));
                         w.spe().set_bit()
@@ -543,21 +558,30 @@ macro_rules! spi_dma {
         impl<PINS> SpiRxDma<$SPIX, PINS, $RX_CH> {
             pub fn split(mut self) -> (Spi<$SPIX, PINS>, $RX_CH) {
                 self.stop();
-                (self.payload.spi, self.channel)
+                let mut spi = self.payload.spi;
+                // Keep the peripheral itself enabled after stopping DMA.
+                spi.enable();
+                (spi, self.channel)
             }
         }
 
         impl<PINS> SpiTxDma<$SPIX, PINS, $TX_CH> {
             pub fn split(mut self) -> (Spi<$SPIX, PINS>, $TX_CH) {
                 self.stop();
-                (self.payload.spi, self.channel)
+                let mut spi = self.payload.spi;
+                // Keep the peripheral itself enabled after stopping DMA.
+                spi.enable();
+                (spi, self.channel)
             }
         }
 
         impl<PINS> SpiRxTxDma<$SPIX, PINS, $RX_CH, $TX_CH> {
             pub fn split(mut self) -> (Spi<$SPIX, PINS>, $RX_CH, $TX_CH) {
                 self.stop();
-                (self.payload.spi, self.rx_channel, self.tx_channel)
+                let mut spi = self.payload.spi;
+                // Keep the peripheral itself enabled after stopping DMA.
+                spi.enable();
+                (spi, self.rx_channel, self.tx_channel)
             }
         }
 
@@ -572,14 +596,14 @@ macro_rules! spi_dma {
                 // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
                 // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
                 // 4. Enable the SPI by setting the SPE bit.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 0.
+                self.payload.spi.disable(); // 0.
                 self.payload
                     .spi
                     .spi
                     .cr2
                     .modify(|_, w| w.rxdmaen().set_bit()); // 1.
                 self.channel.start(); // 2.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().set_bit()); // 4.
+                self.payload.spi.enable(); // 4.
             }
 
             fn stop(&mut self) {
@@ -592,7 +616,7 @@ macro_rules! spi_dma {
                 // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
                 //    SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
                 self.channel.stop(); // 1.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 2.
+                self.payload.spi.disable(); // 2.
                 self.payload
                     .spi
                     .spi
@@ -612,14 +636,14 @@ macro_rules! spi_dma {
                 // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
                 // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
                 // 4. Enable the SPI by setting the SPE bit.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 0.
+                self.payload.spi.disable(); // 0.
                 self.channel.start(); // 2.
                 self.payload
                     .spi
                     .spi
                     .cr2
                     .modify(|_, w| w.txdmaen().set_bit()); // 3.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().set_bit()); // 4.
+                self.payload.spi.enable(); // 4.
             }
 
             fn stop(&mut self) {
@@ -632,7 +656,7 @@ macro_rules! spi_dma {
                 // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
                 //    SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
                 self.channel.stop(); // 1.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 2.
+                self.payload.spi.disable(); // 2.
                 self.payload
                     .spi
                     .spi
@@ -652,7 +676,7 @@ macro_rules! spi_dma {
                 // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
                 // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
                 // 4. Enable the SPI by setting the SPE bit.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 0.
+                self.payload.spi.disable(); // 0.
                 self.payload
                     .spi
                     .spi
@@ -665,7 +689,7 @@ macro_rules! spi_dma {
                     .spi
                     .cr2
                     .modify(|_, w| w.txdmaen().set_bit()); // 3.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().set_bit()); // 4.
+                self.payload.spi.enable(); // 4.
             }
 
             fn stop(&mut self) {
@@ -679,7 +703,7 @@ macro_rules! spi_dma {
                 //    SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
                 self.tx_channel.stop(); // 1.
                 self.rx_channel.stop(); // 1.
-                self.payload.spi.spi.cr1.modify(|_, w| w.spe().clear_bit()); // 2.
+                self.payload.spi.disable(); // 2.
                 self.payload
                     .spi
                     .spi
