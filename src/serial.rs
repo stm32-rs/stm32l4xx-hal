@@ -208,6 +208,8 @@ impl From<Bps> for Config {
 pub struct Serial<USART, PINS> {
     usart: USART,
     pins: PINS,
+    tx: Tx<USART>,
+    rx: Rx<USART>,
 }
 
 /// Serial receiver
@@ -372,7 +374,11 @@ macro_rules! hal {
                         .cr1
                         .modify(|_, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
-                    Serial { usart, pins }
+                    Serial {
+                      usart, pins,
+                      tx: Tx { _usart: PhantomData },
+                      rx: Rx { _usart: PhantomData },
+                    }
                 }
 
                 /// Starts listening for an interrupt event
@@ -400,10 +406,28 @@ macro_rules! hal {
                 ///
                 /// See [`Rx::check_for_error`].
                 pub fn check_for_error() -> Result<(), Error> {
-                    let mut rx: Rx<pac::$USARTX> = Rx {
-                        _usart: PhantomData,
-                    };
-                    rx.check_for_error()
+                    // NOTE(unsafe): Only used for atomic access.
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.pe().bit_is_set() {
+                        icr.write(|w| w.pecf().clear());
+                        return Err(Error::Parity);
+                    }
+                    if isr.fe().bit_is_set() {
+                        icr.write(|w| w.fecf().clear());
+                        return Err(Error::Framing);
+                    }
+                    if isr.nf().bit_is_set() {
+                        icr.write(|w| w.ncf().clear());
+                        return Err(Error::Noise);
+                    }
+                    if isr.ore().bit_is_set() {
+                        icr.write(|w| w.orecf().clear());
+                        return Err(Error::Overrun);
+                    }
+
+                    Ok(())
                 }
 
                 /// Stops listening for an interrupt event
@@ -430,12 +454,8 @@ macro_rules! hal {
                 /// Splits the `Serial` abstraction into a transmitter and a receiver half
                 pub fn split(self) -> (Tx<pac::$USARTX>, Rx<pac::$USARTX>) {
                     (
-                        Tx {
-                            _usart: PhantomData,
-                        },
-                        Rx {
-                            _usart: PhantomData,
-                        },
+                        self.tx,
+                        self.rx,
                     )
                 }
 
@@ -449,10 +469,7 @@ macro_rules! hal {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
-                    let mut rx: Rx<pac::$USARTX> = Rx {
-                        _usart: PhantomData,
-                    };
-                    rx.read()
+                    self.rx.read()
                 }
             }
 
@@ -480,17 +497,11 @@ macro_rules! hal {
                 type Error = Error;
 
                 fn flush(&mut self) -> nb::Result<(), Error> {
-                    let mut tx: Tx<pac::$USARTX> = Tx {
-                        _usart: PhantomData,
-                    };
-                    tx.flush()
+                    self.tx.flush()
                 }
 
                 fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
-                    let mut tx: Tx<pac::$USARTX> = Tx {
-                        _usart: PhantomData,
-                    };
-                    tx.write(byte)
+                    self.tx.write(byte)
                 }
             }
 
@@ -579,28 +590,7 @@ macro_rules! hal {
                 /// `Ok(())`, it should be possible to proceed with the next
                 /// `read` call unimpeded.
                 pub fn check_for_error(&mut self) -> Result<(), Error> {
-                    // NOTE(unsafe): Only used for atomic access.
-                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.pe().bit_is_set() {
-                        icr.write(|w| w.pecf().clear());
-                        return Err(Error::Parity);
-                    }
-                    if isr.fe().bit_is_set() {
-                        icr.write(|w| w.fecf().clear());
-                        return Err(Error::Framing);
-                    }
-                    if isr.nf().bit_is_set() {
-                        icr.write(|w| w.ncf().clear());
-                        return Err(Error::Noise);
-                    }
-                    if isr.ore().bit_is_set() {
-                        icr.write(|w| w.orecf().clear());
-                        return Err(Error::Overrun);
-                    }
-
-                    Ok(())
+                    <Serial<pac::$USARTX, ()>>::check_for_error()
                 }
 
                 /// Checks to see if the USART peripheral has detected an idle line and clears
