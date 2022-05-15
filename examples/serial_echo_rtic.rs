@@ -7,16 +7,20 @@ use heapless::{consts::U8, spsc};
 use nb::block;
 use rtt_target::{rprint, rprintln};
 use stm32l4xx_hal::{
+    gpio::{self, Alternate, PushPull},
     pac::{self, USART2},
     prelude::*,
     serial::{self, Config, Serial},
 };
 
+type TxPin = gpio::PA2<Alternate<PushPull, 7>>;
+type RxPin = gpio::PA3<Alternate<PushPull, 7>>;
+
 #[rtic::app(device = stm32l4xx_hal::pac)]
 const APP: () = {
     struct Resources {
-        rx: serial::Rx<USART2>,
-        tx: serial::Tx<USART2>,
+        rx: serial::Rx<USART2, (TxPin, RxPin)>,
+        tx: serial::Tx<USART2, (TxPin, RxPin)>,
 
         rx_prod: spsc::Producer<'static, u8, U8>,
         rx_cons: spsc::Consumer<'static, u8, U8>,

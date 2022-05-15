@@ -24,8 +24,14 @@ use heapless::{
 use panic_halt as _;
 use rtic::app;
 use stm32l4xx_hal as hal;
-use stm32l4xx_hal::dma::{RxDma, TxDma};
-use stm32l4xx_hal::serial::{Rx, Tx};
+use stm32l4xx_hal::{
+    dma::{RxDma, TxDma},
+    gpio::{self, Alternate, PushPull},
+    serial::{Rx, Tx},
+};
+
+type TxPin = gpio::PA2<Alternate<PushPull, 7>>;
+type RxPin = gpio::PA3<Alternate<PushPull, 7>>;
 
 // The pool gives out `Box<DMAFrame>`s that can hold 8 bytes
 pool!(
@@ -36,8 +42,10 @@ pool!(
 #[app(device = stm32l4xx_hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
-        frame_reader: FrameReader<Box<SerialDMAPool>, RxDma<Rx<USART2>, dma::dma1::C6>, 8>,
-        frame_sender: FrameSender<Box<SerialDMAPool>, TxDma<Tx<USART2>, dma::dma1::C7>, 8>,
+        frame_reader:
+            FrameReader<Box<SerialDMAPool>, RxDma<Rx<USART2, (TxPin, RxPin)>, dma::dma1::C6>, 8>,
+        frame_sender:
+            FrameSender<Box<SerialDMAPool>, TxDma<Tx<USART2, (TxPin, RxPin)>, dma::dma1::C7>, 8>,
     }
 
     #[init]
