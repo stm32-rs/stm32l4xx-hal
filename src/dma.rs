@@ -613,6 +613,53 @@ macro_rules! dma {
                             }
                         }
 
+                        /// Check and clear the interrupt for the given event.
+                        #[inline]
+                        pub fn check_interrupt(&mut self, event: Event) -> bool {
+                            match event {
+                                Event::HalfTransfer => {
+                                  self.check_half_transfer_interrupt()
+                                },
+                                Event::TransferComplete => {
+                                    self.check_transfer_complete_interrupt()
+                                },
+                            }
+                        }
+
+                        /// Check and clear the half-transfer interrupt.
+                        #[inline]
+                        pub fn check_half_transfer_interrupt(&mut self) -> bool {
+                            if self.isr().$htifX().bit_is_set() {
+                                self.clear_half_transfer_interrupt();
+                                return true
+                            }
+
+                            false
+                        }
+
+                        /// Clear the half-transfer interrupt.
+                        #[inline]
+                        pub fn clear_half_transfer_interrupt(&mut self) {
+                            self.ifcr().write(|w| w.$chtifX().set_bit())
+                        }
+
+                        /// Check and clear the transfer complete interrupt.
+                        #[inline]
+                        pub fn check_transfer_complete_interrupt(&mut self) -> bool {
+                            if self.isr().$tcifX().bit_is_set() {
+                                self.clear_transfer_complete_interrupt();
+                                return true
+                            }
+
+                            false
+                        }
+
+                        /// Clear the transfer complete interrupt.
+                        #[inline]
+                        pub fn clear_transfer_complete_interrupt(&mut self) {
+                            self.ifcr().write(|w| w.$ctcifX().set_bit())
+                        }
+
                         #[inline]
                         pub(crate) fn isr(&self) -> dma1::isr::R {
                             // NOTE(unsafe) atomic read with no side effects
@@ -680,7 +727,7 @@ macro_rules! dma {
 
                             // Clear ISR flag (Transfer Complete)
                             if !self.payload.channel.in_progress() {
-                                self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
+                                self.payload.channel.clear_transfer_complete_interrupt();
                             } else {
                                 // The old transfer is not complete
                                 return None;
@@ -926,15 +973,8 @@ macro_rules! dma {
                             // We read the flags before reading the current write-index because if
                             // another word is written between those two accesses, this ordering
                             // prevents a false positive overrun error.
-                            let isr = self.payload.channel.isr();
-                            let half_complete_flag = isr.$htifX().bit_is_set();
-                            if half_complete_flag {
-                                self.payload.channel.ifcr().write(|w| w.$chtifX().set_bit());
-                            }
-                            let transfer_complete_flag = isr.$tcifX().bit_is_set();
-                            if transfer_complete_flag {
-                                self.payload.channel.ifcr().write(|w| w.$ctcifX().set_bit());
-                            }
+                            let half_complete_flag = self.payload.channel.check_half_transfer_interrupt();
+                            let transfer_complete_flag = self.payload.channel.check_transfer_complete_interrupt();
                             let write_current = capacity - self.payload.channel.get_cndtr() as usize;
                             // Copy the data before examining the overrun conditions. If the
                             // overrun happens shortly after the flags and write-index were read,
