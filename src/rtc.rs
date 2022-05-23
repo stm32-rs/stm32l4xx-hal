@@ -866,6 +866,7 @@ impl embedded_sdmmc::TimeSource for Rtc {
 impl fatfs::TimeProvider for Rtc {
     fn get_current_date(&self) -> fatfs::Date {
         let (year, month, day) = self.date_raw();
+        let year = (year + 1970).max(1980).min(2107);
 
         fatfs::Date::new(year.into(), month.into(), day.into())
     }
@@ -874,6 +875,7 @@ impl fatfs::TimeProvider for Rtc {
         let (hour, minute, second) = self.time_raw();
         let micro = self.microsecond_raw();
         let (year, month, day) = self.date_raw();
+        let year = (year + 1970).max(1980).min(2107);
 
         let time = fatfs::Time::new(
             hour.into(),
