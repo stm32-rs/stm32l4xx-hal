@@ -5,6 +5,8 @@
 use core::{
     fmt,
     ops::{ControlFlow, Deref, DerefMut},
+    slice,
+    sync::atomic::{self, Ordering},
 };
 
 use fugit::HertzU32 as Hertz;
@@ -18,6 +20,8 @@ use sdio_host::{
 };
 
 use crate::{
+    dma::dma2,
+    dmamux::{DmaInput, DmaMux},
     gpio::{self, Alternate, PushPull},
     pac::{sdmmc1, SDMMC1},
     rcc::{Clocks, Enable, Reset, APB2},
@@ -190,13 +194,13 @@ macro_rules! sta_rx_tx_err {
         if $sta.dcrcfail().bit() {
             clear_static_data_flags(&$sdmmc.icr);
 
-            return Err(Error::DataCrc);
-        }
-
-        if $sta.dtimeout().bit() {
+            Err(Error::DataCrc)
+        } else if $sta.dtimeout().bit() {
             clear_static_data_flags(&$sdmmc.icr);
 
-            return Err(Error::Timeout);
+            Err(Error::Timeout)
+        } else {
+            Ok($sta)
         }
     };
 }
@@ -208,12 +212,10 @@ macro_rules! sta_rx {
         if sta.rxoverr().bit() {
             clear_static_data_flags(&$sdmmc.icr);
 
-            return Err(Error::RxOverrun);
+            Err(Error::RxOverrun)
+        } else {
+            sta_rx_tx_err!(sta, $sdmmc)
         }
-
-        sta_rx_tx_err!(sta, $sdmmc);
-
-        sta
     }};
 }
 
@@ -224,43 +226,41 @@ macro_rules! sta_tx {
         if sta.txunderr().bit() {
             clear_static_data_flags(&$sdmmc.icr);
 
-            return Err(Error::TxUnderrun);
+            Err(Error::TxUnderrun)
+        } else {
+            sta_rx_tx_err!(sta, $sdmmc)
         }
-
-        sta_rx_tx_err!(sta, $sdmmc);
-
-        sta
     }};
 }
 
 #[inline]
 fn clear_static_command_flags(icr: &sdmmc1::ICR) {
-    icr.modify(|_, w| {
-        w.ccrcfailc()
-            .set_bit()
-            .ctimeoutc()
+    icr.write(|w| {
+        w.cmdsentc()
             .set_bit()
             .cmdrendc()
             .set_bit()
-            .cmdsentc()
+            .ctimeoutc()
+            .set_bit()
+            .ccrcfailc()
             .set_bit()
     })
 }
 
 #[inline]
 fn clear_static_data_flags(icr: &sdmmc1::ICR) {
-    icr.modify(|_, w| {
-        w.dcrcfailc()
-            .set_bit()
-            .dtimeoutc()
-            .set_bit()
-            .txunderrc()
-            .set_bit()
-            .rxoverrc()
+    icr.write(|w| {
+        w.dbckendc()
             .set_bit()
             .dataendc()
             .set_bit()
-            .dbckendc()
+            .rxoverrc()
+            .set_bit()
+            .txunderrc()
+            .set_bit()
+            .dtimeoutc()
+            .set_bit()
+            .dcrcfailc()
             .set_bit()
     })
 }
@@ -460,20 +460,16 @@ impl Sdmmc {
     }
 
     #[inline]
-    pub fn read_block<B: DerefMut<Target = [u8; 512]>>(
-        &mut self,
-        addr: u32,
-        block: B,
-    ) -> Result<(), Error> {
-        self.read_blocks(addr, &mut [block])
+    pub fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
+        self.read_blocks(addr, slice::from_mut(block))
     }
 
-    #[inline]
-    pub fn read_blocks<B: DerefMut<Target = [u8; 512]>>(
+    pub(crate) fn start_read_transfer(
         &mut self,
         addr: u32,
-        blocks: &mut [B],
-    ) -> Result<(), Error> {
+        words: &mut [u32],
+        dma: bool,
+    ) -> Result<bool, Error> {
         let card = self.card()?;
 
         let addr = match card.capacity() {
@@ -483,29 +479,37 @@ impl Sdmmc {
 
         self.cmd(common_cmd::set_block_length(512))?;
 
-        let block_count = blocks.len();
-        let byte_count = block_count * 512;
-        self.start_datapath_transfer(byte_count as u32, 9, Dir::CardToHost);
+        let byte_count = words.len() * 4;
+        self.start_datapath_transfer(byte_count as u32, 9, Dir::CardToHost, dma);
 
+        let block_count = words.len() / 128;
         match block_count {
-            0 => return Ok(()),
+            0 => return Ok(false),
             1 => self.cmd(common_cmd::read_single_block(addr))?,
             _ => self.cmd(common_cmd::read_multiple_blocks(addr))?,
         }
 
-        let mut current_block = &mut blocks[0];
+        Ok(block_count > 1)
+    }
 
-        let mut i = 0;
+    #[inline]
+    pub fn read_blocks(&mut self, addr: u32, blocks: &mut [DataBlock]) -> Result<(), Error> {
+        let words = DataBlock::blocks_to_words_mut(blocks);
+        let mut word_count = words.len();
+
+        let stop_transmission = self.start_read_transfer(addr, words, false)?;
+        let mut it = words.into_iter();
+
         let timeout: u32 = 0xffff_ffff;
         for _ in 0..timeout {
-            let sta = sta_rx!(self.sdmmc);
+            let sta = sta_rx!(self.sdmmc)?;
 
             // If we received all data, wait for transfer to end.
-            if i == byte_count {
+            if word_count == 0 {
                 if sta.dbckend().bit() {
                     clear_static_data_flags(&self.sdmmc.icr);
 
-                    if block_count > 1 {
+                    if stop_transmission {
                         self.cmd(common_cmd::stop_transmission())?;
                     }
 
@@ -514,29 +518,14 @@ impl Sdmmc {
             }
             // If the FIFO is half-full, receive some data.
             else if sta.rxfifohf().bit() {
-                let offset = i % 512;
-
-                // SAFETY: We always read exactly 32 bytes from the FIFO into
-                // a 512-byte block. We move to the next block if needed before
-                // the next iteration.
-                //
-                // NOTE: This is needed since checked access takes to long and
-                // results in a FIFO overrun error on higher clock speeds.
-                unsafe {
-                    for j in 0..8 {
-                        let current_block = current_block.as_mut_ptr() as *mut [u8; 4];
-                        let current_bytes = &mut *current_block.add(offset / 4 + j);
-
-                        let bytes = u32::from_be(self.sdmmc.fifo.read().bits()).to_be_bytes();
-                        *current_bytes = bytes;
+                for _ in 0..8 {
+                    unsafe {
+                        let word = it.next().unwrap_unchecked();
+                        *word = self.sdmmc.fifo.read().bits();
                     }
                 }
 
-                i += 4 * 8;
-
-                if i % 512 == 0 && i != byte_count {
-                    current_block = &mut blocks[i / 512];
-                }
+                word_count -= 8;
             }
         }
 
@@ -545,20 +534,12 @@ impl Sdmmc {
     }
 
     #[inline]
-    pub fn write_block<B: Deref<Target = [u8; 512]>>(
+    pub(crate) fn start_write_transfer(
         &mut self,
         addr: u32,
-        block: B,
-    ) -> Result<(), Error> {
-        self.write_blocks(addr, &[block])
-    }
-
-    #[inline]
-    fn write_blocks<B: Deref<Target = [u8; 512]>>(
-        &mut self,
-        addr: u32,
-        blocks: &[B],
-    ) -> Result<(), Error> {
+        words: &[u32],
+        dma: bool,
+    ) -> Result<bool, Error> {
         let card = self.card()?;
 
         let addr = match card.capacity() {
@@ -566,28 +547,42 @@ impl Sdmmc {
             _ => addr,
         };
 
-        let byte_count = blocks.len() * 512;
+        let byte_count = words.len() * 4;
         self.cmd(common_cmd::set_block_length(512))?;
-        self.start_datapath_transfer(byte_count as u32, 9, Dir::HostToCard);
+        self.start_datapath_transfer(byte_count as u32, 9, Dir::HostToCard, dma);
 
-        match blocks.len() {
-            0 => return Ok(()),
+        let block_count = words.len() / 128;
+        match block_count {
+            0 => (),
             1 => self.cmd(common_cmd::write_single_block(addr))?,
             _ => self.cmd(common_cmd::write_multiple_blocks(addr))?,
         }
 
-        let mut current_block = &blocks[0];
+        Ok(block_count > 1)
+    }
 
-        let mut i = 0;
+    #[inline]
+    pub fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error> {
+        self.write_blocks(addr, slice::from_ref(block))
+    }
+
+    #[inline]
+    fn write_blocks(&mut self, addr: u32, blocks: &[DataBlock]) -> Result<(), Error> {
+        let words = DataBlock::blocks_to_words(blocks);
+        let mut word_count = words.len();
+
+        let stop_transmission = self.start_write_transfer(addr, words, false)?;
+        let mut it = words.into_iter();
+
         loop {
-            let sta = sta_tx!(self.sdmmc);
+            let sta = sta_tx!(self.sdmmc)?;
 
             // If we sent all data, wait for transfer to end.
-            if i == byte_count {
+            if word_count == 0 {
                 if sta.dbckend().bit() {
                     clear_static_data_flags(&self.sdmmc.icr);
 
-                    if blocks.len() > 1 {
+                    if stop_transmission {
                         self.cmd(common_cmd::stop_transmission())?;
                     }
 
@@ -596,29 +591,14 @@ impl Sdmmc {
             }
             // If the FIFO is half-empty, send some data.
             else if sta.txfifohe().bit() {
-                let offset = i % 512;
-
-                // SAFETY: We always write exactly 32 bytes into the FIFO from
-                // a 512-byte block. We move to the next block if needed before
-                // the next iteration.
-                //
-                // NOTE: This is needed since checked access takes to long and
-                // results in a FIFO underrun error on higher clock speeds.
-                unsafe {
-                    for j in 0..8 {
-                        let current_block = current_block.as_ptr() as *const [u8; 4];
-                        let current_bytes = &*current_block.add(offset / 4 + j);
-
-                        let bits = u32::from_be_bytes(*current_bytes).to_be();
-                        self.sdmmc.fifo.write(|w| w.bits(bits));
-                    }
+                for _ in 0..8 {
+                    self.sdmmc.fifo.write(|w| unsafe {
+                        let word = it.next().unwrap_unchecked();
+                        w.bits(*word)
+                    });
                 }
 
-                i += 4 * 8;
-
-                if i % 512 == 0 && i != byte_count {
-                    current_block = &blocks[i / 512];
-                }
+                word_count -= 8;
             }
         }
 
@@ -661,7 +641,13 @@ impl Sdmmc {
         Ok(())
     }
 
-    fn start_datapath_transfer(&self, length_bytes: u32, block_size: u8, direction: Dir) {
+    fn start_datapath_transfer(
+        &self,
+        length_bytes: u32,
+        block_size: u8,
+        direction: Dir,
+        dma: bool,
+    ) {
         // Block size up to 2^14 bytes
         assert!(block_size <= 14);
 
@@ -696,13 +682,15 @@ impl Sdmmc {
                 .clear_bit()
                 .dten()
                 .set_bit()
+                .dmaen()
+                .bit(dma)
         });
     }
 
     fn get_scr(&self, rca: u16) -> Result<SCR, Error> {
         self.cmd(common_cmd::set_block_length(8))?;
         self.cmd(common_cmd::app_cmd(rca))?;
-        self.start_datapath_transfer(8, 3, Dir::CardToHost);
+        self.start_datapath_transfer(8, 3, Dir::CardToHost, false);
         self.cmd(sd_cmd::send_scr())?;
 
         let mut scr = [0; 2];
@@ -711,7 +699,7 @@ impl Sdmmc {
 
         let timeout: u32 = 0xffff_ffff;
         for _ in 0..timeout {
-            let sta = sta_rx!(self.sdmmc);
+            let sta = sta_rx!(self.sdmmc)?;
 
             // If we received all data, wait for transfer to end.
             if i == 0 {
@@ -759,7 +747,7 @@ impl Sdmmc {
     pub fn read_sd_status(&mut self) -> Result<SDStatus, Error> {
         self.card()?;
         self.cmd(common_cmd::set_block_length(64))?;
-        self.start_datapath_transfer(64, 6, Dir::CardToHost);
+        self.start_datapath_transfer(64, 6, Dir::CardToHost, false);
         self.app_cmd(sd_cmd::sd_status())?;
 
         let mut sd_status = [0u32; 16];
@@ -767,7 +755,7 @@ impl Sdmmc {
         let mut i = sd_status.len();
         let timeout: u32 = 0xffff_ffff;
         for _ in 0..timeout {
-            let sta = sta_rx!(self.sdmmc);
+            let sta = sta_rx!(self.sdmmc)?;
 
             // If we received all data, wait for transfer to end.
             if i == 0 {
@@ -840,6 +828,7 @@ impl Sdmmc {
         });
 
         let timeout = 5000 * (self.clock.raw() / 8 / 1000);
+        let mut res = Err(Error::SoftwareTimeout);
         for _ in 0..timeout {
             let sta = self.sdmmc.sta.read();
 
@@ -849,41 +838,243 @@ impl Sdmmc {
             }
 
             if sta.ctimeout().bit() {
-                clear_static_command_flags(&self.sdmmc.icr);
-
-                return Err(Error::Timeout);
+                res = Err(Error::Timeout);
+                break;
             }
 
             if cmd.response_len() == ResponseLen::Zero {
                 if sta.cmdsent().bit() {
-                    clear_static_command_flags(&self.sdmmc.icr);
-
-                    return Ok(());
+                    res = Ok(());
+                    break;
                 }
             } else {
                 if sta.ccrcfail().bit() {
-                    clear_static_command_flags(&self.sdmmc.icr);
-
-                    return Err(Error::CommandCrc);
+                    res = Err(Error::CommandCrc);
+                    break;
                 }
 
                 if sta.cmdrend().bit() {
-                    clear_static_command_flags(&self.sdmmc.icr);
-
-                    return Ok(());
+                    res = Ok(());
+                    break;
                 }
             }
         }
 
         clear_static_command_flags(&self.sdmmc.icr);
-
-        Err(Error::SoftwareTimeout)
+        res
     }
 
     /// Create an [`SdmmcBlockDevice`], which implements the [`BlockDevice`](embedded-sdmmc::BlockDevice) trait.
     pub fn into_block_device(self) -> SdmmcBlockDevice<Sdmmc> {
         SdmmcBlockDevice {
             sdmmc: core::cell::RefCell::new(self),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+#[repr(align(4))]
+pub struct DataBlock(pub [u8; 512]);
+
+impl DataBlock {
+    pub const fn new() -> Self {
+        Self([0; 512])
+    }
+
+    pub fn blocks_to_words(blocks: &[DataBlock]) -> &[u32] {
+        let mut word_count = blocks.len() * 128;
+        // SAFETY: `DataBlock` is 4-byte aligned.
+        unsafe { slice::from_raw_parts(blocks.as_ptr() as *mut u32, word_count) }
+    }
+
+    pub fn blocks_to_words_mut(blocks: &mut [DataBlock]) -> &mut [u32] {
+        let mut word_count = blocks.len() * 128;
+        // SAFETY: `DataBlock` is 4-byte aligned.
+        unsafe { slice::from_raw_parts_mut(blocks.as_mut_ptr() as *mut u32, word_count) }
+    }
+}
+
+#[derive(Debug)]
+pub struct SdmmcDma {
+    sdmmc: Sdmmc,
+    channel: dma2::C5,
+}
+
+impl SdmmcDma {
+    #[inline]
+    pub fn new(sdmmc: Sdmmc, mut channel: dma2::C5) -> Self {
+        channel.set_peripheral_address(sdmmc.sdmmc.fifo.as_ptr() as u32, false);
+        channel.set_request_line(DmaInput::SdMmc1).unwrap();
+        channel.ccr().modify(|_, w| {
+            w
+                // memory to memory mode disabled
+                .mem2mem()
+                .clear_bit()
+                // medium channel priority level
+                .pl()
+                .very_high()
+                // 32-bit memory size
+                .msize()
+                .bits32()
+                // 32-bit peripheral size
+                .psize()
+                .bits32()
+                // circular mode disabled
+                .circ()
+                .clear_bit()
+        });
+
+        Self { sdmmc, channel }
+    }
+
+    #[inline]
+    pub fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
+        self.read_blocks(addr, slice::from_mut(block))
+    }
+
+    #[inline]
+    pub fn read_blocks(&mut self, addr: u32, blocks: &mut [DataBlock]) -> Result<(), Error> {
+        let words = DataBlock::blocks_to_words_mut(blocks);
+
+        self.channel.ccr().modify(|_, w| {
+            w
+                // read from peripheral/write to memory
+                .dir()
+                .clear_bit()
+        });
+        self.channel
+            .set_memory_address(words.as_mut_ptr() as u32, true);
+        self.channel.set_transfer_length(words.len() as u16);
+        atomic::compiler_fence(Ordering::Release);
+
+        let stop_transmission = self.sdmmc.start_read_transfer(addr, words, true)?;
+        self.channel.start();
+
+        // self.sdmmc.sdmmc.mask.modify(|_, w| {
+        //     w.dbckendie()
+        //         .set_bit()
+        //         .dataendie()
+        //         .set_bit()
+        //         .dcrcfailie()
+        //         .set_bit()
+        //         .dtimeoutie()
+        //         .set_bit()
+        //         .rxoverrie()
+        //         .set_bit()
+        // });
+
+        let res = loop {
+            match sta_rx!(self.sdmmc.sdmmc) {
+                Ok(sta) => {
+                    if sta.dbckend().bit_is_set() {
+                        break Ok(());
+                    }
+                }
+                Err(err) => break Err(err),
+            }
+        };
+
+        clear_static_data_flags(&self.sdmmc.sdmmc.icr);
+        self.channel.stop();
+
+        if stop_transmission {
+            res.or(self.sdmmc.cmd(common_cmd::stop_transmission()))
+        } else {
+            res
+        }
+    }
+
+    #[inline]
+    pub fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error> {
+        self.write_blocks(addr, slice::from_ref(block))
+    }
+
+    #[inline]
+    fn write_blocks(&mut self, addr: u32, blocks: &[DataBlock]) -> Result<(), Error> {
+        let words = DataBlock::blocks_to_words(blocks);
+
+        self.channel.ccr().modify(|_, w| {
+            w
+                // read from memory/write to peripheral
+                .dir()
+                .set_bit()
+        });
+        self.channel.set_memory_address(words.as_ptr() as u32, true);
+        self.channel.set_transfer_length(words.len() as u16);
+        atomic::compiler_fence(Ordering::Release);
+
+        let stop_transmission = self.sdmmc.start_write_transfer(addr, words, true)?;
+        self.channel.start();
+
+        let res = loop {
+            match sta_tx!(self.sdmmc.sdmmc) {
+                Ok(sta) => {
+                    if sta.dbckend().bit_is_set() {
+                        break Ok(());
+                    }
+                }
+                Err(err) => break Err(err),
+            }
+        };
+
+        clear_static_data_flags(&self.sdmmc.sdmmc.icr);
+        self.channel.stop();
+
+        let res = if stop_transmission {
+            res.or(self.sdmmc.cmd(common_cmd::stop_transmission()))
+        } else {
+            res
+        };
+
+        res?;
+
+        let timeout: u32 = 0xffff_ffff;
+        for _ in 0..timeout {
+            if self.sdmmc.card_ready()? {
+                return Ok(());
+            }
+        }
+
+        Err(Error::SoftwareTimeout)
+    }
+
+    #[inline]
+    pub fn split(mut self) -> (Sdmmc, dma2::C5) {
+        (self.sdmmc, self.channel)
+    }
+
+    #[inline]
+    pub fn interrupt_handler() {
+        let sdmmc = unsafe { &*(SDMMC1::PTR) };
+
+        let sta = sdmmc.sta.read();
+
+        log::info!("irq sta = {:024b}", sta.bits());
+
+        if sta.dbckend().bit_is_set()
+            || sta.dcrcfail().bit_is_set()
+            || sta.dtimeout().bit_is_set()
+            || sta.rxoverr().bit_is_set()
+            || sta.txunderr().bit_is_set()
+        {
+            sdmmc.mask.modify(|_, w| {
+                w.dbckendie()
+                    .clear_bit()
+                    .dataendie()
+                    .clear_bit()
+                    .dcrcfailie()
+                    .clear_bit()
+                    .dtimeoutie()
+                    .clear_bit()
+                    .txunderrie()
+                    .clear_bit()
+                    .rxoverrie()
+                    .clear_bit()
+                    .txfifoheie()
+                    .clear_bit()
+                    .rxfifohfie()
+                    .clear_bit()
+            });
         }
     }
 }
@@ -904,7 +1095,14 @@ impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc> {
         _reason: &str,
     ) -> Result<(), Self::Error> {
         let mut sdmmc = self.sdmmc.borrow_mut();
-        sdmmc.read_blocks(start_block_idx.0, blocks)
+
+        for block in blocks {
+            // TODO: `embedded_sdmmc::Block` should be aligned to 4 bytes.
+            let data_block = unsafe { &mut *(block.contents.as_mut_ptr() as *mut _) };
+            sdmmc.read_block(start_block_idx.0, data_block)?;
+        }
+
+        Ok(())
     }
 
     fn write(
@@ -913,7 +1111,14 @@ impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc> {
         start_block_idx: embedded_sdmmc::BlockIdx,
     ) -> Result<(), Self::Error> {
         let mut sdmmc = self.sdmmc.borrow_mut();
-        sdmmc.write_blocks(start_block_idx.0, blocks)
+
+        for block in blocks {
+            // TODO: `embedded_sdmmc::Block` should be aligned to 4 bytes.
+            let data_block = unsafe { &*(block.contents.as_ptr() as *const _) };
+            sdmmc.write_block(start_block_idx.0, data_block)?;
+        }
+
+        Ok(())
     }
 
     fn num_blocks(&self) -> Result<embedded_sdmmc::BlockCount, Self::Error> {
@@ -946,7 +1151,7 @@ pub struct FatFsCursor<SDMMC> {
     sdmmc: SDMMC,
     pos: u64,
     partition_info: Option<(u32, u32)>,
-    block: [u8; 512],
+    block: DataBlock,
     current_block: Option<u32>,
 }
 
@@ -956,26 +1161,64 @@ impl<SDMMC> FatFsCursor<SDMMC> {
             sdmmc,
             pos: 0,
             partition_info: None,
-            block: [0; 512],
+            block: DataBlock([0; 512]),
             current_block: None,
         }
     }
 }
 
+pub trait SdmmcIo {
+    fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error>;
+    fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error>;
+}
+
+impl SdmmcIo for Sdmmc {
+    fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
+        Self::read_block(self, addr, block)
+    }
+
+    fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error> {
+        Self::write_block(self, addr, block)
+    }
+}
+
+impl SdmmcIo for SdmmcDma {
+    fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
+        Self::read_block(self, addr, block)
+    }
+
+    fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error> {
+        Self::write_block(self, addr, block)
+    }
+}
+
+impl<T> SdmmcIo for &mut T
+where
+    T: SdmmcIo,
+{
+    fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
+        (*self).read_block(addr, block)
+    }
+
+    fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error> {
+        (*self).write_block(addr, block)
+    }
+}
+
 impl<SDMMC> FatFsCursor<SDMMC>
 where
-    SDMMC: AsMut<Sdmmc>,
+    SDMMC: SdmmcIo,
 {
     pub fn partition_info(&mut self) -> Result<(u32, u32), Error> {
         if let Some(partition_info) = self.partition_info {
             return Ok(partition_info);
         }
 
-        let mut block = [0; 512];
-        self.sdmmc.as_mut().read_block(0, &mut block)?;
+        let mut block = DataBlock([0; 512]);
+        self.sdmmc.read_block(0, &mut block)?;
 
         // TODO: Support other partitions.
-        let partition1_info = &block[446..][..16];
+        let partition1_info = &block.0[446..][..16];
         let lba_start = u32::from_le_bytes([
             partition1_info[8],
             partition1_info[9],
@@ -991,12 +1234,6 @@ where
         ]);
 
         Ok(*self.partition_info.get_or_insert((lba_start, num_blocks)))
-    }
-}
-
-impl AsMut<Sdmmc> for Sdmmc {
-    fn as_mut(&mut self) -> &mut Self {
-        self
     }
 }
 
@@ -1019,7 +1256,7 @@ impl<SDMMC> IoBase for &mut FatFsCursor<SDMMC> {
 
 impl<SDMMC> Seek for FatFsCursor<SDMMC>
 where
-    SDMMC: AsMut<Sdmmc>,
+    SDMMC: SdmmcIo,
 {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
         // TODO: Use `checked_add_signed` when stable.
@@ -1046,7 +1283,7 @@ where
 #[cfg(feature = "fatfs")]
 impl<SDMMC> Seek for &mut FatFsCursor<SDMMC>
 where
-    SDMMC: AsMut<Sdmmc>,
+    SDMMC: SdmmcIo,
 {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
         (*self).seek(pos)
@@ -1056,7 +1293,7 @@ where
 #[cfg(feature = "fatfs")]
 impl<SDMMC> Read for FatFsCursor<SDMMC>
 where
-    SDMMC: AsMut<Sdmmc>,
+    SDMMC: SdmmcIo,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         let (start, end) = self.partition_info()?;
@@ -1074,11 +1311,11 @@ where
 
         // Only read the block if we have not already read it.
         if self.current_block != Some(addr) {
-            self.sdmmc.as_mut().read_block(addr, &mut self.block)?;
+            self.sdmmc.read_block(addr, &mut self.block)?;
             self.current_block = Some(addr);
         }
 
-        buf[0..len].copy_from_slice(&self.block[offset..(offset + len)]);
+        buf[0..len].copy_from_slice(&self.block.0[offset..(offset + len)]);
 
         self.pos += len as u64;
 
@@ -1091,7 +1328,7 @@ where
 #[cfg(feature = "fatfs")]
 impl<SDMMC> Read for &mut FatFsCursor<SDMMC>
 where
-    SDMMC: AsMut<Sdmmc>,
+    SDMMC: SdmmcIo,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         (*self).read(buf)
@@ -1101,7 +1338,7 @@ where
 #[cfg(feature = "fatfs")]
 impl<SDMMC> Write for FatFsCursor<SDMMC>
 where
-    SDMMC: AsMut<Sdmmc>,
+    SDMMC: SdmmcIo,
 {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         let (start, end) = self.partition_info()?;
@@ -1120,11 +1357,11 @@ where
         // Only read the block if we have not already read it.
         if self.current_block != Some(addr) && len != 512 {
             self.current_block = None;
-            self.sdmmc.as_mut().read_block(addr, &mut self.block)?;
+            self.sdmmc.read_block(addr, &mut self.block)?;
         }
 
-        self.block[offset..(offset + len)].copy_from_slice(&buf[0..len]);
-        self.sdmmc.as_mut().write_block(addr, &self.block)?;
+        self.block.0[offset..(offset + len)].copy_from_slice(&buf[0..len]);
+        self.sdmmc.write_block(addr, &self.block)?;
         self.current_block = Some(addr);
 
         self.pos += len as u64;
@@ -1142,7 +1379,7 @@ where
 #[cfg(feature = "fatfs")]
 impl<SDMMC> Write for &mut FatFsCursor<SDMMC>
 where
-    SDMMC: AsMut<Sdmmc>,
+    SDMMC: SdmmcIo,
 {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         (*self).write(buf)
