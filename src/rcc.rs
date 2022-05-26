@@ -754,7 +754,7 @@ impl CFGR {
             pll48m1clk = Some((vco / q).Hz());
 
             if self.clk48_source == Some(Clk48Source::Pll) {
-                assert_eq!(q, 48_000_000);
+                assert_eq!(pll48m1clk, 48_000_000);
             }
 
             assert!(r <= 8); // Allowed max output divider
