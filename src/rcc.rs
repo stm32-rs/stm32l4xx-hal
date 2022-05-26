@@ -750,16 +750,24 @@ impl CFGR {
             let vco = clock_speed * pllconf.n as u32;
             let pllclk = vco / r;
 
-            let q = (vco + 48_000_000 - 1) / 48_000_000;
-            pll48m1clk = Some((vco / q).Hz());
+            let q;
+            (q, pll48m1clk) = if self.clk48_source == Some(Clk48Source::Pll) {
+                let q = match (vco + 48_000_000 - 1) / 48_000_000 {
+                    0..=2 => PllDivider::Div2,
+                    3..=4 => PllDivider::Div4,
+                    5..=6 => PllDivider::Div6,
+                    7.. => PllDivider::Div8,
+                };
 
-            if self.clk48_source == Some(Clk48Source::Pll) {
+                let pll48m1clk = vco / q.to_division_factor();
+                // TODO: Assert with tolerance.
                 assert_eq!(pll48m1clk, 48_000_000);
-            }
 
-            assert!(r <= 8); // Allowed max output divider
-            assert!(pllconf.n >= 8); // Allowed min multiplier
-            assert!(pllconf.n <= 86); // Allowed max multiplier
+                (Some(q), Some(pll48m1clk.Hz()))
+            } else {
+                (None, None)
+            };
+
             assert!(clock_speed >= 4_000_000); // VCO input clock min
             assert!(clock_speed <= 16_000_000); // VCO input clock max
             assert!(vco >= 64_000_000); // VCO output min
@@ -783,7 +791,9 @@ impl CFGR {
                     .plln()
                     .bits(pllconf.n)
                     .pllq()
-                    .bits(q as u8)
+                    .bits(q.unwrap_or(PllDivider::Div2).to_bits())
+                    .pllqen()
+                    .bit(q.is_some())
             });
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
@@ -904,7 +914,8 @@ impl PllConfig {
     ///
     /// PLL output = ((SourceClk / input_divider) * multiplier) / output_divider
     pub fn new(input_divider: u8, multiplier: u8, output_divider: PllDivider) -> Self {
-        assert!(input_divider > 0);
+        assert!(input_divider >= 1 && input_divider <= 8);
+        assert!(multiplier >= 8 && multiplier <= 86);
 
         PllConfig {
             m: input_divider - 1,
