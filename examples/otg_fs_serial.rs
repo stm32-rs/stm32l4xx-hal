@@ -13,7 +13,7 @@ use stm32l4xx_hal::prelude::*;
 use stm32l4xx_hal::rcc::{
     ClockSecuritySystem, CrystalBypass, MsiFreq, PllConfig, PllDivider, PllSource,
 };
-use stm32l4xx_hal::stm32::{Peripherals, CRS, PWR, RCC};
+use stm32l4xx_hal::stm32::{Peripherals, CRS, RCC};
 use usb_device::prelude::*;
 
 /// Enable CRS (Clock Recovery System)
@@ -88,7 +88,7 @@ unsafe fn main() -> ! {
             .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
             .set_speed(Speed::VeryHigh),
         &mut pwr,
-        clocks.hclk(),
+        clocks,
     );
 
     let usb_bus = UsbBus::new(usb, &mut EP_MEMORY);
