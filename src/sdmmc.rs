@@ -164,7 +164,7 @@ pub enum Error {
     /// Timeout in hardware.
     Timeout,
     /// Timeout in software.
-    SoftwareTimeout,
+    SoftwareTimeout(&'static str),
     /// Receive FIFO overrun.
     RxOverrun,
     /// Transmit FIFO underrun.
@@ -180,7 +180,7 @@ impl fmt::Display for Error {
             Self::CommandCrc => "command CRC check failed",
             Self::DataCrc => "data block CRC check failed",
             Self::Timeout => "timeout",
-            Self::SoftwareTimeout => "software timeout",
+            Self::SoftwareTimeout(op) => return write!(f, "software timeout during {}", op),
             Self::RxOverrun => "receive FIFO overrun",
             Self::TxUnderrun => "transmit FIFO underrun",
             Self::InvalidInput => "invalid input",
@@ -403,7 +403,7 @@ impl Sdmmc {
         let mut timeout = 0xffff;
         card.ocr = loop {
             if timeout == 0 {
-                return Err(Error::SoftwareTimeout);
+                return Err(Error::SoftwareTimeout("init"));
             }
 
             timeout -= 1;
@@ -530,7 +530,7 @@ impl Sdmmc {
         }
 
         clear_static_data_flags(&self.sdmmc.icr);
-        Err(Error::SoftwareTimeout)
+        Err(Error::SoftwareTimeout("read_blocks"))
     }
 
     #[inline]
@@ -611,7 +611,7 @@ impl Sdmmc {
             }
         }
 
-        Err(Error::SoftwareTimeout)
+        Err(Error::SoftwareTimeout("write_blocks"))
     }
 
     #[inline]
@@ -718,7 +718,7 @@ impl Sdmmc {
             }
         }
 
-        return Err(Error::SoftwareTimeout);
+        return Err(Error::SoftwareTimeout("get_scr"));
     }
 
     fn power_card(&mut self, on: bool) {
@@ -775,7 +775,7 @@ impl Sdmmc {
             }
         }
 
-        Err(Error::SoftwareTimeout)
+        Err(Error::SoftwareTimeout("read_sd_status"))
     }
 
     /// Get the initialized card, if present.
@@ -828,7 +828,7 @@ impl Sdmmc {
         });
 
         let timeout = 5000 * (self.clock.raw() / 8 / 1000);
-        let mut res = Err(Error::SoftwareTimeout);
+        let mut res = Err(Error::SoftwareTimeout("cmd"));
         for _ in 0..timeout {
             let sta = self.sdmmc.sta.read();
 
@@ -1035,7 +1035,7 @@ impl SdmmcDma {
             }
         }
 
-        Err(Error::SoftwareTimeout)
+        Err(Error::SoftwareTimeout("write_blocks"))
     }
 
     #[inline]
