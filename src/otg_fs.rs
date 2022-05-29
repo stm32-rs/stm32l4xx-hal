@@ -2,32 +2,57 @@
 //!
 //! The STM32L4 series only supports the full-speed peripheral.
 
-use crate::rcc::{Enable, Reset};
-use crate::stm32;
-
-use crate::gpio::{
-    gpioa::{PA11, PA12},
-    Alternate, PushPull,
-};
-use crate::time::Hertz;
-
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;
 
-pub struct USB {
-    pub usb_global: stm32::OTG_FS_GLOBAL,
-    pub usb_device: stm32::OTG_FS_DEVICE,
-    pub usb_pwrclk: stm32::OTG_FS_PWRCLK,
+use crate::{
+    gpio::{
+        gpioa::{PA11, PA12},
+        Alternate, PushPull,
+    },
+    pac,
+    pwr::Pwr,
+    rcc::{Clocks, Enable, Reset},
+    time::Hertz,
+};
+
+pub struct Usb {
+    usb_global: pac::OTG_FS_GLOBAL,
+    usb_device: pac::OTG_FS_DEVICE,
+    usb_pwrclk: pac::OTG_FS_PWRCLK,
     // TODO: check type
-    pub pin_dm: PA11<Alternate<PushPull, 10>>,
-    pub pin_dp: PA12<Alternate<PushPull, 10>>,
-    pub hclk: Hertz,
+    pin_dm: PA11<Alternate<PushPull, 10>>,
+    pin_dp: PA12<Alternate<PushPull, 10>>,
+    hclk: Hertz,
 }
 
-unsafe impl Sync for USB {}
+impl Usb {
+    pub fn new(
+        global: pac::OTG_FS_GLOBAL,
+        device: pac::OTG_FS_DEVICE,
+        pwrclk: pac::OTG_FS_PWRCLK,
+        dm: PA11<Alternate<PushPull, 10>>,
+        dp: PA12<Alternate<PushPull, 10>>,
+        pwr: &mut Pwr,
+        clocks: Clocks,
+    ) -> Self {
+        pwr.cr2.reg().modify(|_, w| w.usv().set_bit());
 
-unsafe impl UsbPeripheral for USB {
-    const REGISTERS: *const () = stm32::OTG_FS_GLOBAL::ptr() as *const ();
+        Self {
+            usb_global: global,
+            usb_device: device,
+            usb_pwrclk: pwrclk,
+            pin_dm: dm,
+            pin_dp: dp,
+            hclk: clocks.hclk(),
+        }
+    }
+}
+
+unsafe impl Sync for Usb {}
+
+unsafe impl UsbPeripheral for Usb {
+    const REGISTERS: *const () = pac::OTG_FS_GLOBAL::ptr() as *const ();
 
     const HIGH_SPEED: bool = false;
     const FIFO_DEPTH_WORDS: usize = 320;
@@ -37,10 +62,10 @@ unsafe impl UsbPeripheral for USB {
     fn enable() {
         cortex_m::interrupt::free(|_| unsafe {
             // Enable USB peripheral
-            stm32::OTG_FS_GLOBAL::enable_unchecked();
+            pac::OTG_FS_GLOBAL::enable_unchecked();
 
             // Reset USB peripheral
-            stm32::OTG_FS_GLOBAL::reset_unchecked();
+            pac::OTG_FS_GLOBAL::reset_unchecked();
         });
     }
 
@@ -49,4 +74,4 @@ unsafe impl UsbPeripheral for USB {
     }
 }
 
-pub type UsbBusType = UsbBus<USB>;
+pub type UsbBusType = UsbBus<Usb>;

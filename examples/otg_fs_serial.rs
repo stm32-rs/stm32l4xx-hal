@@ -8,7 +8,7 @@ extern crate panic_semihosting;
 
 use cortex_m_rt::entry;
 use stm32l4xx_hal::gpio::Speed;
-use stm32l4xx_hal::otg_fs::{UsbBus, USB};
+use stm32l4xx_hal::otg_fs::{Usb, UsbBus};
 use stm32l4xx_hal::prelude::*;
 use stm32l4xx_hal::rcc::{
     ClockSecuritySystem, CrystalBypass, MsiFreq, PllConfig, PllDivider, PllSource,
@@ -26,17 +26,6 @@ fn enable_crs() {
     crs.cr.modify(|_, w| w.autotrimen().set_bit());
     // Enable CR
     crs.cr.modify(|_, w| w.cen().set_bit());
-}
-
-/// Enables VddUSB power supply
-fn enable_usb_pwr() {
-    // Enable PWR peripheral
-    let rcc = unsafe { &(*RCC::ptr()) };
-    rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
-
-    // Enable VddUSB
-    let pwr = unsafe { &*PWR::ptr() };
-    pwr.cr2.modify(|_, w| w.usv().set_bit());
 }
 
 static mut EP_MEMORY: [u32; 1024] = [0; 1024];
@@ -83,25 +72,24 @@ unsafe fn main() -> ! {
 
     // Enable clock recovery system.
     enable_crs();
-    // Enable USB power (and disable VddUSB power isolation).
-    enable_usb_pwr();
 
     let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);
 
-    let usb = USB {
-        usb_global: dp.OTG_FS_GLOBAL,
-        usb_device: dp.OTG_FS_DEVICE,
-        usb_pwrclk: dp.OTG_FS_PWRCLK,
-        hclk: clocks.hclk(),
-        pin_dm: gpioa
+    let usb = Usb::new(
+        dp.OTG_FS_GLOBAL,
+        dp.OTG_FS_DEVICE,
+        dp.OTG_FS_PWRCLK,
+        gpioa
             .pa11
             .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
             .set_speed(Speed::VeryHigh),
-        pin_dp: gpioa
+        gpioa
             .pa12
             .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
             .set_speed(Speed::VeryHigh),
-    };
+        &mut pwr,
+        clocks.hclk(),
+    );
 
     let usb_bus = UsbBus::new(usb, &mut EP_MEMORY);
 
