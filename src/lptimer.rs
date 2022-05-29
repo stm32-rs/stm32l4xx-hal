@@ -4,6 +4,7 @@ use crate::rcc::{Clocks, Enable, RccBus, Reset, CCIPR};
 use crate::stm32::{LPTIM1, LPTIM2, RCC};
 
 /// Clock sources available for timers
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ClockSource {
     /// Use PCLK as clock source
     PCLK = 0b00,
@@ -19,6 +20,7 @@ pub enum ClockSource {
 ///
 /// Allow missing docs because the type is self explanatory
 #[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PreScaler {
     U1 = 0b000,
     U2 = 0b001,
@@ -33,7 +35,7 @@ pub enum PreScaler {
 /// Count modes that are available.
 ///
 /// All ClockSources currently supported require the Internal count mode
-#[derive(PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CountMode {
     /// Use an internal clock source (which also includes LSE)
     Internal,
@@ -41,6 +43,7 @@ pub enum CountMode {
 }
 
 /// All currently supported interrupt events
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Event {
     /// Occurs when the compare value is the same as the counter value
     CompareMatch,
@@ -291,6 +294,11 @@ macro_rules! hal {
             #[inline]
             pub fn get_counter(&self) -> u16 {
                 self.lptim.cnt.read().bits() as u16
+            }
+
+            pub fn count() -> u16 {
+                let lptim = unsafe { &*<$timer_type>::ptr() };
+                lptim.cnt.read().bits() as u16
             }
 
             /// Get the value of the ARR register for this
