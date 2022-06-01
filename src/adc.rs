@@ -22,6 +22,14 @@ use crate::{
 use pac::{ADC1, ADC_COMMON};
 use stable_deref_trait::StableDeref;
 
+#[cfg(any(
+    feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486"
+))]
+use crate::gpio::AnalogPin;
+
 /// Vref internal signal, used for calibration
 pub struct Vref;
 
@@ -30,6 +38,42 @@ pub struct Vbat;
 
 /// Core temperature internal signal
 pub struct Temperature;
+
+// TODO: Avoid this hack
+#[cfg(any(
+    feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486"
+))]
+impl AnalogPin for Vref {
+    fn connect_adc(&mut self) {}
+    fn disconnect_adc(&mut self) {}
+}
+
+// TODO: Avoid this hack
+#[cfg(any(
+    feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486"
+))]
+impl AnalogPin for Vbat {
+    fn connect_adc(&mut self) {}
+    fn disconnect_adc(&mut self) {}
+}
+
+// TODO: Avoid this hack
+#[cfg(any(
+    feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486"
+))]
+impl AnalogPin for Temperature {
+    fn connect_adc(&mut self) {}
+    fn disconnect_adc(&mut self) {}
+}
 
 /// Analog to Digital converter interface
 pub struct ADC {
@@ -447,6 +491,15 @@ where
         self.start_conversion();
         while !self.has_completed_sequence() {}
 
+        #[cfg(any(
+            feature = "stm32l471",
+            feature = "stm32l475",
+            feature = "stm32l476",
+            feature = "stm32l486"
+        ))]
+        // Connect the pin to the ADC
+        channel.connect_adc();
+
         // Read ADC value first time and discard it, as per errata sheet.
         // The errata states that if we do conversions slower than 1 kHz, the
         // first read ADC value can be corrupted, so we discard it and measure again.
@@ -457,6 +510,15 @@ where
 
         // Read ADC value
         let val = self.get_data();
+
+        #[cfg(any(
+            feature = "stm32l471",
+            feature = "stm32l475",
+            feature = "stm32l476",
+            feature = "stm32l486"
+        ))]
+        // Disconnect the pin from the ADC
+        channel.disconnect_adc();
 
         // Disable ADC
         self.disable();
@@ -638,8 +700,25 @@ impl Default for SampleTime {
     }
 }
 
+#[cfg(not(any(
+    feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486"
+)))]
 /// Implemented for all types that represent ADC channels
 pub trait Channel: EmbeddedHalChannel<ADC, ID = u8> {
+    fn set_sample_time(&mut self, adc: &ADC1, sample_time: SampleTime);
+}
+
+#[cfg(any(
+    feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486"
+))]
+/// Implemented for all types that represent ADC channels
+pub trait Channel: EmbeddedHalChannel<ADC, ID = u8> + AnalogPin {
     fn set_sample_time(&mut self, adc: &ADC1, sample_time: SampleTime);
 }
 
