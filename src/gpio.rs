@@ -205,6 +205,44 @@ where
     }
 }
 
+#[cfg(any(
+    feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486"
+))]
+/// Analog Pin
+pub trait AnalogPin {
+    fn connect_adc(&mut self);
+    fn disconnect_adc(&mut self);
+}
+
+#[cfg(any(
+    feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l486"
+))]
+impl<MODE, HL, const P: char, const N: u8> AnalogPin for Pin<MODE, HL, P, N> {
+    #[inline(always)]
+    fn connect_adc(&mut self) {
+        unsafe {
+            (*Gpio::<P>::ptr())
+                .ascr
+                .modify(|r, w| w.bits(r.bits() | (1 << N)));
+        }
+    }
+
+    #[inline(always)]
+    fn disconnect_adc(&mut self) {
+        unsafe {
+            (*Gpio::<P>::ptr())
+                .ascr
+                .modify(|r, w| w.bits(r.bits() & !(1 << N)));
+        }
+    }
+}
+
 /// Opaque MODER register
 pub struct MODER<const P: char> {
     _0: (),
