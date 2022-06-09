@@ -5,7 +5,7 @@ use panic_rtt_target as _;
 
 use cortex_m_rt::entry;
 use rtt_target::{rprint, rprintln};
-use stm32l4xx_hal::{adc::ADC, delay::Delay, pac, prelude::*};
+use stm32l4xx_hal::{adc::config, adc::ADC, delay::Delay, pac, prelude::*};
 
 #[entry]
 fn main() -> ! {
@@ -28,6 +28,7 @@ fn main() -> ! {
         &mut rcc.ahb2,
         &mut rcc.ccipr,
         &mut delay,
+        config::ExternalTriggerConfig::default(),
     );
 
     let mut gpioc = dp.GPIOC.split(&mut rcc.ahb2);

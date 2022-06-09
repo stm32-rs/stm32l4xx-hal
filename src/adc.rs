@@ -129,6 +129,7 @@ impl ADC {
         ahb: &mut AHB2,
         ccipr: &mut CCIPR,
         delay: &mut impl DelayUs<u32>,
+        external_trigger: config::ExternalTriggerConfig,
     ) -> Self {
         // Enable peripheral
         ADC1::enable(ahb);
@@ -182,6 +183,8 @@ impl ADC {
         let mut vref = s.enable_vref(delay);
 
         s.calibrate(&mut vref);
+
+        s.set_external_trigger(external_trigger);
 
         s.common.ccr.modify(|_, w| w.vrefen().clear_bit());
         s
@@ -389,6 +392,13 @@ impl ADC {
         self.adc.cr.modify(|_, w| w.adstart().set_bit());
     }
 
+    pub fn start_cont_conversion(&mut self) {
+        self.enable();
+        self.enable_continous();
+        self.clear_end_flags();
+        self.adc.cr.modify(|_, w| w.adstart().set_bit());
+    }
+
     pub fn is_converting(&self) -> bool {
         self.adc.cr.read().adstart().bit_is_set()
     }
@@ -426,12 +436,30 @@ impl ADC {
         }
     }
 
+    pub fn enable_continous(&mut self) {
+        self.adc.cfgr.modify(|_, w| w.cont().set_bit());
+    }
+
+    pub fn disable_continous(&mut self) {
+        self.adc.cfgr.modify(|_, w| w.cont().clear_bit());
+    }
+
     pub fn is_enabled(&self) -> bool {
         self.adc.cr.read().aden().bit_is_set()
     }
 
     pub fn disable(&mut self) {
         self.adc.cr.modify(|_, w| w.addis().set_bit());
+    }
+
+    /// Sets which external trigger to use and if it is disabled, rising, falling or both
+    pub fn set_external_trigger(&mut self, ext_trg_conf: config::ExternalTriggerConfig) {
+        self.adc.cfgr.modify(|_, w| unsafe {
+            w.exten()
+                .bits(ext_trg_conf.0.into())
+                .extsel()
+                .bits(ext_trg_conf.1.into())
+        });
     }
 }
 
@@ -491,9 +519,17 @@ where
         buffer: BUFFER,
         dma_mode: DmaMode,
         transfer_complete_interrupt: bool,
+        continuous_conversion: bool,
     ) -> Self {
         let (adc, channel) = dma.split();
-        Transfer::from_adc(adc, channel, buffer, dma_mode, transfer_complete_interrupt)
+        Transfer::from_adc(
+            adc,
+            channel,
+            buffer,
+            dma_mode,
+            transfer_complete_interrupt,
+            continuous_conversion,
+        )
     }
 
     /// Initiate a new DMA transfer from an ADC.
@@ -508,6 +544,7 @@ where
         buffer: BUFFER,
         dma_mode: DmaMode,
         transfer_complete_interrupt: bool,
+        continuous_conversion: bool,
     ) -> Self {
         assert!(dma_mode != DmaMode::Disabled);
 
@@ -555,7 +592,11 @@ where
         atomic::compiler_fence(Ordering::Release);
 
         channel.start();
-        adc.start_conversion();
+        if continuous_conversion == false {
+            adc.start_conversion();
+        } else {
+            adc.start_cont_conversion();
+        }
 
         Transfer::w(
             buffer,
@@ -641,6 +682,87 @@ impl Default for SampleTime {
 /// Implemented for all types that represent ADC channels
 pub trait Channel: EmbeddedHalChannel<ADC, ID = u8> {
     fn set_sample_time(&mut self, adc: &ADC1, sample_time: SampleTime);
+}
+
+/// Contains types related to ADC configuration
+pub mod config {
+    /// Possible external triggers the ADC can listen to
+    #[derive(Debug, Clone, Copy)]
+    pub enum ExternalTrigger {
+        /// TIM1 compare channel 1
+        Tim1CC1,
+        /// TIM1 compare channel 2
+        Tim1CC2,
+        /// TIM1 compare channel 3
+        Tim1CC3,
+        /// TIM2 compare channel 2
+        Tim2CC2,
+        /// TIM3 trigger out
+        Tim3TRGO,
+        /// External interupt line 11
+        Exti11,
+        /// TIM1 trigger out
+        Tim1TRGO,
+        /// TIM1 trigger out 2
+        Tim1TRGO2,
+        /// TIM2 trigger out
+        Tim2TRGO,
+        /// TIM6 trigger out
+        Tim6TRGO,
+        /// TIM15 trigger out
+        Tim15TRGO,
+    }
+
+    impl From<ExternalTrigger> for u8 {
+        fn from(et: ExternalTrigger) -> u8 {
+            match et {
+                ExternalTrigger::Tim1CC1 => 0b0000,   // EXT0
+                ExternalTrigger::Tim1CC2 => 0b0001,   // EXT1
+                ExternalTrigger::Tim1CC3 => 0b0010,   // EXT2
+                ExternalTrigger::Tim2CC2 => 0b0011,   // EXT3
+                ExternalTrigger::Tim3TRGO => 0b0100,  // EXT4
+                ExternalTrigger::Exti11 => 0b0110,    // EXT6
+                ExternalTrigger::Tim1TRGO => 0b1001,  // EXT9
+                ExternalTrigger::Tim1TRGO2 => 0b1010, // EXT10
+                ExternalTrigger::Tim2TRGO => 0b1011,  // EXT11
+                ExternalTrigger::Tim6TRGO => 0b1101,  // EXT13
+                ExternalTrigger::Tim15TRGO => 0b1110, // EXT14
+            }
+        }
+    }
+
+    /// Possible trigger modes
+    #[derive(Debug, Clone, Copy)]
+    pub enum TriggerMode {
+        /// Don't listen to external trigger
+        Disabled,
+        /// Listen for rising edges of external trigger
+        RisingEdge,
+        /// Listen for falling edges of external trigger
+        FallingEdge,
+        /// Listen for both rising and falling edges of external trigger
+        BothEdges,
+    }
+
+    impl From<TriggerMode> for u8 {
+        fn from(tm: TriggerMode) -> u8 {
+            match tm {
+                TriggerMode::Disabled => 0b00,
+                TriggerMode::RisingEdge => 0b01,
+                TriggerMode::FallingEdge => 0b10,
+                TriggerMode::BothEdges => 0b11,
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct ExternalTriggerConfig(pub TriggerMode, pub ExternalTrigger);
+
+    impl Default for ExternalTriggerConfig {
+        fn default() -> Self {
+            Self(TriggerMode::Disabled, ExternalTrigger::Tim1CC1)
+        }
+    }
 }
 
 macro_rules! adc_pins {

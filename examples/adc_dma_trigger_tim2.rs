@@ -7,12 +7,14 @@ use stm32l4xx_hal::{
     adc::{config, DmaMode, SampleTime, Sequence, ADC},
     delay::DelayCM,
     dma::{dma1, RxDma, Transfer, W},
+    pac::TIM2,
     prelude::*,
+    timer::{Event, MasterMode, Timer},
 };
 
 use rtic::app;
 
-const SEQUENCE_LEN: usize = 3;
+const SEQUENCE_LEN: usize = 8;
 
 #[app(device = stm32l4xx_hal::stm32, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
 const APP: () = {
@@ -20,6 +22,7 @@ const APP: () = {
 
     struct Resources {
         transfer: Option<Transfer<W, &'static mut [u16; SEQUENCE_LEN], RxDma<ADC, dma1::C1>>>,
+        timer: Timer<TIM2>,
     }
 
     #[init]
@@ -60,22 +63,29 @@ const APP: () = {
             &mut rcc.ahb2,
             &mut rcc.ccipr,
             &mut delay,
-            config::ExternalTriggerConfig::default(),
+            config::ExternalTriggerConfig(
+                config::TriggerMode::RisingEdge,
+                config::ExternalTrigger::Tim2TRGO,
+            ),
         );
 
-        let mut temp_pin = adc.enable_temperature(&mut delay);
+        let mut timer_adc_trg = Timer::tim2(pac.TIM2, 1.Hz(), clocks, &mut rcc.apb1r1);
+        timer_adc_trg.master_mode(MasterMode::Update);
+        timer_adc_trg.listen(Event::TimeOut);
 
         let dma1_channel = dma_channels.1;
 
-        adc.configure_sequence(&mut temp_pin, Sequence::One, SampleTime::Cycles12_5);
-        adc.configure_sequence(&mut temp_pin, Sequence::Two, SampleTime::Cycles247_5);
-        adc.configure_sequence(&mut temp_pin, Sequence::Three, SampleTime::Cycles640_5);
+        let mut gpioa = pac.GPIOA.split(&mut rcc.ahb2);
+        let mut a1 = gpioa.pa0.into_analog(&mut gpioa.moder, &mut gpioa.pupdr);
+
+        adc.configure_sequence(&mut a1, Sequence::One, SampleTime::Cycles12_5);
 
         // Heapless boxes also work very well as buffers for DMA transfers
         let transfer = Transfer::from_adc(adc, dma1_channel, MEMORY, DmaMode::Oneshot, true, false);
 
         init::LateResources {
             transfer: Some(transfer),
+            timer: timer_adc_trg,
         }
     }
 
@@ -100,5 +110,12 @@ const APP: () = {
                 false,
             ));
         }
+    }
+
+    #[task(binds = TIM2, resources = [timer])]
+    fn tim2_interrupt(cx: tim2_interrupt::Context) {
+        let timer = cx.resources.timer;
+        timer.clear_interrupt(stm32l4xx_hal::timer::Event::TimeOut);
+        rprintln!("TIM2 int - ADC trigger");
     }
 };
