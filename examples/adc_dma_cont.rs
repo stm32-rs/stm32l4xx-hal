@@ -63,8 +63,6 @@ const APP: () = {
             config::ExternalTriggerConfig::default(),
         );
 
-        let mut temp_pin = adc.enable_temperature(&mut delay);
-
         let dma1_channel = dma_channels.1;
 
         let mut gpioa = pac.GPIOA.split(&mut rcc.ahb2);
