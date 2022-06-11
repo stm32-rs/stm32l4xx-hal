@@ -5,7 +5,7 @@
 use core::{
     fmt,
     ops::{ControlFlow, Deref, DerefMut},
-    slice,
+    ptr, slice,
     sync::atomic::{self, Ordering},
 };
 
@@ -894,13 +894,13 @@ impl DataBlock {
     }
 
     pub(crate) fn blocks_to_words(blocks: &[DataBlock]) -> &[u32] {
-        let mut word_count = blocks.len() * 128;
+        let word_count = blocks.len() * 128;
         // SAFETY: `DataBlock` is 4-byte aligned.
         unsafe { slice::from_raw_parts(blocks.as_ptr() as *mut u32, word_count) }
     }
 
     pub(crate) fn blocks_to_words_mut(blocks: &mut [DataBlock]) -> &mut [u32] {
-        let mut word_count = blocks.len() * 128;
+        let word_count = blocks.len() * 128;
         // SAFETY: `DataBlock` is 4-byte aligned.
         unsafe { slice::from_raw_parts_mut(blocks.as_mut_ptr() as *mut u32, word_count) }
     }
@@ -1128,13 +1128,40 @@ impl IoError for Error {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct PartitionInfo {
+    start: u32,
+    len_bytes: u64,
+}
+
+impl PartitionInfo {
+    pub const fn new(lba_start: u32, num_blocks: u32) -> Self {
+        Self {
+            start: lba_start,
+            len_bytes: num_blocks as u64 * 512,
+        }
+    }
+
+    #[inline]
+    pub const fn start(&self) -> u32 {
+        self.start
+    }
+
+    #[inline]
+    pub const fn len_bytes(&self) -> u64 {
+        self.len_bytes
+    }
+}
+
 #[derive(Debug)]
 pub struct FatFsCursor<SDMMC> {
     sdmmc: SDMMC,
     pos: u64,
-    partition_info: Option<(u32, u32)>,
+    partition_index: u8,
+    partition_info: Option<PartitionInfo>,
     block: DataBlock,
     current_block: Option<u32>,
+    dirty: bool,
 }
 
 impl<SDMMC> FatFsCursor<SDMMC> {
@@ -1142,9 +1169,11 @@ impl<SDMMC> FatFsCursor<SDMMC> {
         Self {
             sdmmc,
             pos: 0,
+            partition_index: 0,
             partition_info: None,
             block: DataBlock([0; 512]),
             current_block: None,
+            dirty: false,
         }
     }
 
@@ -1163,20 +1192,24 @@ pub trait SdmmcIo {
 }
 
 impl SdmmcIo for Sdmmc {
+    #[inline(always)]
     fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
         Self::read_block(self, addr, block)
     }
 
+    #[inline(always)]
     fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error> {
         Self::write_block(self, addr, block)
     }
 }
 
 impl SdmmcIo for SdmmcDma {
+    #[inline(always)]
     fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
         Self::read_block(self, addr, block)
     }
 
+    #[inline(always)]
     fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error> {
         Self::write_block(self, addr, block)
     }
@@ -1186,10 +1219,12 @@ impl<T> SdmmcIo for &mut T
 where
     T: SdmmcIo,
 {
+    #[inline(always)]
     fn read_block(&mut self, addr: u32, block: &mut DataBlock) -> Result<(), Error> {
         (*self).read_block(addr, block)
     }
 
+    #[inline(always)]
     fn write_block(&mut self, addr: u32, block: &DataBlock) -> Result<(), Error> {
         (*self).write_block(addr, block)
     }
@@ -1199,7 +1234,7 @@ impl<SDMMC> FatFsCursor<SDMMC>
 where
     SDMMC: SdmmcIo,
 {
-    pub fn partition_info(&mut self) -> Result<(u32, u32), Error> {
+    pub fn partition_info(&mut self) -> Result<PartitionInfo, Error> {
         if let Some(partition_info) = self.partition_info {
             return Ok(partition_info);
         }
@@ -1207,28 +1242,31 @@ where
         let mut block = DataBlock([0; 512]);
         self.sdmmc.read_block(0, &mut block)?;
 
-        // TODO: Support other partitions.
-        let partition1_info = &block.as_bytes()[446..][..16];
+        let start = self.partition_index as usize * 16;
+        let partition_info = &block.0[446..][start..(start + 16)];
         let lba_start = u32::from_le_bytes([
-            partition1_info[8],
-            partition1_info[9],
-            partition1_info[10],
-            partition1_info[11],
+            partition_info[8],
+            partition_info[9],
+            partition_info[10],
+            partition_info[11],
         ]);
 
         let num_blocks = u32::from_le_bytes([
-            partition1_info[12],
-            partition1_info[13],
-            partition1_info[14],
-            partition1_info[15],
+            partition_info[12],
+            partition_info[13],
+            partition_info[14],
+            partition_info[15],
         ]);
 
-        Ok(*self.partition_info.get_or_insert((lba_start, num_blocks)))
+        Ok(*self
+            .partition_info
+            .get_or_insert(PartitionInfo::new(lba_start, num_blocks)))
     }
 }
 
 #[cfg(feature = "fatfs")]
 impl<'sdmmc> IntoStorage<FatFsCursor<&'sdmmc mut Sdmmc>> for &'sdmmc mut Sdmmc {
+    #[inline]
     fn into_storage(self) -> FatFsCursor<&'sdmmc mut Sdmmc> {
         FatFsCursor::new(self)
     }
@@ -1249,20 +1287,24 @@ where
     SDMMC: SdmmcIo,
 {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
-        // TODO: Use `checked_add_signed` when stable.
-        let new_pos = match pos {
-            SeekFrom::Start(offset) => offset as i128,
-            SeekFrom::End(offset) => {
-                let end = self.partition_info()?.1 * 512;
-                end as i128 + offset as i128
+        // TODO: Replace when `u64::checked_add_signed(i64)` becomes stable.
+        let checked_add_signed = |v: u64, o: i64| -> Result<u64, Self::Error> {
+            if o.is_negative() {
+                v.checked_sub(o.abs() as u64)
+            } else {
+                v.checked_add(o as u64)
             }
-            SeekFrom::Current(offset) => self.pos as i128 + offset as i128,
+            .ok_or(Self::Error::InvalidInput)
         };
+        let new_pos = match pos {
+            SeekFrom::Start(offset) => Ok(offset),
+            SeekFrom::End(offset) => {
+                let end = self.partition_info()?.len_bytes();
+                checked_add_signed(end as u64, offset)
+            }
+            SeekFrom::Current(offset) => checked_add_signed(self.pos, offset),
+        }?;
 
-        if new_pos < 0 || new_pos > u64::MAX as i128 {
-            // Seek to negative or overflowing position.
-            return Err(Self::Error::InvalidInput);
-        }
         let new_pos = new_pos as u64;
 
         self.pos = new_pos;
@@ -1275,6 +1317,7 @@ impl<SDMMC> Seek for &mut FatFsCursor<SDMMC>
 where
     SDMMC: SdmmcIo,
 {
+    #[inline(always)]
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
         (*self).seek(pos)
     }
@@ -1286,12 +1329,10 @@ where
     SDMMC: SdmmcIo,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        let (start, end) = self.partition_info()?;
+        let PartitionInfo { start, len_bytes } = self.partition_info()?;
 
-        let end = end as u64 * 512;
         let pos = self.pos;
-
-        if pos >= end {
+        if pos >= len_bytes {
             return Ok(0);
         }
 
@@ -1301,11 +1342,16 @@ where
 
         // Only read the block if we have not already read it.
         if self.current_block != Some(addr) {
+            self.flush()?;
+            self.current_block = None;
             self.sdmmc.read_block(addr, &mut self.block)?;
             self.current_block = Some(addr);
         }
 
-        buf[0..len].copy_from_slice(&self.block.as_bytes()[offset..(offset + len)]);
+        // SAFETY: `offset` and `len` are ensured to fit within the slices.
+        unsafe {
+            ptr::copy_nonoverlapping(self.block.0.as_ptr().add(offset), buf.as_mut_ptr(), len);
+        }
 
         self.pos += len as u64;
 
@@ -1320,6 +1366,7 @@ impl<SDMMC> Read for &mut FatFsCursor<SDMMC>
 where
     SDMMC: SdmmcIo,
 {
+    #[inline(always)]
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         (*self).read(buf)
     }
@@ -1331,12 +1378,10 @@ where
     SDMMC: SdmmcIo,
 {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        let (start, end) = self.partition_info()?;
+        let PartitionInfo { start, len_bytes } = self.partition_info()?;
 
-        let end = end as u64 * 512;
         let pos = self.pos;
-
-        if pos >= end {
+        if pos >= len_bytes {
             return Ok(0);
         }
 
@@ -1344,16 +1389,25 @@ where
         let offset = (pos % 512) as usize;
         let len = buf.len().min(512 - offset);
 
-        // Only read the block if we have not already read it.
-        if self.current_block != Some(addr) && len != 512 {
-            self.current_block = None;
-            self.sdmmc.read_block(addr, &mut self.block)?;
+        // Flush if current block is not the one we're writing to.
+        if self.current_block != Some(addr) {
+            self.flush()?;
+
+            // Read the block unless we write the full block.
+            if len != 512 {
+                self.current_block = None;
+                self.sdmmc.read_block(addr, &mut self.block)?;
+            }
+
+            self.current_block = Some(addr);
         }
 
-        self.block.as_bytes_mut()[offset..(offset + len)].copy_from_slice(&buf[0..len]);
-        self.sdmmc.write_block(addr, &self.block)?;
-        self.current_block = Some(addr);
+        // SAFETY: `offset` and `len` are ensured to fit within the slices.
+        unsafe {
+            ptr::copy_nonoverlapping(buf.as_ptr(), self.block.0.as_mut_ptr().add(offset), len);
+        }
 
+        self.dirty = true;
         self.pos += len as u64;
 
         Ok(len)
@@ -1361,7 +1415,14 @@ where
 
     // TODO: Add `write_exact` implementation which supports writing multiple blocks.
 
+    #[inline]
     fn flush(&mut self) -> Result<(), Self::Error> {
+        if self.dirty {
+            self.sdmmc
+                .write_block(self.current_block.unwrap(), &self.block)?;
+            self.dirty = false;
+        }
+
         Ok(())
     }
 }
@@ -1371,10 +1432,12 @@ impl<SDMMC> Write for &mut FatFsCursor<SDMMC>
 where
     SDMMC: SdmmcIo,
 {
+    #[inline(always)]
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         (*self).write(buf)
     }
 
+    #[inline(always)]
     fn flush(&mut self) -> Result<(), Self::Error> {
         (*self).flush()
     }
