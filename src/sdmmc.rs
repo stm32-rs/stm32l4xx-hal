@@ -302,6 +302,10 @@ impl SdCard {
         self.rca.address()
     }
 
+    pub fn block_count(&self) -> u64 {
+        self.csd.block_count()
+    }
+
     /// Get the card size in bytes.
     pub fn size(&self) -> u64 {
         self.csd.card_size()
@@ -874,20 +878,28 @@ impl Sdmmc {
 
 #[derive(Debug, Clone)]
 #[repr(align(4))]
-pub struct DataBlock(pub [u8; 512]);
+pub struct DataBlock([u8; 512]);
 
 impl DataBlock {
     pub const fn new() -> Self {
         Self([0; 512])
     }
 
-    pub fn blocks_to_words(blocks: &[DataBlock]) -> &[u32] {
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+
+    pub(crate) fn blocks_to_words(blocks: &[DataBlock]) -> &[u32] {
         let mut word_count = blocks.len() * 128;
         // SAFETY: `DataBlock` is 4-byte aligned.
         unsafe { slice::from_raw_parts(blocks.as_ptr() as *mut u32, word_count) }
     }
 
-    pub fn blocks_to_words_mut(blocks: &mut [DataBlock]) -> &mut [u32] {
+    pub(crate) fn blocks_to_words_mut(blocks: &mut [DataBlock]) -> &mut [u32] {
         let mut word_count = blocks.len() * 128;
         // SAFETY: `DataBlock` is 4-byte aligned.
         unsafe { slice::from_raw_parts_mut(blocks.as_mut_ptr() as *mut u32, word_count) }
@@ -1043,39 +1055,10 @@ impl SdmmcDma {
         (self.sdmmc, self.channel)
     }
 
+    /// Get the initialized card, if present.
     #[inline]
-    pub fn interrupt_handler() {
-        let sdmmc = unsafe { &*(SDMMC1::PTR) };
-
-        let sta = sdmmc.sta.read();
-
-        log::info!("irq sta = {:024b}", sta.bits());
-
-        if sta.dbckend().bit_is_set()
-            || sta.dcrcfail().bit_is_set()
-            || sta.dtimeout().bit_is_set()
-            || sta.rxoverr().bit_is_set()
-            || sta.txunderr().bit_is_set()
-        {
-            sdmmc.mask.modify(|_, w| {
-                w.dbckendie()
-                    .clear_bit()
-                    .dataendie()
-                    .clear_bit()
-                    .dcrcfailie()
-                    .clear_bit()
-                    .dtimeoutie()
-                    .clear_bit()
-                    .txunderrie()
-                    .clear_bit()
-                    .rxoverrie()
-                    .clear_bit()
-                    .txfifoheie()
-                    .clear_bit()
-                    .rxfifohfie()
-                    .clear_bit()
-            });
-        }
+    pub fn card(&self) -> Result<&SdCard, Error> {
+        self.sdmmc.card()
     }
 }
 
@@ -1123,9 +1106,8 @@ impl embedded_sdmmc::BlockDevice for SdmmcBlockDevice<Sdmmc> {
 
     fn num_blocks(&self) -> Result<embedded_sdmmc::BlockCount, Self::Error> {
         let sdmmc = self.sdmmc.borrow_mut();
-        Ok(embedded_sdmmc::BlockCount(
-            (sdmmc.card()?.size() / 512u64) as u32,
-        ))
+        let block_count = sdmmc.card()?.block_count();
+        Ok(embedded_sdmmc::BlockCount(block_count as u32))
     }
 }
 
@@ -1164,6 +1146,14 @@ impl<SDMMC> FatFsCursor<SDMMC> {
             block: DataBlock([0; 512]),
             current_block: None,
         }
+    }
+
+    pub fn sdmmc(&mut self) -> &SDMMC {
+        &self.sdmmc
+    }
+
+    pub fn sdmmc_mut(&mut self) -> &mut SDMMC {
+        &mut self.sdmmc
     }
 }
 
@@ -1218,7 +1208,7 @@ where
         self.sdmmc.read_block(0, &mut block)?;
 
         // TODO: Support other partitions.
-        let partition1_info = &block.0[446..][..16];
+        let partition1_info = &block.as_bytes()[446..][..16];
         let lba_start = u32::from_le_bytes([
             partition1_info[8],
             partition1_info[9],
@@ -1315,7 +1305,7 @@ where
             self.current_block = Some(addr);
         }
 
-        buf[0..len].copy_from_slice(&self.block.0[offset..(offset + len)]);
+        buf[0..len].copy_from_slice(&self.block.as_bytes()[offset..(offset + len)]);
 
         self.pos += len as u64;
 
@@ -1360,7 +1350,7 @@ where
             self.sdmmc.read_block(addr, &mut self.block)?;
         }
 
-        self.block.0[offset..(offset + len)].copy_from_slice(&buf[0..len]);
+        self.block.as_bytes_mut()[offset..(offset + len)].copy_from_slice(&buf[0..len]);
         self.sdmmc.write_block(addr, &self.block)?;
         self.current_block = Some(addr);
 
