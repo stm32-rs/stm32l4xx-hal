@@ -47,15 +47,15 @@ const APP: () = {
         let sck = gpiob
             .pb3
             .into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl)
-            .set_speed(Speed::High);
+            .speed(Speed::High);
         let miso = gpiob
             .pb4
             .into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl)
-            .set_speed(Speed::High);
+            .speed(Speed::High);
         let mosi = gpiob
             .pb5
             .into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl)
-            .set_speed(Speed::High);
+            .speed(Speed::High);
         let mut dummy_cs = gpiob.pb6.into_push_pull_output_in_state(
             &mut gpiob.moder,
             &mut gpiob.otyper,

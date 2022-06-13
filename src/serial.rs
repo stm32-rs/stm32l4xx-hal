@@ -1011,10 +1011,10 @@ impl_pin_traits! {
     }
     USART2: {
         7: {
-            TX: PA2, PD5;
-            RX: PA3, PD6;
-            RTS_DE: PA1, PD4;
-            CTS: PA0, PD3;
+            TX: PA2;
+            RX: PA3;
+            RTS_DE: PA1;
+            CTS: PA0;
         }
         3: {
             TX: ;
@@ -1025,10 +1025,30 @@ impl_pin_traits! {
     }
     USART3: {
         7: {
-            TX: PB10, PC4, PC10, PD8;
-            RX: PB11, PC5, PC11, PD9;
-            RTS_DE: PB1, PB14, PD2, PD12;
-            CTS: PA6, PB13, PD11;
+            TX: PB10, PC4, PC10;
+            RX: PB11, PC5, PC11;
+            RTS_DE: PB1, PB14, PD2;
+            CTS: PA6, PB13;
+        }
+    }
+}
+
+#[cfg(not(any(feature = "gpio-l41x")))]
+impl_pin_traits! {
+    USART2: {
+        7: {
+            TX: PD5;
+            RX: PD6;
+            RTS_DE: PD4;
+            CTS: PD3;
+        }
+    }
+    USART3: {
+        7: {
+            TX: PD8;
+            RX: PD9;
+            RTS_DE: PD12;
+            CTS: PD11;
         }
     }
 }

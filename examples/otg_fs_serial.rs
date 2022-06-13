@@ -96,11 +96,11 @@ unsafe fn main() -> ! {
         pin_dm: gpioa
             .pa11
             .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
-            .set_speed(Speed::VeryHigh),
+            .speed(Speed::VeryHigh),
         pin_dp: gpioa
             .pa12
             .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
-            .set_speed(Speed::VeryHigh),
+            .speed(Speed::VeryHigh),
     };
 
     let usb_bus = UsbBus::new(usb, &mut EP_MEMORY);

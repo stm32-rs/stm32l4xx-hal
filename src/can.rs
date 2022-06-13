@@ -20,8 +20,8 @@ pub trait Pins: sealed::Sealed {
 macro_rules! pins {
     ($($PER:ident => ($tx:ident<$txaf:literal>, $rx:ident<$rxaf:literal>),)+) => {
         $(
-            impl crate::can::sealed::Sealed for ($tx<crate::gpio::Alternate<$txaf>>, $rx<crate::gpio::Alternate<$rxaf>>) {}
-            impl crate::can::Pins for ($tx<crate::gpio::Alternate<$txaf>>, $rx<crate::gpio::Alternate<$rxaf>>) {
+            impl crate::can::sealed::Sealed for (crate::gpio::$tx<crate::gpio::Alternate<$txaf>>, crate::gpio::$rx<crate::gpio::Alternate<$rxaf>>) {}
+            impl crate::can::Pins for (crate::gpio::$tx<crate::gpio::Alternate<$txaf>>, crate::gpio::$rx<crate::gpio::Alternate<$rxaf>>) {
                 type Instance = $PER;
             }
         )+
@@ -29,25 +29,22 @@ macro_rules! pins {
 }
 
 mod common_pins {
-    use crate::gpio::{
-        gpioa::{PA11, PA12},
-        gpiob::{PB8, PB9},
-        gpiod::{PD0, PD1},
-    };
     use crate::pac::CAN1;
 
     // All STM32L4 models with CAN support these pins
     pins! {
         CAN1 => (PA12<9>, PA11<9>),
-        CAN1 => (PD1<9>, PD0<9>),
         CAN1 => (PB9<9>, PB8<9>),
+    }
+    #[cfg(not(any(feature = "gpio-l41x")))]
+    pins! {
+        CAN1 => (PD1<9>, PD0<9>),
     }
 }
 
 // L4x1
 #[cfg(any(feature = "stm32l431", feature = "stm32l451", feature = "stm32l471"))]
 mod pb13_pb12_af10 {
-    use crate::gpio::gpiob::{PB12, PB13};
     use crate::pac::CAN1;
     pins! { CAN1 => (PB13<10>, PB12<10>), }
 }

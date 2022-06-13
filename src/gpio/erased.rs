@@ -1,7 +1,5 @@
 use super::*;
 
-pub type EPin<MODE> = ErasedPin<MODE>;
-
 /// Fully erased pin
 ///
 /// `MODE` is one of the pin modes (see [Modes](crate::gpio#modes) section).
@@ -9,6 +7,17 @@ pub struct ErasedPin<MODE> {
     // Bits 0-3: Pin, Bits 4-7: Port
     pin_port: u8,
     _mode: PhantomData<MODE>,
+}
+
+impl<MODE> fmt::Debug for ErasedPin<MODE> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_fmt(format_args!(
+            "P({}{})<{}>",
+            self.port_id(),
+            self.pin_id(),
+            crate::stripped_type_name::<MODE>()
+        ))
+    }
 }
 
 impl<MODE> PinExt for ErasedPin<MODE> {
@@ -54,12 +63,14 @@ impl<MODE> ErasedPin<MODE> {
 }
 
 impl<MODE> ErasedPin<Output<MODE>> {
+    /// Drives the pin high
     #[inline(always)]
     pub fn set_high(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
         unsafe { self.block().bsrr.write(|w| w.bits(1 << self.pin_id())) };
     }
 
+    /// Drives the pin low
     #[inline(always)]
     pub fn set_low(&mut self) {
         // NOTE(unsafe) atomic write to a stateless register
@@ -70,6 +81,7 @@ impl<MODE> ErasedPin<Output<MODE>> {
         };
     }
 
+    /// Is the pin in drive high or low mode?
     #[inline(always)]
     pub fn get_state(&self) -> PinState {
         if self.is_set_low() {
@@ -79,6 +91,7 @@ impl<MODE> ErasedPin<Output<MODE>> {
         }
     }
 
+    /// Drives the pin high or low depending on the provided value
     #[inline(always)]
     pub fn set_state(&mut self, state: PinState) {
         match state {
@@ -87,16 +100,19 @@ impl<MODE> ErasedPin<Output<MODE>> {
         }
     }
 
+    /// Is the pin in drive high mode?
     #[inline(always)]
     pub fn is_set_high(&self) -> bool {
         !self.is_set_low()
     }
 
+    /// Is the pin in drive low mode?
     #[inline(always)]
     pub fn is_set_low(&self) -> bool {
         self.block().odr.read().bits() & (1 << self.pin_id()) == 0
     }
 
+    /// Toggle pin output
     #[inline(always)]
     pub fn toggle(&mut self) {
         if self.is_set_low() {
@@ -107,92 +123,19 @@ impl<MODE> ErasedPin<Output<MODE>> {
     }
 }
 
-impl<MODE> OutputPin for ErasedPin<Output<MODE>> {
-    type Error = core::convert::Infallible;
-
-    #[inline(always)]
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.set_high();
-        Ok(())
-    }
-
-    #[inline(always)]
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.set_low();
-        Ok(())
-    }
-}
-
-impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
-    #[inline(always)]
-    fn is_set_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_set_high())
-    }
-
-    #[inline(always)]
-    fn is_set_low(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_set_low())
-    }
-}
-
-impl<MODE> ToggleableOutputPin for ErasedPin<Output<MODE>> {
-    type Error = Infallible;
-
-    #[inline(always)]
-    fn toggle(&mut self) -> Result<(), Self::Error> {
-        self.toggle();
-        Ok(())
-    }
-}
-
-impl ErasedPin<Output<OpenDrain>> {
+impl<MODE> ErasedPin<MODE>
+where
+    MODE: super::marker::Readable,
+{
+    /// Is the input pin high?
     #[inline(always)]
     pub fn is_high(&self) -> bool {
         !self.is_low()
     }
 
+    /// Is the input pin low?
     #[inline(always)]
     pub fn is_low(&self) -> bool {
         self.block().idr.read().bits() & (1 << self.pin_id()) == 0
-    }
-}
-
-impl InputPin for ErasedPin<Output<OpenDrain>> {
-    type Error = core::convert::Infallible;
-
-    #[inline(always)]
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_high())
-    }
-
-    #[inline(always)]
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_low())
-    }
-}
-
-impl<MODE> ErasedPin<Input<MODE>> {
-    #[inline(always)]
-    pub fn is_high(&self) -> bool {
-        !self.is_low()
-    }
-
-    #[inline(always)]
-    pub fn is_low(&self) -> bool {
-        self.block().idr.read().bits() & (1 << self.pin_id()) == 0
-    }
-}
-
-impl<MODE> InputPin for ErasedPin<Input<MODE>> {
-    type Error = core::convert::Infallible;
-
-    #[inline(always)]
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_high())
-    }
-
-    #[inline(always)]
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(self.is_low())
     }
 }
