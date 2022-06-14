@@ -17,12 +17,12 @@ use crate::{
 };
 
 pub struct Usb {
-    usb_global: pac::OTG_FS_GLOBAL,
-    usb_device: pac::OTG_FS_DEVICE,
-    usb_pwrclk: pac::OTG_FS_PWRCLK,
+    _global: pac::OTG_FS_GLOBAL,
+    _device: pac::OTG_FS_DEVICE,
+    _pwrclk: pac::OTG_FS_PWRCLK,
     // TODO: check type
-    pin_dm: PA11<Alternate<PushPull, 10>>,
-    pin_dp: PA12<Alternate<PushPull, 10>>,
+    _dm: PA11<Alternate<PushPull, 10>>,
+    _dp: PA12<Alternate<PushPull, 10>>,
     hclk: Hertz,
 }
 
@@ -39,11 +39,11 @@ impl Usb {
         pwr.cr2.reg().modify(|_, w| w.usv().set_bit());
 
         Self {
-            usb_global: global,
-            usb_device: device,
-            usb_pwrclk: pwrclk,
-            pin_dm: dm,
-            pin_dp: dp,
+            _global: global,
+            _device: device,
+            _pwrclk: pwrclk,
+            _dm: dm,
+            _dp: dp,
             hclk: clocks.hclk(),
         }
     }
