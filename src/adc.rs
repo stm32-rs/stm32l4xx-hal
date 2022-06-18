@@ -507,8 +507,10 @@ macro_rules! adc {
         /// Calculates the system VDDA by sampling the internal VREF channel and comparing
         /// the result with the value stored at the factory. If the chip's VDDA is not stable, run
         /// this before each ADC conversion.
+        ///
+        /// Returns the calibrated VDDA voltage in millivolts.
         #[inline]
-        pub fn calibrate(&mut self, delay: &mut impl DelayUs<u32>) {
+        pub fn calibrate(&mut self, delay: &mut impl DelayUs<u32>) -> u16 {
             let vref = self.enable_vref(delay);
 
             let vref_cal = VrefCal::get().read();
@@ -521,8 +523,10 @@ macro_rules! adc {
 
             // Disable VREF again if it was disabled before.
             if let Some(vref) = vref {
-                self.disable_vref(vref)
+                self.disable_vref(vref);
             }
+
+            self.calibrated_vdda as u16
         }
 
         /// Check if the internal voltage reference channel is enabled.
