@@ -5,7 +5,12 @@ use panic_rtt_target as _;
 
 use cortex_m_rt::entry;
 use rtt_target::{rprint, rprintln};
-use stm32l4xx_hal::{adc::ADC, delay::Delay, pac, prelude::*};
+use stm32l4xx_hal::{
+    adc::{Adc, AdcCommon},
+    delay::Delay,
+    pac,
+    prelude::*,
+};
 
 #[entry]
 fn main() -> ! {
@@ -22,13 +27,8 @@ fn main() -> ! {
     let clocks = rcc.cfgr.freeze(&mut flash.acr, &mut pwr);
 
     let mut delay = Delay::new(cp.SYST, clocks);
-    let mut adc = ADC::new(
-        dp.ADC1,
-        dp.ADC_COMMON,
-        &mut rcc.ahb2,
-        &mut rcc.ccipr,
-        &mut delay,
-    );
+    let adc_common = AdcCommon::new(dp.ADC_COMMON, &mut rcc.ahb2);
+    let mut adc = Adc::adc1(dp.ADC1, adc_common, &mut rcc.ccipr, &mut delay);
 
     let mut gpioc = dp.GPIOC.split(&mut rcc.ahb2);
     let mut a1 = gpioc.pc0.into_analog(&mut gpioc.moder, &mut gpioc.pupdr);
