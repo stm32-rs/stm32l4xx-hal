@@ -172,7 +172,7 @@ bus! {
     feature = "stm32l4s9",
 ))]
 bus! {
-    ADC => (AHB2, adcen, adcfssmen, adcrst), // 13
+    ADC1 => (AHB2, adcen, adcfssmen, adcrst), // 13
 
     FIREWALL => (APB2, fwen,,), // 7
     LTCD => (APB2, ltdcen, ltdcsmen, ltdcrst), // 26
@@ -235,8 +235,6 @@ bus! {
     feature = "stm32l431",
     feature = "stm32l451",
     feature = "stm32l471",
-    feature = "stm32l412",
-    feature = "stm32l422",
     feature = "stm32l432",
     feature = "stm32l442",
     feature = "stm32l452",
@@ -246,10 +244,21 @@ bus! {
     feature = "stm32l475",
 ))]
 bus! {
+    DAC => (APB1R1, dac1en, dac1smen, dac1rst), // 29
+
+    SDMMC => (APB2, sdmmcen, sdmmcsmen, sdmmcrst), // 10
+}
+
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+))]
+bus! {
     DAC1 => (APB1R1, dac1en, dac1smen, dac1rst), // 29
 
     SDMMC => (APB2, sdmmcen, sdmmcsmen, sdmmcrst), // 10
 }
+
 
 // L4x1, L4x2, L4x5, or L4x6
 #[cfg(not(any(

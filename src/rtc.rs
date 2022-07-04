@@ -271,7 +271,32 @@ impl Rtc {
                 rtc_registers::clear_alarm_a_flag(rtc);
                 while !rtc_registers::is_alarm_a_accessible(rtc) {}
 
-                rtc.alrmar.modify(|_, w| unsafe {
+                #[cfg(any(
+                    feature = "stm32l431",
+                    feature = "stm32l451",
+                    feature = "stm32l471",
+                    feature = "stm32l412",
+                    feature = "stm32l422",
+                    feature = "stm32l432",
+                    feature = "stm32l442",
+                    feature = "stm32l452",
+                    feature = "stm32l462",
+                    feature = "stm32l433",
+                    feature = "stm32l443",
+                    feature = "stm32l475",
+                    feature = "stm32l476",
+                    feature = "stm32l486",
+                    feature = "stm32l496",
+                    feature = "stm32l4a6",
+                ))]
+                    let mut alrmar = rtc.alrmar();
+
+                #[cfg(any(
+                    feature = "stm32l4r5"
+                ))]
+                    let mut alrmar = rtc.alrmar;
+
+                alrmar.modify(|_, w| unsafe {
                     w.dt()
                         .bits(dt)
                         .du()
@@ -307,7 +332,32 @@ impl Rtc {
                 rtc_registers::clear_alarm_b_flag(rtc);
                 while !rtc_registers::is_alarm_b_accessible(rtc) {}
 
-                rtc.alrmbr.modify(|_, w| unsafe {
+                #[cfg(any(
+                    feature = "stm32l431",
+                    feature = "stm32l451",
+                    feature = "stm32l471",
+                    feature = "stm32l412",
+                    feature = "stm32l422",
+                    feature = "stm32l432",
+                    feature = "stm32l442",
+                    feature = "stm32l452",
+                    feature = "stm32l462",
+                    feature = "stm32l433",
+                    feature = "stm32l443",
+                    feature = "stm32l475",
+                    feature = "stm32l476",
+                    feature = "stm32l486",
+                    feature = "stm32l496",
+                    feature = "stm32l4a6",
+                ))]
+                    let mut alrmbr = rtc.alrmbr();
+
+                #[cfg(any(
+                    feature = "stm32l4r5"
+                ))]
+                    let mut alrmbr = rtc.alrmbr;
+
+                alrmbr.modify(|_, w| unsafe {
                     w.dt()
                         .bits(dt)
                         .du()
