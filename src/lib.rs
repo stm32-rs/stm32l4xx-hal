@@ -27,7 +27,6 @@
     feature = "stm32l486",
     feature = "stm32l496",
     feature = "stm32l4a6",
-    // note L4+ PAC support is mostly missing so other than r9/s9 these features don't actually exist yet
     // feature = "stm32l4p5",
     // feature = "stm32l4q5",
     feature = "stm32l4r5",
@@ -46,7 +45,7 @@ This crate requires one of the following features enabled:
     stm32l433, stm32l443
     stm32l475,
     stm32l476, stm32l486, stm32l496, stm32l4a6
-    stm32l4r5,
+    stm32l4r5, stm32l4s5
     stm32l4r9, stm32l4s9
 "
 );
@@ -110,6 +109,12 @@ pub use stm32l4::stm32l4x5 as pac;
     feature = "stm32l4a6"
 ))]
 pub use stm32l4::stm32l4x6 as pac;
+
+#[cfg(any(
+    feature = "stm32l4r5",
+    feature = "stm32l4s5"
+))]
+pub use stm32l4::stm32l4r5 as pac;
 
 #[cfg(any(feature = "stm32l4r9", feature = "stm32l4s9",))]
 pub use stm32l4::stm32l4r9 as pac;
