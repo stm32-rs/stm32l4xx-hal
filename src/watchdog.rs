@@ -39,6 +39,9 @@ impl IndependentWatchdog {
             feature = "stm32l462",
             feature = "stm32l433",
             feature = "stm32l443",
+            feature = "stm32l4r5",
+            feature = "stm32l4s5",
+            feature = "stm32l4r9"
         ))]
         dbgmcu.apb1fzr1.modify(|_, w| w.dbg_iwdg_stop().bit(stop));
         #[cfg(not(any(
@@ -53,6 +56,9 @@ impl IndependentWatchdog {
             feature = "stm32l462",
             feature = "stm32l433",
             feature = "stm32l443",
+            feature = "stm32l4r5",
+            feature = "stm32l4s5",
+            feature = "stm32l4r9"
         )))]
         dbgmcu.apb1_fzr1.modify(|_, w| w.dbg_iwdg_stop().bit(stop));
     }
