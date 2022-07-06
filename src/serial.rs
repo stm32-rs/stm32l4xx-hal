@@ -24,8 +24,8 @@ use crate::time::{Bps, U32Ext};
 
 #[cfg(any(
     //feature = "stm32l451", // missing PAC support
-    // feature = "stm32l452", // missing PAC support
-    // feature = "stm32l462", // missing PAC support
+    feature = "stm32l452",
+    feature = "stm32l462",
     // feature = "stm32l471", // missing PAC support
     feature = "stm32l475",
     feature = "stm32l476",
@@ -858,8 +858,8 @@ hal! {
 
 #[cfg(any(
     // feature = "stm32l451", // missing PAC support
-    // feature = "stm32l452", // missing PAC support
-    // feature = "stm32l462", // missing PAC support
+    feature = "stm32l452", // missing PAC support
+    feature = "stm32l462", // missing PAC support
     // feature = "stm32l471", // missing PAC support
     feature = "stm32l475",
     feature = "stm32l476",
@@ -1035,8 +1035,39 @@ impl_pin_traits! {
 
 #[cfg(any(
     // feature = "stm32l451",
-    // feature = "stm32l452",
-    // feature = "stm32l462",
+    feature = "stm32l452",
+    feature = "stm32l462",
+    // feature = "stm32l471",
+    // feature = "stm32l475",
+    // feature = "stm32l476",
+    // feature = "stm32l485",
+    // feature = "stm32l486",
+    // feature = "stm32l496",
+    // feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    // feature = "stm32l4r9",
+    // feature = "stm32l4s9",
+))]
+impl_pin_traits! {
+    USART3: {
+        7: {
+            TX: ;
+            RX: ;
+            RTS_DE: PA15;
+            CTS: ;
+        }
+    }
+}
+
+#[cfg(any(
+    // feature = "stm32l451",
+    feature = "stm32l452",
+    feature = "stm32l462",
     // feature = "stm32l471",
     feature = "stm32l475",
     feature = "stm32l476",
