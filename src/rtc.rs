@@ -271,7 +271,7 @@ impl Rtc {
                 rtc_registers::clear_alarm_a_flag(rtc);
                 while !rtc_registers::is_alarm_a_accessible(rtc) {}
 
-                rtc.alrmar.modify(|_, w| unsafe {
+                rtc.alrmar().modify(|_, w| unsafe {
                     w.dt()
                         .bits(dt)
                         .du()
@@ -307,7 +307,7 @@ impl Rtc {
                 rtc_registers::clear_alarm_b_flag(rtc);
                 while !rtc_registers::is_alarm_b_accessible(rtc) {}
 
-                rtc.alrmbr.modify(|_, w| unsafe {
+                rtc.alrmbr().modify(|_, w| unsafe {
                     w.dt()
                         .bits(dt)
                         .du()

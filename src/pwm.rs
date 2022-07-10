@@ -370,7 +370,7 @@ macro_rules! pwm_channels {
 
                 #[inline(always)]
                 fn get_duty(&self) -> Self::Duty {
-                    unsafe { (*$TIMX::ptr()).$ccrX.read().$ccr().bits() }
+                    unsafe { (*$TIMX::ptr()).$ccrX().read().$ccr().bits() }
                 }
 
                 #[inline(always)]
@@ -380,7 +380,7 @@ macro_rules! pwm_channels {
 
                 #[inline(always)]
                 fn set_duty(&mut self, duty: Self::Duty) {
-                    unsafe { (*$TIMX::ptr()).$ccrX.write(|w| w.$ccr().bits(duty)) }
+                    unsafe { (*$TIMX::ptr()).$ccrX().write(|w| w.$ccr().bits(duty)) }
                 }
             }
         )+
