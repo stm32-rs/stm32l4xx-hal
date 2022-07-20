@@ -536,6 +536,8 @@ mod stm32l4x2_pins {
     pins!(I2C4, 3, SCL: [PB10], SDA: [PB11]);
     #[cfg(any(feature = "stm32l452", feature = "stm32l462"))]
     pins!(I2C4, 4, SCL: [PD12], SDA: [PD13]);
+    #[cfg(any(feature = "stm32l452", feature = "stm32l462"))]
+    pins!(I2C4, 5, SCL: [PB6], SDA: [PB7]);
 }
 
 #[cfg(any(feature = "stm32l433", feature = "stm32l443"))]
