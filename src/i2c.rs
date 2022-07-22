@@ -303,7 +303,7 @@ where
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(bytes.len() < 256);
+        // assert!(bytes.len() < 256);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -322,17 +322,41 @@ where
                 .clear_bit()
                 .rd_wrn()
                 .write()
-                .nbytes()
-                .bits(bytes.len() as u8)
                 .autoend()
                 .software()
         });
+
+        let mut iterations: u8 = 0;
+        // Set RELOAD flag, if more than 255 bytes need to be send
+        if bytes.len() > 255 {
+            self.i2c
+                .cr2
+                .write(|w| w.reload().set_bit().nbytes().bits(255 as u8));
+            iterations = (bytes.len() / 255) as u8
+        } else {
+            self.i2c.cr2.write(|w| w.nbytes().bits(bytes.len() as u8));
+        }
 
         for byte in bytes {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
             busy_wait!(self.i2c, txis, is_empty);
+            if self.i2c.isr.read().tcr().bit_is_set() && bytes.len() > 255 {
+                if iterations > 1 {
+                    self.i2c
+                        .cr2
+                        .write(|w| w.reload().set_bit().nbytes().bits(255 as u8));
+                    //self.i2c.isr.write(|w| w.tc().clear_bit());
+                    iterations -= 1;
+                } else if iterations == 1 {
+                    self.i2c
+                        .cr2
+                        .write(|w| w.reload().clear_bit().nbytes().bits(bytes.len() as u8));
+                    //self.i2c.isr.write(|w| w.tc().clear_bit());
+                    iterations = 0;
+                }
+            }
 
             // Put byte on the wire
             self.i2c.txdr.write(|w| w.txdata().bits(*byte));
