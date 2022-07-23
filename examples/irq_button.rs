@@ -7,7 +7,7 @@ extern crate panic_semihosting;
 extern crate stm32l4xx_hal as hal;
 
 use crate::hal::{
-    gpio::{gpioc::PC13, Edge, ExtiPin, Input, PullUp},
+    gpio::{gpioc::PC13, Edge, ExtiPin, Input},
     interrupt,
     prelude::*,
     stm32,
@@ -21,7 +21,7 @@ use cortex_m::{
 use rt::entry;
 
 // Set up global state. It's all mutexed up for concurrency safety.
-static BUTTON: Mutex<RefCell<Option<PC13<Input<PullUp>>>>> = Mutex::new(RefCell::new(None));
+static BUTTON: Mutex<RefCell<Option<PC13<Input>>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {

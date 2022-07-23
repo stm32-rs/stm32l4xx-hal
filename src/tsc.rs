@@ -8,7 +8,7 @@
 //! electrode fitting a human finger tip size across a few millimeters dielectric panel.
 
 use crate::gpio::gpiob::{PB4, PB5, PB6, PB7};
-use crate::gpio::{Alternate, OpenDrain, PushPull};
+use crate::gpio::{Alternate, OpenDrain};
 use crate::rcc::{Enable, Reset, AHB1};
 use crate::stm32::TSC;
 
@@ -32,19 +32,19 @@ pub trait SamplePin<TSC> {
     const GROUP: u32;
     const OFFSET: u32;
 }
-impl SamplePin<TSC> for PB4<Alternate<OpenDrain, 9>> {
+impl SamplePin<TSC> for PB4<Alternate<9, OpenDrain>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 0;
 }
-impl SamplePin<TSC> for PB5<Alternate<OpenDrain, 9>> {
+impl SamplePin<TSC> for PB5<Alternate<9, OpenDrain>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 1;
 }
-impl SamplePin<TSC> for PB6<Alternate<OpenDrain, 9>> {
+impl SamplePin<TSC> for PB6<Alternate<9, OpenDrain>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 2;
 }
-impl SamplePin<TSC> for PB7<Alternate<OpenDrain, 9>> {
+impl SamplePin<TSC> for PB7<Alternate<9, OpenDrain>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 3;
 }
@@ -53,19 +53,19 @@ pub trait ChannelPin<TSC> {
     const GROUP: u32;
     const OFFSET: u32;
 }
-impl ChannelPin<TSC> for PB4<Alternate<PushPull, 9>> {
+impl ChannelPin<TSC> for PB4<Alternate<9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 0;
 }
-impl ChannelPin<TSC> for PB5<Alternate<PushPull, 9>> {
+impl ChannelPin<TSC> for PB5<Alternate<9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 1;
 }
-impl ChannelPin<TSC> for PB6<Alternate<PushPull, 9>> {
+impl ChannelPin<TSC> for PB6<Alternate<9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 2;
 }
-impl ChannelPin<TSC> for PB7<Alternate<PushPull, 9>> {
+impl ChannelPin<TSC> for PB7<Alternate<9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 3;
 }

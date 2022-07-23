@@ -13,7 +13,7 @@ use core::sync::atomic::Ordering;
 use crate::dma::dma2;
 use crate::dma::{self, dma1, TransferPayload};
 use crate::dmamux::{DmaInput, DmaMux};
-use crate::gpio::{Alternate, PushPull};
+use crate::gpio::{self, Alternate};
 use crate::hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
@@ -47,16 +47,16 @@ pub trait MosiPin<SPI>: private::Sealed {}
 macro_rules! pins {
     ($spi:ident, $af:literal, SCK: [$($sck:ident),*], MISO: [$($miso:ident),*], MOSI: [$($mosi:ident),*]) => {
         $(
-            impl private::Sealed for $sck<Alternate<PushPull, $af>> {}
-            impl SckPin<$spi> for $sck<Alternate<PushPull, $af>> {}
+            impl private::Sealed for gpio::$sck<Alternate<$af>> {}
+            impl SckPin<$spi> for gpio::$sck<Alternate<$af>> {}
         )*
         $(
-            impl private::Sealed for $miso<Alternate<PushPull, $af>> {}
-            impl MisoPin<$spi> for $miso<Alternate<PushPull, $af>> {}
+            impl private::Sealed for gpio::$miso<Alternate<$af>> {}
+            impl MisoPin<$spi> for gpio::$miso<Alternate<$af>> {}
         )*
         $(
-            impl private::Sealed for $mosi<Alternate<PushPull, $af>> {}
-            impl MosiPin<$spi> for $mosi<Alternate<PushPull, $af>> {}
+            impl private::Sealed for gpio::$mosi<Alternate<$af>> {}
+            impl MosiPin<$spi> for gpio::$mosi<Alternate<$af>> {}
         )*
     }
 }
@@ -283,36 +283,18 @@ macro_rules! hal {
     }
 }
 
-use crate::gpio::gpiod::*;
-#[cfg(any(
-    // feature = "stm32l471",  // missing PAC support for Port G
-    feature = "stm32l475",
-    feature = "stm32l476",
-    feature = "stm32l485",
-    feature = "stm32l486",
-    feature = "stm32l496",
-    feature = "stm32l4a6",
-    // feature = "stm32l4p5",
-    // feature = "stm32l4q5",
-    // feature = "stm32l4r5",
-    // feature = "stm32l4s5",
-    // feature = "stm32l4r7",
-    // feature = "stm32l4s7",
-    feature = "stm32l4r9",
-    feature = "stm32l4s9",
-))]
-use crate::gpio::gpiog::*;
-use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
-
 use crate::stm32::SPI1;
 hal! {
     SPI1: (spi1, spi1_slave, pclk2),
 }
 
 pins!(SPI1, 5,
-    SCK: [PA5, PB3, PE13],
-    MISO: [PA6, PB4, PE14],
-    MOSI: [PA7, PB5, PE15]);
+    SCK: [PA5, PB3],
+    MISO: [PA6, PB4],
+    MOSI: [PA7, PB5]);
+
+#[cfg(not(any(feature = "gpio-l41x")))]
+pins!(SPI1, 5, SCK: [PE13], MISO: [PE14], MOSI: [PE15]);
 
 #[cfg(any(
     // feature = "stm32l471", // missing PAC support for Port G
@@ -373,9 +355,12 @@ hal! {
 }
 
 pins!(SPI2, 5,
-    SCK: [PB13, PB10, PD1],
-    MISO: [PB14, PC2, PD3],
-    MOSI: [PB15, PC3, PD4]);
+    SCK: [PB13, PB10],
+    MISO: [PB14, PC2],
+    MOSI: [PB15, PC3]);
+
+#[cfg(not(any(feature = "gpio-l41x")))]
+pins!(SPI2, 5, SCK: [PD1], MISO: [PD3], MOSI: [PD4]);
 
 pub struct SpiPayload<SPI, PINS> {
     spi: Spi<SPI, PINS>,

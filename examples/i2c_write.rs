@@ -37,17 +37,15 @@ fn main() -> ! {
 
     let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);
 
-    let mut scl =
-        gpioa
-            .pa9
-            .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
-    scl.internal_pull_up(&mut gpioa.pupdr, true);
+    let scl = gpioa
+        .pa9
+        .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
+        .internal_pull_up(&mut gpioa.pupdr, true);
 
-    let mut sda =
-        gpioa
-            .pa10
-            .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
-    sda.internal_pull_up(&mut gpioa.pupdr, true);
+    let sda = gpioa
+        .pa10
+        .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
+        .internal_pull_up(&mut gpioa.pupdr, true);
 
     let mut i2c = I2c::i2c1(
         dp.I2C1,

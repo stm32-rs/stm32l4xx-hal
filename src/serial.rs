@@ -17,7 +17,7 @@ use crate::dma::{
     Transmit, TxDma,
 };
 use crate::dmamux::{DmaInput, DmaMux};
-use crate::gpio::{self, Alternate, OpenDrain, PushPull};
+use crate::gpio::{self, Alternate, OpenDrain};
 use crate::pac;
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
@@ -963,37 +963,37 @@ macro_rules! impl_pin_traits {
             $(
                 $(
                     impl private::SealedTx for
-                        gpio::$tx<Alternate<PushPull, $af>> {}
+                        gpio::$tx<Alternate<$af>> {}
                     impl TxPin<pac::$instance> for
-                        gpio::$tx<Alternate<PushPull, $af>> {}
+                        gpio::$tx<Alternate<$af>> {}
                 )*
 
                 $(
                     impl private::SealedTxHalfDuplex for
-                        gpio::$tx<Alternate<OpenDrain, $af>> {}
+                        gpio::$tx<Alternate<$af, OpenDrain>> {}
                     impl TxHalfDuplexPin<pac::$instance> for
-                        gpio::$tx<Alternate<OpenDrain, $af>> {}
+                        gpio::$tx<Alternate<$af, OpenDrain>> {}
                 )*
 
                 $(
                     impl private::SealedRx for
-                        gpio::$rx<Alternate<PushPull, $af>> {}
+                        gpio::$rx<Alternate<$af>> {}
                     impl RxPin<pac::$instance> for
-                        gpio::$rx<Alternate<PushPull, $af>> {}
+                        gpio::$rx<Alternate<$af>> {}
                 )*
 
                 $(
                     impl private::SealedRtsDe for
-                        gpio::$rts_de<Alternate<PushPull, $af>> {}
+                        gpio::$rts_de<Alternate<$af>> {}
                     impl RtsDePin<pac::$instance> for
-                        gpio::$rts_de<Alternate<PushPull, $af>> {}
+                        gpio::$rts_de<Alternate<$af>> {}
                 )*
 
                 $(
                     impl private::SealedCts for
-                        gpio::$cts<Alternate<PushPull, $af>> {}
+                        gpio::$cts<Alternate<$af>> {}
                     impl CtsPin<pac::$instance> for
-                        gpio::$cts<Alternate<PushPull, $af>> {}
+                        gpio::$cts<Alternate<$af>> {}
                 )*
             )*
         )*
@@ -1011,10 +1011,10 @@ impl_pin_traits! {
     }
     USART2: {
         7: {
-            TX: PA2, PD5;
-            RX: PA3, PD6;
-            RTS_DE: PA1, PD4;
-            CTS: PA0, PD3;
+            TX: PA2;
+            RX: PA3;
+            RTS_DE: PA1;
+            CTS: PA0;
         }
         3: {
             TX: ;
@@ -1025,10 +1025,30 @@ impl_pin_traits! {
     }
     USART3: {
         7: {
-            TX: PB10, PC4, PC10, PD8;
-            RX: PB11, PC5, PC11, PD9;
-            RTS_DE: PB1, PB14, PD2, PD12;
-            CTS: PA6, PB13, PD11;
+            TX: PB10, PC4, PC10;
+            RX: PB11, PC5, PC11;
+            RTS_DE: PB1, PB14, PD2;
+            CTS: PA6, PB13;
+        }
+    }
+}
+
+#[cfg(not(any(feature = "gpio-l41x")))]
+impl_pin_traits! {
+    USART2: {
+        7: {
+            TX: PD5;
+            RX: PD6;
+            RTS_DE: PD4;
+            CTS: PD3;
+        }
+    }
+    USART3: {
+        7: {
+            TX: PD8;
+            RX: PD9;
+            RTS_DE: PD12;
+            CTS: PD11;
         }
     }
 }
