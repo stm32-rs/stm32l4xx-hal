@@ -333,6 +333,35 @@ where
     }
 }
 
+impl<BUFFER, PAYLOAD, CHANNEL> CircBuffer<BUFFER, RxDma<PAYLOAD, CHANNEL>>
+where
+    PAYLOAD: CharacterMatch,
+{
+    /// Checks to see if the peripheral has detected a character match and
+    /// clears the flag
+    pub fn check_character_match(&mut self, clear: bool) -> bool {
+        self.payload.payload.check_character_match(clear)
+    }
+}
+
+impl<BUFFER, PAYLOAD, CHANNEL> CircBuffer<BUFFER, RxDma<PAYLOAD, CHANNEL>>
+where
+    PAYLOAD: ReceiverTimeout,
+{
+    pub fn check_receiver_timeout(&mut self, clear: bool) -> bool {
+        self.payload.payload.check_receiver_timeout(clear)
+    }
+}
+
+impl<BUFFER, PAYLOAD, CHANNEL> CircBuffer<BUFFER, RxDma<PAYLOAD, CHANNEL>> {
+    pub fn check_operation_error<O, E>(&mut self) -> Result<O, E>
+    where
+        PAYLOAD: OperationError<O, E>,
+    {
+        self.payload.payload.check_operation_error()
+    }
+}
+
 pub trait DmaExt {
     type Channels;
 

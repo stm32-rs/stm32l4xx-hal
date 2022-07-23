@@ -206,18 +206,20 @@ impl From<Bps> for Config {
 
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
-    usart: USART,
-    pins: PINS,
+    tx: Tx<USART, PINS>,
+    rx: Rx<USART, PINS>,
 }
 
 /// Serial receiver
-pub struct Rx<USART> {
+pub struct Rx<USART, PINS> {
     _usart: PhantomData<USART>,
+    pins: PINS,
 }
 
 /// Serial transmitter
-pub struct Tx<USART> {
-    _usart: PhantomData<USART>,
+pub struct Tx<USART, PINS> {
+    usart: USART,
+    pins: PhantomData<PINS>,
 }
 
 macro_rules! hal {
@@ -372,26 +374,34 @@ macro_rules! hal {
                         .cr1
                         .modify(|_, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
-                    Serial { usart, pins }
+                    Serial {
+                        tx: Tx { usart, pins: PhantomData },
+                        rx: Rx { _usart: PhantomData, pins },
+                    }
+                }
+
+                #[inline]
+                fn usart(&self) -> &pac::$USARTX {
+                    &self.tx.usart
                 }
 
                 /// Starts listening for an interrupt event
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         Event::Rxne => {
-                            self.usart.cr1.modify(|_, w| w.rxneie().set_bit())
+                            self.usart().cr1.modify(|_, w| w.rxneie().set_bit())
                         },
                         Event::Txe => {
-                            self.usart.cr1.modify(|_, w| w.txeie().set_bit())
+                            self.usart().cr1.modify(|_, w| w.txeie().set_bit())
                         },
                         Event::Idle => {
-                            self.usart.cr1.modify(|_, w| w.idleie().set_bit())
+                            self.usart().cr1.modify(|_, w| w.idleie().set_bit())
                         },
                         Event::CharacterMatch => {
-                            self.usart.cr1.modify(|_, w| w.cmie().set_bit())
+                            self.usart().cr1.modify(|_, w| w.cmie().set_bit())
                         },
                         Event::ReceiverTimeout => {
-                            self.usart.cr1.modify(|_, w| w.rtoie().set_bit())
+                            self.usart().cr1.modify(|_, w| w.rtoie().set_bit())
                         },
                     }
                 }
@@ -400,48 +410,62 @@ macro_rules! hal {
                 ///
                 /// See [`Rx::check_for_error`].
                 pub fn check_for_error() -> Result<(), Error> {
-                    let mut rx: Rx<pac::$USARTX> = Rx {
-                        _usart: PhantomData,
-                    };
-                    rx.check_for_error()
+                    // NOTE(unsafe): Only used for atomic access.
+                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.pe().bit_is_set() {
+                        icr.write(|w| w.pecf().clear());
+                        return Err(Error::Parity);
+                    }
+                    if isr.fe().bit_is_set() {
+                        icr.write(|w| w.fecf().clear());
+                        return Err(Error::Framing);
+                    }
+                    if isr.nf().bit_is_set() {
+                        icr.write(|w| w.ncf().clear());
+                        return Err(Error::Noise);
+                    }
+                    if isr.ore().bit_is_set() {
+                        icr.write(|w| w.orecf().clear());
+                        return Err(Error::Overrun);
+                    }
+
+                    Ok(())
                 }
 
                 /// Stops listening for an interrupt event
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         Event::Rxne => {
-                            self.usart.cr1.modify(|_, w| w.rxneie().clear_bit())
+                            self.usart().cr1.modify(|_, w| w.rxneie().clear_bit())
                         },
                         Event::Txe => {
-                            self.usart.cr1.modify(|_, w| w.txeie().clear_bit())
+                            self.usart().cr1.modify(|_, w| w.txeie().clear_bit())
                         },
                         Event::Idle => {
-                            self.usart.cr1.modify(|_, w| w.idleie().clear_bit())
+                            self.usart().cr1.modify(|_, w| w.idleie().clear_bit())
                         },
                         Event::CharacterMatch => {
-                            self.usart.cr1.modify(|_, w| w.cmie().clear_bit())
+                            self.usart().cr1.modify(|_, w| w.cmie().clear_bit())
                         },
                         Event::ReceiverTimeout => {
-                            self.usart.cr1.modify(|_, w| w.rtoie().clear_bit())
+                            self.usart().cr1.modify(|_, w| w.rtoie().clear_bit())
                         },
                     }
                 }
 
                 /// Splits the `Serial` abstraction into a transmitter and a receiver half
-                pub fn split(self) -> (Tx<pac::$USARTX>, Rx<pac::$USARTX>) {
+                pub fn split(self) -> (Tx<pac::$USARTX, PINS>, Rx<pac::$USARTX, PINS>) {
                     (
-                        Tx {
-                            _usart: PhantomData,
-                        },
-                        Rx {
-                            _usart: PhantomData,
-                        },
+                        self.tx,
+                        self.rx,
                     )
                 }
 
                 /// Frees the USART peripheral
                 pub fn release(self) -> (pac::$USARTX, PINS) {
-                    (self.usart, self.pins)
+                    (self.tx.usart, self.rx.pins)
                 }
             }
 
@@ -449,14 +473,11 @@ macro_rules! hal {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
-                    let mut rx: Rx<pac::$USARTX> = Rx {
-                        _usart: PhantomData,
-                    };
-                    rx.read()
+                    self.rx.read()
                 }
             }
 
-            impl serial::Read<u8> for Rx<pac::$USARTX> {
+            impl<PINS> serial::Read<u8> for Rx<pac::$USARTX, PINS> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
@@ -480,21 +501,15 @@ macro_rules! hal {
                 type Error = Error;
 
                 fn flush(&mut self) -> nb::Result<(), Error> {
-                    let mut tx: Tx<pac::$USARTX> = Tx {
-                        _usart: PhantomData,
-                    };
-                    tx.flush()
+                    self.tx.flush()
                 }
 
                 fn write(&mut self, byte: u8) -> nb::Result<(), Error> {
-                    let mut tx: Tx<pac::$USARTX> = Tx {
-                        _usart: PhantomData,
-                    };
-                    tx.write(byte)
+                    self.tx.write(byte)
                 }
             }
 
-            impl serial::Write<u8> for Tx<pac::$USARTX> {
+            impl<PINS> serial::Write<u8> for Tx<pac::$USARTX, PINS> {
                 // NOTE(Void) See section "29.7 USART interrupts"; the only possible errors during
                 // transmission are: clear to send (which is disabled in this case) errors and
                 // framing errors (which only occur in SmartCard mode); neither of these apply to
@@ -529,23 +544,22 @@ macro_rules! hal {
                 }
             }
 
-            impl embedded_hal::blocking::serial::write::Default<u8>
-                for Tx<pac::$USARTX> {}
+            impl<PINS> embedded_hal::blocking::serial::write::Default<u8> for Tx<pac::$USARTX, PINS> {}
 
-            pub type $rxdma = RxDma<Rx<pac::$USARTX>, $dmarxch>;
-            pub type $txdma = TxDma<Tx<pac::$USARTX>, $dmatxch>;
+            pub type $rxdma<PINS> = RxDma<Rx<pac::$USARTX, PINS>, $dmarxch>;
+            pub type $txdma<PINS> = TxDma<Tx<pac::$USARTX, PINS>, $dmatxch>;
 
-            impl Receive for $rxdma {
+            impl<PINS> Receive for $rxdma<PINS> {
                 type RxChannel = $dmarxch;
                 type TransmittedWord = u8;
             }
 
-            impl Transmit for $txdma {
+            impl<PINS> Transmit for $txdma<PINS> {
                 type TxChannel = $dmatxch;
                 type ReceivedWord = u8;
             }
 
-            impl TransferPayload for $rxdma {
+            impl<PINS> TransferPayload for $rxdma<PINS> {
                 fn start(&mut self) {
                     self.channel.start();
                 }
@@ -554,7 +568,7 @@ macro_rules! hal {
                 }
             }
 
-            impl TransferPayload for $txdma {
+            impl<PINS> TransferPayload for $txdma<PINS> {
                 fn start(&mut self) {
                     self.channel.start();
                 }
@@ -563,8 +577,8 @@ macro_rules! hal {
                 }
             }
 
-            impl Rx<pac::$USARTX> {
-                pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
+            impl<PINS> Rx<pac::$USARTX, PINS> {
+                pub fn with_dma(self, channel: $dmarxch) -> $rxdma<PINS> {
                     RxDma {
                         payload: self,
                         channel,
@@ -579,28 +593,7 @@ macro_rules! hal {
                 /// `Ok(())`, it should be possible to proceed with the next
                 /// `read` call unimpeded.
                 pub fn check_for_error(&mut self) -> Result<(), Error> {
-                    // NOTE(unsafe): Only used for atomic access.
-                    let isr = unsafe { (*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.pe().bit_is_set() {
-                        icr.write(|w| w.pecf().clear());
-                        return Err(Error::Parity);
-                    }
-                    if isr.fe().bit_is_set() {
-                        icr.write(|w| w.fecf().clear());
-                        return Err(Error::Framing);
-                    }
-                    if isr.nf().bit_is_set() {
-                        icr.write(|w| w.ncf().clear());
-                        return Err(Error::Noise);
-                    }
-                    if isr.ore().bit_is_set() {
-                        icr.write(|w| w.orecf().clear());
-                        return Err(Error::Overrun);
-                    }
-
-                    Ok(())
+                    <Serial<pac::$USARTX, ()>>::check_for_error()
                 }
 
                 /// Checks to see if the USART peripheral has detected an idle line and clears
@@ -653,7 +646,7 @@ macro_rules! hal {
                 }
             }
 
-            impl crate::dma::CharacterMatch for Rx<pac::$USARTX> {
+            impl<PINS> crate::dma::CharacterMatch for Rx<pac::$USARTX, PINS> {
                 /// Checks to see if the USART peripheral has detected an character match and
                 /// clears the flag
                 fn check_character_match(&mut self, clear: bool) -> bool {
@@ -661,20 +654,20 @@ macro_rules! hal {
                 }
             }
 
-            impl crate::dma::ReceiverTimeout for Rx<pac::$USARTX> {
+            impl<PINS> crate::dma::ReceiverTimeout for Rx<pac::$USARTX, PINS> {
                 fn check_receiver_timeout(&mut self, clear: bool) -> bool {
                     self.is_receiver_timeout(clear)
                 }
             }
 
-            impl crate::dma::OperationError<(), Error> for Rx<pac::$USARTX>{
+            impl<PINS> crate::dma::OperationError<(), Error> for Rx<pac::$USARTX, PINS> {
                 fn check_operation_error(&mut self) -> Result<(), Error> {
                     self.check_for_error()
                 }
             }
 
-            impl Tx<pac::$USARTX> {
-                pub fn with_dma(self, channel: $dmatxch) -> $txdma {
+            impl<PINS> Tx<pac::$USARTX, PINS> {
+                pub fn with_dma(self, channel: $dmatxch) -> $txdma<PINS> {
                     TxDma {
                         payload: self,
                         channel,
@@ -682,8 +675,8 @@ macro_rules! hal {
                 }
             }
 
-            impl $rxdma {
-                pub fn split(mut self) -> (Rx<pac::$USARTX>, $dmarxch) {
+            impl<PINS> $rxdma<PINS> {
+                pub fn split(mut self) -> (Rx<pac::$USARTX, PINS>, $dmarxch) {
                     self.stop();
                     let RxDma {payload, channel} = self;
                     (
@@ -693,8 +686,8 @@ macro_rules! hal {
                 }
             }
 
-            impl $txdma {
-                pub fn split(mut self) -> (Tx<pac::$USARTX>, $dmatxch) {
+            impl<PINS> $txdma<PINS> {
+                pub fn split(mut self) -> (Tx<pac::$USARTX, PINS>, $dmatxch) {
                     self.stop();
                     let TxDma {payload, channel} = self;
                     (
@@ -704,7 +697,7 @@ macro_rules! hal {
                 }
             }
 
-            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
+            impl<B, PINS> crate::dma::CircReadDma<B, u8> for $rxdma<PINS>
             where
                 &'static mut B: StaticWriteBuffer<Word = u8>,
                 B: 'static,
@@ -756,7 +749,7 @@ macro_rules! hal {
                 }
             }
 
-            impl $rxdma {
+            impl<PINS> $rxdma<PINS> {
                 /// Create a frame reader that can either react on the Character match interrupt or
                 /// Transfer Complete from the DMA.
                 pub fn frame_reader<BUFFER, const N: usize>(
@@ -806,7 +799,7 @@ macro_rules! hal {
                 }
             }
 
-            impl $txdma {
+            impl<PINS> $txdma<PINS> {
                 /// Creates a new DMA frame sender
                 pub fn frame_sender<BUFFER, const N: usize>(
                     mut self,
@@ -843,6 +836,13 @@ macro_rules! hal {
                 }
             }
         )+
+    }
+}
+
+impl<USART, PINS> From<(Tx<USART, PINS>, Rx<USART, PINS>)> for Serial<USART, PINS> {
+    /// Convert a transmitter/receiver back to a combined serial port.
+    fn from((tx, rx): (Tx<USART, PINS>, Rx<USART, PINS>)) -> Self {
+        Self { tx, rx }
     }
 }
 
@@ -915,9 +915,9 @@ where
     }
 }
 
-impl<USART> fmt::Write for Tx<USART>
+impl<USART, PINS> fmt::Write for Tx<USART, PINS>
 where
-    Tx<USART>: crate::hal::serial::Write<u8>,
+    Tx<USART, PINS>: crate::hal::serial::Write<u8>,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let _ = s
