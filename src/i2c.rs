@@ -73,12 +73,26 @@ pub struct I2c<I2C, PINS> {
     pins: PINS,
 }
 
+#[derive(Debug)]
+pub enum AddressingMode {
+    SevenBit,
+    TenBit,
+}
+
+impl Default for AddressingMode {
+    fn default() -> Self {
+        Self::SevenBit
+    }
+}
+
+#[derive(Debug)]
 pub struct Config {
     presc: u8,
     sclh: u8,
     scll: u8,
     scldel: u8,
     sdadel: u8,
+    addressing_mode: AddressingMode,
 }
 
 impl Config {
@@ -160,6 +174,7 @@ impl Config {
             scll,
             scldel,
             sdadel,
+            addressing_mode: Default::default(),
         }
     }
 
@@ -171,7 +186,13 @@ impl Config {
             sdadel: ((timing_bits >> 16) & 0xf) as u8,
             sclh: ((timing_bits >> 8) & 0xff) as u8,
             scll: (timing_bits & 0xff) as u8,
+            addressing_mode: Default::default(),
         }
+    }
+
+    pub fn addressing_mode(mut self, addressing_mode: AddressingMode) -> Self {
+        self.addressing_mode = addressing_mode;
+        self
     }
 }
 
@@ -228,7 +249,13 @@ where
         SDA: SdaPin<I2C>,
     {
         // Make sure the I2C unit is disabled so we can configure it
-        i2c.cr1.modify(|_, w| w.pe().clear_bit());
+        i2c.cr1.modify(|_, w| w.pe().disabled());
+
+        i2c.cr2.write(|w| match config.addressing_mode {
+            AddressingMode::SevenBit => w.add10().bit7(),
+            AddressingMode::TenBit => w.add10().bit10(),
+        });
+
         // Configure for "fast mode" (400 KHz)
         i2c.timingr.write(|w| {
             w.presc()
@@ -244,7 +271,7 @@ where
         });
 
         // Enable the peripheral
-        i2c.cr1.write(|w| w.pe().set_bit());
+        i2c.cr1.write(|w| w.pe().enabled());
 
         I2c { i2c, pins }
     }
@@ -313,13 +340,18 @@ where
         // Set START and prepare to send `bytes`. The
         // START bit can be set even if the bus is BUSY or
         // I2C is in slave mode.
-        self.i2c.cr2.write(|w| {
+        self.i2c.cr2.modify(|r, w| {
+            // In 7-bit addressing mode, the address is at [7:1].
+            let addr = if r.add10().is_bit7() {
+                u16(addr << 1)
+            } else {
+                addr.into()
+            };
+
             w.start()
                 .set_bit()
                 .sadd()
-                .bits(u16(addr << 1 | 0))
-                .add10()
-                .clear_bit()
+                .bits(addr)
                 .rd_wrn()
                 .write()
                 .nbytes()
@@ -342,7 +374,7 @@ where
         busy_wait!(self.i2c, tc, is_complete);
 
         // Stop
-        self.i2c.cr2.write(|w| w.stop().set_bit());
+        self.i2c.cr2.modify(|r, w| w.stop().set_bit());
 
         Ok(())
         // Tx::new(&self.i2c)?.write(addr, bytes)
@@ -367,9 +399,16 @@ where
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
         // is BUSY or I2C is in slave mode.
-        self.i2c.cr2.write(|w| {
+        self.i2c.cr2.modify(|r, w| {
+            // In 7-bit addressing mode, the address is at [7:1].
+            let addr = if r.add10().is_bit7() {
+                u16(addr << 1)
+            } else {
+                addr.into()
+            };
+
             w.sadd()
-                .bits((addr << 1 | 0) as u16)
+                .bits(addr)
                 .rd_wrn()
                 .read()
                 .nbytes()
@@ -413,13 +452,18 @@ where
         // Set START and prepare to send `bytes`. The
         // START bit can be set even if the bus is BUSY or
         // I2C is in slave mode.
-        self.i2c.cr2.write(|w| {
+        self.i2c.cr2.modify(|r, w| {
+            // In 7-bit addressing mode, the address is at [7:1].
+            let addr = if r.add10().is_bit7() {
+                u16(addr << 1)
+            } else {
+                addr.into()
+            };
+
             w.start()
                 .set_bit()
                 .sadd()
-                .bits(u16(addr << 1 | 0))
-                .add10()
-                .clear_bit()
+                .bits(addr)
                 .rd_wrn()
                 .write()
                 .nbytes()
@@ -441,11 +485,16 @@ where
         busy_wait!(self.i2c, tc, is_complete);
 
         // reSTART and prepare to receive bytes into `buffer`
-        self.i2c.cr2.write(|w| {
+        self.i2c.cr2.modify(|r, w| {
+            // In 7-bit addressing mode, the address is at [7:1].
+            let addr = if r.add10().is_bit7() {
+                u16(addr << 1)
+            } else {
+                addr.into()
+            };
+
             w.sadd()
                 .bits(u16(addr << 1 | 1))
-                .add10()
-                .clear_bit()
                 .rd_wrn()
                 .read()
                 .nbytes()
