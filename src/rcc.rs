@@ -1,12 +1,13 @@
 //! Reset and Clock Control
 
-use crate::stm32::{rcc, RCC};
+use bitflags::bitflags;
 use cast::u32;
+use fugit::RateExtU32;
 
 use crate::flash::ACR;
 use crate::pwr::Pwr;
+use crate::stm32::{rcc, RCC};
 use crate::time::Hertz;
-use fugit::RateExtU32;
 
 mod enable;
 
@@ -131,6 +132,30 @@ impl CSR {
     pub(crate) fn csr(&mut self) -> &rcc::CSR {
         // NOTE(unsafe) this proxy grants exclusive access to this register
         unsafe { &(*RCC::ptr()).csr }
+    }
+
+    /// Get system reset flags.
+    pub fn reset_flags(&self) -> ResetFlags {
+        let csr = unsafe { &(*RCC::ptr()).csr.read() };
+        ResetFlags::from_bits_truncate((csr.bits() >> 24) as u8)
+    }
+
+    /// Clear system reset flags.
+    pub fn clear_reset_flags(&mut self) {
+        self.csr().modify(|r, w| w.rmvf().set_bit());
+    }
+}
+
+bitflags! {
+    pub struct ResetFlags: u8 {
+        const LPWR = 0b10000000;
+        const WWDG = 0b01000000;
+        const IWDG = 0b00100000;
+        const SFT  = 0b00010000;
+        const BOR  = 0b00001000;
+        const PIN  = 0b00000100;
+        const OBL  = 0b00000010;
+        const FW   = 0b00000001;
     }
 }
 
