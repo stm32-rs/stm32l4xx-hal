@@ -194,6 +194,20 @@ impl Rtc {
         rtc_struct
     }
 
+    /// Check if the RTC has been initialized, i.e. if a date and time have been set.
+    pub fn initialized(&self) -> bool {
+        self.rtc.isr.read().inits().bit_is_set()
+    }
+
+    /// Wait for the calendar registers to be synchronized with the shadow registers.
+    ///
+    /// This must be called after a system reset or after waking up from low-power mode.
+    pub fn wait_for_sync(&self) {
+        self.rtc.isr.modify(|r, w| w.rsf().clear_bit());
+
+        while self.rtc.isr.read().rsf().bit_is_clear() {}
+    }
+
     /// Set date and time.
     pub fn set_datetime(&mut self, datetime: &PrimitiveDateTime) {
         self.write(true, |rtc| {
