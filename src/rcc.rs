@@ -81,7 +81,7 @@ impl RccExt for RCC {
                 hse: None,
                 lse: None,
                 msi: None,
-                hsi48: false,
+                clk48_source: None,
                 lsi: false,
                 hclk: None,
                 pclk1: None,
@@ -148,11 +148,13 @@ impl CRRCR {
     }
 
     /// Checks if the 48 MHz HSI is enabled
+    #[inline]
     pub fn is_hsi48_on(&mut self) -> bool {
         self.crrcr().read().hsi48on().bit()
     }
 
     /// Checks if the 48 MHz HSI is ready
+    #[inline]
     pub fn is_hsi48_ready(&mut self) -> bool {
         self.crrcr().read().hsi48rdy().bit()
     }
@@ -347,7 +349,6 @@ pub struct CFGR {
     hse: Option<HseConfig>,
     lse: Option<LseConfig>,
     msi: Option<MsiFreq>,
-    hsi48: bool,
     lsi: bool,
     hclk: Option<u32>,
     pclk1: Option<u32>,
@@ -355,6 +356,7 @@ pub struct CFGR {
     sysclk: Option<u32>,
     pll_source: Option<PllSource>,
     pll_config: Option<PllConfig>,
+    clk48_source: Option<Clk48Source>,
 }
 
 impl CFGR {
@@ -379,12 +381,6 @@ impl CFGR {
     /// Sets a frequency for the AHB bus
     pub fn hclk(mut self, freq: Hertz) -> Self {
         self.hclk = Some(freq.raw());
-        self
-    }
-
-    /// Enable the 48 MHz USB, RNG, SDMMC HSI clock source. Not available on all stm32l4x6 series
-    pub fn hsi48(mut self, on: bool) -> Self {
-        self.hsi48 = on;
         self
     }
 
@@ -428,6 +424,11 @@ impl CFGR {
     /// Sets the PLL source
     pub fn pll_source(mut self, source: PllSource) -> Self {
         self.pll_source = Some(source);
+        self
+    }
+
+    pub fn clk48_source(mut self, source: Clk48Source) -> Self {
+        self.clk48_source = Some(source);
         self
     }
 
@@ -553,18 +554,40 @@ impl CFGR {
             while rcc.cr.read().msirdy().bit_is_clear() {}
         }
 
-        // Turn on USB, RNG Clock using the HSI48 CLK source
-        if self.hsi48 {
-            // p. 180 in ref-manual
-            rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
+        // Select 48 MHz clock source for SDMMC, USB, RNG, etc.
+        match self.clk48_source {
+            None => {
+                unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b00)) };
+            }
+            #[cfg(any(
+                feature = "stm32l476",
+                feature = "stm32l486",
+                feature = "stm32l496",
+                feature = "stm32l4a6"
+            ))]
+            Some(Clk48Source::Hsi48) => {
+                // Turn on USB, RNG Clock using the HSI48 CLK source.
 
-            // Wait until HSI48 is running
-            while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
-        }
+                // p. 180 in ref-manual
+                rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
 
-        // Select MSI as clock source for usb48, rng ...
-        if let Some(MsiFreq::RANGE48M) = self.msi {
-            unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b11)) };
+                // Wait until HSI48 is running.
+                while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
+
+                unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b00)) };
+            }
+            Some(Clk48Source::PllSai1) => {
+                unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b01)) };
+
+                unimplemented!()
+            }
+            Some(Clk48Source::Pll) => {
+                unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b10)) };
+            }
+            Some(Clk48Source::Msi) => {
+                assert_eq!(Some(MsiFreq::RANGE48M), self.msi);
+                unsafe { rcc.ccipr.modify(|_, w| w.clk48sel().bits(0b11)) };
+            }
         }
 
         //
@@ -716,6 +739,8 @@ impl CFGR {
             })
         }
 
+        let mut pll48m1clk = None;
+
         let sysclk_src_bits;
         let mut msi = self.msi;
         if let Some(pllconf) = pllconf {
@@ -723,16 +748,31 @@ impl CFGR {
             let r = pllconf.r.to_division_factor();
             let clock_speed = clock_speed / (pllconf.m as u32 + 1);
             let vco = clock_speed * pllconf.n as u32;
-            let output_clock = vco / r;
+            let pllclk = vco / r;
 
-            assert!(r <= 8); // Allowed max output divider
-            assert!(pllconf.n >= 8); // Allowed min multiplier
-            assert!(pllconf.n <= 86); // Allowed max multiplier
+            let q;
+            (q, pll48m1clk) = if self.clk48_source == Some(Clk48Source::Pll) {
+                let q = match (vco + 48_000_000 - 1) / 48_000_000 {
+                    0..=2 => PllDivider::Div2,
+                    3..=4 => PllDivider::Div4,
+                    5..=6 => PllDivider::Div6,
+                    7.. => PllDivider::Div8,
+                };
+
+                let pll48m1clk = vco / q.to_division_factor();
+                // TODO: Assert with tolerance.
+                assert_eq!(pll48m1clk, 48_000_000);
+
+                (Some(q), Some(pll48m1clk.Hz()))
+            } else {
+                (None, None)
+            };
+
             assert!(clock_speed >= 4_000_000); // VCO input clock min
             assert!(clock_speed <= 16_000_000); // VCO input clock max
             assert!(vco >= 64_000_000); // VCO output min
             assert!(vco <= 334_000_000); // VCO output max
-            assert!(output_clock <= 80_000_000); // Max output clock
+            assert!(pllclk <= 80_000_000); // Max output clock
 
             // use PLL as source
             sysclk_src_bits = 0b11;
@@ -750,6 +790,10 @@ impl CFGR {
                     .bits(pllconf.r.to_bits())
                     .plln()
                     .bits(pllconf.n)
+                    .pllq()
+                    .bits(q.unwrap_or(PllDivider::Div2).to_bits())
+                    .pllqen()
+                    .bit(q.is_some())
             });
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
@@ -810,15 +854,16 @@ impl CFGR {
             lsi: lsi_used,
             lse: self.lse.is_some(),
             msi,
-            hsi48: self.hsi48,
             pclk1: pclk1.Hz(),
             pclk2: pclk2.Hz(),
             ppre1,
             ppre2,
+            pll48m1clk,
             sysclk: sysclk.Hz(),
             timclk1: timclk1.Hz(),
             timclk2: timclk2.Hz(),
             pll_source: pllconf.map(|_| pll_source),
+            clk48_source: self.clk48_source,
         }
     }
 }
@@ -869,7 +914,8 @@ impl PllConfig {
     ///
     /// PLL output = ((SourceClk / input_divider) * multiplier) / output_divider
     pub fn new(input_divider: u8, multiplier: u8, output_divider: PllDivider) -> Self {
-        assert!(input_divider > 0);
+        assert!(input_divider >= 1 && input_divider <= 8);
+        assert!(multiplier >= 8 && multiplier <= 86);
 
         PllConfig {
             m: input_divider - 1,
@@ -900,13 +946,31 @@ impl PllSource {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+/// 48 MHz clock source used by USB OTG FS, RNG and SDMMC.
+pub enum Clk48Source {
+    /// HSI48 clock
+    #[cfg(any(
+        feature = "stm32l476",
+        feature = "stm32l486",
+        feature = "stm32l496",
+        feature = "stm32l4a6"
+    ))]
+    Hsi48,
+    /// PLLSAI1 “Q” clock (PLL48M2CLK)
+    PllSai1,
+    /// PLL “Q” clock (PLL48M1CLK)
+    Pll,
+    /// MSI clock
+    Msi,
+}
+
 /// Frozen clock frequencies
 ///
 /// The existence of this value indicates that the clock configuration can no longer be changed
 #[derive(Clone, Copy, Debug)]
 pub struct Clocks {
     hclk: Hertz,
-    hsi48: bool,
     msi: Option<MsiFreq>,
     lsi: bool,
     lse: bool,
@@ -914,10 +978,12 @@ pub struct Clocks {
     pclk2: Hertz,
     ppre1: u8,
     ppre2: u8,
+    pll48m1clk: Option<Hertz>,
     sysclk: Hertz,
     timclk1: Hertz,
     timclk2: Hertz,
     pll_source: Option<PllSource>,
+    clk48_source: Option<Clk48Source>,
 }
 
 impl Clocks {
@@ -928,7 +994,25 @@ impl Clocks {
 
     /// Returns status of HSI48
     pub fn hsi48(&self) -> bool {
-        self.hsi48
+        #[cfg(any(
+            feature = "stm32l476",
+            feature = "stm32l486",
+            feature = "stm32l496",
+            feature = "stm32l4a6"
+        ))]
+        {
+            self.clk48_source == Some(Clk48Source::Hsi48)
+        }
+
+        #[cfg(not(any(
+            feature = "stm32l476",
+            feature = "stm32l486",
+            feature = "stm32l496",
+            feature = "stm32l4a6"
+        )))]
+        {
+            false
+        }
     }
 
     // Returns the status of the MSI

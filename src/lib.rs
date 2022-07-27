@@ -158,6 +158,7 @@ pub mod qspi;
 pub mod rcc;
 pub mod rng;
 pub mod rtc;
+pub mod sdmmc;
 pub mod serial;
 pub mod signature;
 pub mod spi;

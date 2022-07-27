@@ -45,6 +45,7 @@ use crate::{
 };
 
 /// Interrupt event
+#[derive(Debug)]
 pub enum Event {
     WakeupTimer,
     AlarmA,
@@ -52,6 +53,7 @@ pub enum Event {
     Timestamp,
 }
 
+#[derive(Debug)]
 pub enum Alarm {
     AlarmA,
     AlarmB,
@@ -67,6 +69,7 @@ impl From<Alarm> for Event {
 }
 
 /// RTC Abstraction
+#[derive(Debug)]
 pub struct Rtc {
     rtc: RTC,
     rtc_config: RtcConfig,
@@ -202,23 +205,54 @@ impl Rtc {
         })
     }
 
-    /// Get date and time.
-    pub fn get_datetime(&self) -> PrimitiveDateTime {
+    /// Get raw microsecond.
+    ///
+    /// Reading `RTC_SSR` locks the values in the higher-order calendar shadow registers
+    /// until `RTC_DR` is read, so this must be called before `date_raw`.
+    #[inline]
+    fn microsecond_raw(&self) -> u32 {
         let sync_p = self.rtc_config.sync_prescaler as u32;
         let ssr = self.rtc.ssr.read();
         let micro = 1_000_000u32 / (sync_p + 1) * (sync_p - ssr.ss().bits() as u32);
+
+        micro
+    }
+
+    /// Get raw hour, minute and second.
+    ///
+    /// Reading `RTC_TR` locks the values in the higher-order calendar shadow registers
+    /// until `RTC_DR` is read, so this must be called before `date_raw`.
+    #[inline]
+    fn time_raw(&self) -> (u8, u8, u8) {
         let tr = self.rtc.tr.read();
-        let second = bcd2_to_byte((tr.st().bits(), tr.su().bits()));
-        let minute = bcd2_to_byte((tr.mnt().bits(), tr.mnu().bits()));
         let hour = bcd2_to_byte((tr.ht().bits(), tr.hu().bits()));
-        // Reading either RTC_SSR or RTC_TR locks the values in the higher-order
-        // calendar shadow registers until RTC_DR is read.
+        let minute = bcd2_to_byte((tr.mnt().bits(), tr.mnu().bits()));
+        let second = bcd2_to_byte((tr.st().bits(), tr.su().bits()));
+
+        (hour, minute, second)
+    }
+
+    /// Get raw year (since 1970), month and day.
+    ///
+    /// Must be called after `time_raw` and/or `microsecond_raw`.
+    #[inline]
+    fn date_raw(&self) -> (u16, u8, u8) {
         let dr = self.rtc.dr.read();
 
-        // let weekday = dr.wdu().bits();
-        let day = bcd2_to_byte((dr.dt().bits(), dr.du().bits()));
+        let year = bcd2_to_byte((dr.yt().bits(), dr.yu().bits())) as u16;
         let month = bcd2_to_byte((dr.mt().bit() as u8, dr.mu().bits()));
-        let year = bcd2_to_byte((dr.yt().bits(), dr.yu().bits())) as u16 + 1970_u16;
+        let day = bcd2_to_byte((dr.dt().bits(), dr.du().bits()));
+        // let weekday = dr.wdu().bits();
+
+        (year, month, day)
+    }
+
+    /// Get date and time.
+    pub fn get_datetime(&self) -> PrimitiveDateTime {
+        let (hour, minute, second) = self.time_raw();
+        let micro = self.microsecond_raw();
+        let (year, month, day) = self.date_raw();
+        let year = year + 1970;
 
         let time = Time::from_hms_micro(hour, minute, second, micro).unwrap();
         let date = Date::from_calendar_date(year.into(), month.try_into().unwrap(), day).unwrap();
@@ -808,4 +842,49 @@ fn bcd2_to_byte(bcd: (u8, u8)) -> u8 {
     let tmp = ((value & 0xF0) >> 0x4) * 10;
 
     tmp + (value & 0x0F)
+}
+
+#[cfg(feature = "embedded-sdmmc")]
+impl embedded_sdmmc::TimeSource for Rtc {
+    #[inline]
+    fn get_timestamp(&self) -> embedded_sdmmc::Timestamp {
+        let (hour, minute, second) = self.time_raw();
+        let (year, month, day) = self.date_raw();
+
+        embedded_sdmmc::Timestamp {
+            year_since_1970: year.try_into().unwrap(),
+            zero_indexed_month: month - 1,
+            zero_indexed_day: day - 1,
+            hours: hour,
+            minutes: minute,
+            seconds: second,
+        }
+    }
+}
+
+#[cfg(feature = "fatfs")]
+impl fatfs::TimeProvider for Rtc {
+    fn get_current_date(&self) -> fatfs::Date {
+        let (year, month, day) = self.date_raw();
+        let year = (year + 1970).max(1980).min(2107);
+
+        fatfs::Date::new(year.into(), month.into(), day.into())
+    }
+
+    fn get_current_date_time(&self) -> fatfs::DateTime {
+        let (hour, minute, second) = self.time_raw();
+        let micro = self.microsecond_raw();
+        let (year, month, day) = self.date_raw();
+        let year = (year + 1970).max(1980).min(2107);
+
+        let time = fatfs::Time::new(
+            hour.into(),
+            minute.into(),
+            second.into(),
+            (micro / 1000) as u16,
+        );
+        let date = fatfs::Date::new(year.into(), month.into(), day.into());
+
+        fatfs::DateTime::new(date, time)
+    }
 }

@@ -541,6 +541,7 @@ macro_rules! dma {
                     /// A singleton that represents a single DMAx channel (channel X in this case)
                     ///
                     /// This singleton has exclusive access to the registers of the DMAx channel X
+                    #[derive(Debug)]
                     pub struct $CX;
 
                     impl $CX {
@@ -594,7 +595,9 @@ macro_rules! dma {
                         #[inline]
                         pub fn listen(&mut self, event: Event) {
                             match event {
-                                Event::HalfTransfer => self.ccr().modify(|_, w| w.htie().set_bit()),
+                                Event::HalfTransfer => {
+                                    self.ccr().modify(|_, w| w.htie().set_bit())
+                                },
                                 Event::TransferComplete => {
                                     self.ccr().modify(|_, w| w.tcie().set_bit())
                                 }
