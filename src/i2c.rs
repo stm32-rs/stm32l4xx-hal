@@ -387,54 +387,36 @@ where
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
         // is BUSY or I2C is in slave mode.
-        if buffer_length < 256 {
-            self.i2c.cr2.write(|w| {
-                w.sadd()
-                    .bits((addr << 1 | 0) as u16)
-                    .rd_wrn()
-                    .read()
-                    .nbytes()
-                    .bits(buffer.len() as u8)
-                    .start()
-                    .set_bit()
-                    .autoend()
-                    .software()
-            });
-        } else {
-            self.i2c.cr2.write(|w| {
-                w.sadd()
-                    .bits((addr << 1 | 0) as u16)
-                    .rd_wrn()
-                    .read()
-                    .nbytes()
-                    .bits(255 as u8)
-                    .reload()
-                    .set_bit()
-                    .start()
-                    .set_bit()
-                    .autoend()
-                    .software()
-            });
-        }
+        self.i2c.cr2.write(|w| {
+            w.sadd()
+                .bits((addr << 1 | 0) as u16)
+                .rd_wrn()
+                .read()
+                .start()
+                .set_bit()
+                .autoend()
+                .software()
+                .reload()
+                .bit(buffer_length > 255)
+                .nbytes()
+                .bits(core::cmp::min(buffer_length, 255) as u8)
+        });
 
         for (index, byte) in buffer.iter_mut().enumerate() {
             // Wait until we have received something
             busy_wait!(self.i2c, rxne, is_not_empty);
             *byte = self.i2c.rxdr.read().rxdata().bits();
 
-            if (index + 1) % 255 == 0 && buffer_length > 255 {
-                if buffer_length - index - 1 <= 255 {
-                    self.i2c.cr2.write(|w| {
-                        w.reload()
-                            .clear_bit()
-                            .nbytes()
-                            .bits((buffer_length - index - 1) as u8)
-                    })
-                } else {
-                    self.i2c
-                        .cr2
-                        .write(|w| w.reload().set_bit().nbytes().bits(255 as u8))
-                }
+            let bytes_received = index + 1;
+            let bytes_remaining = buffer_length - bytes_received;
+
+            if bytes_received % 255 == 0 && bytes_remaining > 0 {
+                self.i2c.cr2.write(|w| {
+                    w.reload()
+                        .bit(bytes_remaining > 255)
+                        .nbytes()
+                        .bits(core::cmp::min(bytes_remaining, 255) as u8)
+                })
             }
         }
 
