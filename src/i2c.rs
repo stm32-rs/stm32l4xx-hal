@@ -494,7 +494,7 @@ where
             };
 
             w.sadd()
-                .bits(u16(addr << 1 | 1))
+                .bits(addr)
                 .rd_wrn()
                 .read()
                 .nbytes()
@@ -511,6 +511,8 @@ where
 
             *byte = self.i2c.rxdr.read().rxdata().bits();
         }
+
+        // automatic STOP
 
         Ok(())
     }
