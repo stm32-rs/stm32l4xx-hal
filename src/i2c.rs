@@ -374,7 +374,7 @@ where
         busy_wait!(self.i2c, tc, is_complete);
 
         // Stop
-        self.i2c.cr2.modify(|r, w| w.stop().set_bit());
+        self.i2c.cr2.modify(|_, w| w.stop().set_bit());
 
         Ok(())
         // Tx::new(&self.i2c)?.write(addr, bytes)
