@@ -301,9 +301,69 @@ where
 {
     type Error = Error;
 
+    // Write function that supports transmission of more than 255 bytes.
+    // This function is not tested, so it has been deactivated
+    /*
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.i2c.cr2.read().start().bit_is_set() {}
+
+        let bytes_length = bytes.len();
+
+        // Set START and prepare to send `bytes`. The
+        // START bit can be set even if the bus is BUSY or
+        // I2C is in slave mode.
+        self.i2c.cr2.write(|w| {
+            w.sadd()
+                .bits((addr << 1 | 0) as u16)
+                .rd_wrn()
+                .write()
+                .start()
+                .set_bit()
+                .autoend()
+                .software()
+                .reload()
+                .bit(buffer_length > 255)
+                .nbytes()
+                .bits(core::cmp::min(bytes_length, 255) as u8)
+        });
+
+        for (index, byte) in bytes.iter().enumerate() {
+            // Wait until last transmission is done
+            busy_wait!(self.i2c, txis, is_empty);
+
+            let bytes_send = index + 1;
+            let bytes_remaining = bytes_length - bytes_send;
+
+            if bytes_send % 255 == 0 && bytes_remaining > 255 {
+                if bytes_length - index - 1 <= 255 {
+                    self.i2c.cr2.write(|w| {
+                        w.reload()
+                            .bit(bytes_remaining > 255)
+                            .nbytes()
+                            .bits(core::cmp::min(bytes_remaining, 255) as u8)
+                    })
+                }
+            }
+            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+        }
+
+        // Wait until the write finishes
+        busy_wait!(self.i2c, tc, is_complete);
+
+        // Stop
+        self.i2c.cr2.write(|w| w.stop().set_bit());
+
+        Ok(())
+        // Tx::new(&self.i2c)?.write(addr, bytes)
+    }
+     */
+
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        // assert!(bytes.len() < 256);
+        assert!(bytes.len() < 256);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -322,38 +382,19 @@ where
                 .clear_bit()
                 .rd_wrn()
                 .write()
+                .nbytes()
+                .bits(bytes.len() as u8)
                 .autoend()
                 .software()
         });
 
-        let bytes_length = bytes.len();
-        // Set RELOAD flag, if more than 255 bytes need to be send
-        if bytes_length > 255 {
-            self.i2c
-                .cr2
-                .write(|w| w.reload().set_bit().nbytes().bits(255 as u8));
-        } else {
-            self.i2c.cr2.write(|w| w.nbytes().bits(bytes.len() as u8));
-        }
-
-        for (index, byte) in bytes.iter().enumerate() {
-            // Wait until we have received something
+        for byte in bytes {
+            // Wait until we are allowed to send data
+            // (START has been ACKed or last byte when
+            // through)
             busy_wait!(self.i2c, txis, is_empty);
 
-            if (index + 1) % 255 == 0 && bytes_length > 255 {
-                if bytes_length - index - 1 <= 255 {
-                    self.i2c.cr2.write(|w| {
-                        w.reload()
-                            .clear_bit()
-                            .nbytes()
-                            .bits((bytes_length - index - 1) as u8)
-                    })
-                } else {
-                    self.i2c
-                        .cr2
-                        .write(|w| w.reload().set_bit().nbytes().bits(255 as u8))
-                }
-            }
+            // Put byte on the wire
             self.i2c.txdr.write(|w| w.txdata().bits(*byte));
         }
 
@@ -375,9 +416,6 @@ where
     type Error = Error;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
-        // TODO support transfers of more than 255 bytes
-        //assert!(buffer.len() < 256 && buffer.len() > 0);
-
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
