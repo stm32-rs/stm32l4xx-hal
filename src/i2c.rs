@@ -303,7 +303,6 @@ where
 
     // Write function that supports transmission of more than 255 bytes.
     // This function is not tested, so it has been deactivated
-    /*
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -325,7 +324,7 @@ where
                 .autoend()
                 .software()
                 .reload()
-                .bit(buffer_length > 255)
+                .bit(bytes_length > 255)
                 .nbytes()
                 .bits(core::cmp::min(bytes_length, 255) as u8)
         });
@@ -333,21 +332,20 @@ where
         for (index, byte) in bytes.iter().enumerate() {
             // Wait until last transmission is done
             busy_wait!(self.i2c, txis, is_empty);
-
-            let bytes_send = index + 1;
-            let bytes_remaining = bytes_length - bytes_send;
-
-            if bytes_send % 255 == 0 && bytes_remaining > 255 {
-                if bytes_length - index - 1 <= 255 {
-                    self.i2c.cr2.write(|w| {
-                        w.reload()
-                            .bit(bytes_remaining > 255)
-                            .nbytes()
-                            .bits(core::cmp::min(bytes_remaining, 255) as u8)
-                    })
-                }
-            }
             self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+
+            let bytes_sent = index + 1;
+            let bytes_remaining = bytes_length - bytes_sent;
+
+            if bytes_sent % 255 == 0 && bytes_remaining > 255 {
+                busy_wait!(self.i2c, tcr, is_complete);
+                self.i2c.cr2.write(|w| {
+                    w.reload()
+                        .bit(bytes_remaining > 255)
+                        .nbytes()
+                        .bits(core::cmp::min(bytes_remaining, 255) as u8)
+                })
+            }
         }
 
         // Wait until the write finishes
@@ -359,8 +357,8 @@ where
         Ok(())
         // Tx::new(&self.i2c)?.write(addr, bytes)
     }
-     */
 
+    /*
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
         assert!(bytes.len() < 256);
@@ -407,6 +405,7 @@ where
         Ok(())
         // Tx::new(&self.i2c)?.write(addr, bytes)
     }
+    */
 }
 
 impl<PINS, I2C> Read for I2c<I2C, PINS>
