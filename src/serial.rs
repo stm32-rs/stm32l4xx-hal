@@ -1151,12 +1151,28 @@ impl_pin_traits! {
     }
 }
 
-#[cfg(feature = "stm32l4x6")]
+#[cfg(any(
+    // feature = "stm32l471", ,, missing PAC support
+    // feature = "stm32l475",
+    feature = "stm32l476",
+    // feature = "stm32l485",
+    // feature = "stm32l486",
+    // feature = "stm32l496",
+    // feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    // feature = "stm32l4r9",
+    // feature = "stm32l4s9",
+))]
 impl_pin_traits! {
     LPUART1: {
-        AF8: {
-            TX: PB11;
-            RX: PB10;
+        8: {
+            TX: PB11, PC1;
+            RX: PB10, PC0;
             RTS_DE: ;
             CTS: ;
         }
