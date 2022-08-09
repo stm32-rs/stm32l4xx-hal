@@ -333,6 +333,17 @@ pins!(SPI1, 5,
 ))]
 pins!(SPI1, 5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
 
+#[cfg(any(
+    feature = "stm32l452", 
+    feature = "stm32l462", 
+    feature = "stm32l412", 
+    feature = "stm32l422",
+    feature = "stm32l432",
+    feature = "stm32l442",
+    
+))]
+pins!(SPI1, 5, SCK: [PA1], MISO: [PA11], MOSI: [PA12]);
+
 #[cfg(not(any(feature = "stm32l433", feature = "stm32l443",)))]
 use crate::stm32::SPI3;
 
