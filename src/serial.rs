@@ -7,17 +7,41 @@ use core::marker::PhantomData;
 use core::ops::DerefMut;
 use core::ptr;
 use core::sync::atomic::{self, Ordering};
+use embedded_dma::StaticWriteBuffer;
 use stable_deref_trait::StableDeref;
 
 use crate::hal::serial::{self, Write};
 
-use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
-use crate::gpio::{self, Alternate, AlternateOD, Floating, Input};
+use crate::dma::{
+    dma1, CircBuffer, DMAFrame, FrameReader, FrameSender, Receive, RxDma, TransferPayload,
+    Transmit, TxDma,
+};
+use crate::dmamux::{DmaInput, DmaMux};
+use crate::gpio::{self, Alternate, OpenDrain, PushPull};
 use crate::pac;
-use crate::rcc::{Clocks, APB1R1, APB1R2, APB2};
+use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::{Bps, U32Ext};
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(
+    //feature = "stm32l451", // missing PAC support
+    feature = "stm32l452",
+    feature = "stm32l462",
+    // feature = "stm32l471", // missing PAC support
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 use crate::dma::dma2;
 
 /// Interrupt event
@@ -171,6 +195,15 @@ impl Default for Config {
     }
 }
 
+impl From<Bps> for Config {
+    fn from(baudrate: Bps) -> Config {
+        Config {
+            baudrate,
+            ..Default::default()
+        }
+    }
+}
+
 /// Serial abstraction
 pub struct Serial<USART, PINS> {
     usart: USART,
@@ -199,12 +232,9 @@ macro_rules! hal {
         $(#[$meta:meta])*
         $USARTX:ident: (
             $usartX:ident,
-            $APB:ident,
-            $usartXen:ident,
-            $usartXrst:ident,
             $pclkX:ident,
-            tx: ($dmacst:ident, $dmareq: literal, $tx_chan:path),
-            rx: ($dmacsr:ident, $rx_chan:path),
+            tx: ($txdma:ident, $dmatxch:path, $dmatxsel:path),
+            rx: ($rxdma:ident, $dmarxch:path, $dmarxsel:path),
             $is_full_uart:ident,
         ),
     )+) => {
@@ -228,17 +258,18 @@ macro_rules! hal {
                 pub fn $usartX(
                     usart: pac::$USARTX,
                     pins: PINS,
-                    config: Config,
+                    config: impl Into<Config>,
                     clocks: Clocks,
-                    apb: &mut $APB,
+                    apb: &mut <pac::$USARTX as RccBus>::Bus,
                 ) -> Self
                 where
                     PINS: Pins<pac::$USARTX>,
                 {
+                    let config = config.into();
+
                     // enable or reset $USARTX
-                    apb.enr().modify(|_, w| w.$usartXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
+                    <pac::$USARTX>::enable(apb);
+                    <pac::$USARTX>::reset(apb);
 
                     // Reset other registers to disable advanced USART features
                     usart.cr1.reset();
@@ -249,7 +280,7 @@ macro_rules! hal {
                         // Configure baud rate
                         match config.oversampling {
                             Oversampling::Over8 => {
-                                let uartdiv = 2 * clocks.$pclkX().0 / config.baudrate.0;
+                                let uartdiv = 2 * clocks.$pclkX().raw() / config.baudrate.0;
                                 assert!(uartdiv >= 16, "impossible baud rate");
 
                                 let lower = (uartdiv & 0xf) >> 1;
@@ -259,7 +290,7 @@ macro_rules! hal {
                                 usart.brr.write(|w| unsafe { w.bits(brr) });
                             }
                             Oversampling::Over16 => {
-                                let brr = clocks.$pclkX().0 / config.baudrate.0;
+                                let brr = clocks.$pclkX().raw() / config.baudrate.0;
                                 assert!(brr >= 16, "impossible baud rate");
 
                                 usart.brr.write(|w| unsafe { w.bits(brr) });
@@ -267,7 +298,7 @@ macro_rules! hal {
                         }
                     },
                     {
-                        let fck = clocks.$pclkX().0;
+                        let fck = clocks.$pclkX().raw();
                         assert!((fck >= 3 * config.baudrate.0) && (fck <= 4096 * config.baudrate.0), "impossible baud rate");
                         let brr = 256u64 * (fck as u64) / config.baudrate.0 as u64;
                         let brr = brr as u32;
@@ -524,149 +555,43 @@ macro_rules! hal {
             impl embedded_hal::blocking::serial::write::Default<u8>
                 for Tx<pac::$USARTX> {}
 
+            pub type $rxdma = RxDma<Rx<pac::$USARTX>, $dmarxch>;
+            pub type $txdma = TxDma<Tx<pac::$USARTX>, $dmatxch>;
+
+            impl Receive for $rxdma {
+                type RxChannel = $dmarxch;
+                type TransmittedWord = u8;
+            }
+
+            impl Transmit for $txdma {
+                type TxChannel = $dmatxch;
+                type ReceivedWord = u8;
+            }
+
+            impl TransferPayload for $rxdma {
+                fn start(&mut self) {
+                    self.channel.start();
+                }
+                fn stop(&mut self) {
+                    self.channel.stop();
+                }
+            }
+
+            impl TransferPayload for $txdma {
+                fn start(&mut self) {
+                    self.channel.start();
+                }
+                fn stop(&mut self) {
+                    self.channel.stop();
+                }
+            }
+
             impl Rx<pac::$USARTX> {
-                pub fn circ_read<B, H>(
-                    &self,
-                    mut chan: $rx_chan,
-                    mut buffer: B,
-                ) -> CircBuffer<B, $rx_chan>
-                where
-                    B: StableDeref<Target = [H; 2]> + DerefMut + 'static,
-                    H: AsMut<[u8]>
-                {
-                    let buf = buffer[0].as_mut();
-                    chan.set_peripheral_address(unsafe{ &(*pac::$USARTX::ptr()).rdr as *const _ as u32 }, false);
-                    chan.set_memory_address(buf.as_ptr() as u32, true);
-                    chan.set_transfer_length((buf.len() * 2) as u16);
-
-                    // Tell DMA to request from serial
-                    chan.cselr().modify(|_, w| {
-                        w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
-                    });
-
-                    chan.ccr().modify(|_, w| unsafe {
-                        w.mem2mem()
-                            .clear_bit()
-                            // 00: Low, 01: Medium, 10: High, 11: Very high
-                            .pl()
-                            .bits(0b01)
-                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                            .msize()
-                            .bits(0b00)
-                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                            .psize()
-                            .bits(0b00)
-                            .circ()
-                            .set_bit()
-                            .dir()
-                            .clear_bit()
-                    });
-
-                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                    // the next statement, which starts the DMA transfer
-                    atomic::compiler_fence(Ordering::Release);
-
-                    chan.start();
-
-                    CircBuffer::new(buffer, chan)
-                }
-
-                /// Create a frame reader that can either react on the Character match interrupt or
-                /// Transfer Complete from the DMA.
-                pub fn frame_read<BUFFER, const N: usize>(
-                    &self,
-                    mut channel: $rx_chan,
-                    buffer: BUFFER,
-                ) -> FrameReader<BUFFER, $rx_chan, N>
-                    where
-                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
-                {
-                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
-
-                    // Setup DMA transfer
-                    let buf = &*buffer;
-                    channel.set_peripheral_address(&usart.rdr as *const _ as u32, false);
-                    channel.set_memory_address(unsafe { buf.buffer_address_for_dma() } as u32, true);
-                    channel.set_transfer_length(buf.max_len() as u16);
-
-                    // Tell DMA to request from serial
-                    channel.cselr().modify(|_, w| {
-                        w.$dmacsr().bits(0b0010) // TODO: Fix this, not valid for DMA2
-                    });
-
-                    channel.ccr().modify(|_, w| unsafe {
-                        w.mem2mem()
-                            .clear_bit()
-                            // 00: Low, 01: Medium, 10: High, 11: Very high
-                            .pl()
-                            .bits(0b01)
-                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                            .msize()
-                            .bits(0b00)
-                            // 00: 8-bits, 01: 16-bits, 10: 32-bits, 11: Reserved
-                            .psize()
-                            .bits(0b00)
-                            // Peripheral -> Mem
-                            .dir()
-                            .clear_bit()
-                    });
-
-                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
-                    // the next statement, which starts the DMA transfer
-                    atomic::compiler_fence(Ordering::Release);
-
-                    channel.start();
-
-                    FrameReader::new(buffer, channel, usart.cr2.read().add().bits())
-                }
-
-                /// Checks to see if the USART peripheral has detected an idle line and clears
-                /// the flag
-                pub fn is_idle(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.idle().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.idlecf().set_bit() );
-                        }
-                        true
-                    } else {
-                        false
+                pub fn with_dma(self, channel: $dmarxch) -> $rxdma {
+                    RxDma {
+                        payload: self,
+                        channel,
                     }
-                }
-
-                /// Checks to see if the USART peripheral has detected an character match and
-                /// clears the flag
-                pub fn is_character_match(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-
-                    if isr.cmf().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.cmcf().set_bit() );
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-
-                /// Checks to see if the USART peripheral has detected an receiver timeout and
-                /// clears the flag
-                pub fn is_receiver_timeout(&mut self, _clear: bool) -> bool {
-                    potentially_uncompilable!($is_full_uart, {
-                        let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                        let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
-                        if isr.rtof().bit_is_set() {
-                            if _clear {
-                                icr.write(|w| w.rtocf().set_bit() );
-                            }
-                            true
-                        } else {
-                            false
-                        }
-                    }, { false })
                 }
 
                 /// Check for, and return, any errors
@@ -700,28 +625,231 @@ macro_rules! hal {
 
                     Ok(())
                 }
+
+                /// Checks to see if the USART peripheral has detected an idle line and clears
+                /// the flag
+                pub fn is_idle(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.idle().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.idlecf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                /// Checks to see if the USART peripheral has detected an receiver timeout and
+                /// clears the flag
+                pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
+                    potentially_uncompilable!($is_full_uart, {
+                        let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                        let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                        if isr.rtof().bit_is_set() {
+                            if clear {
+                                icr.write(|w| w.rtocf().set_bit() );
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    }, {
+                        let _ = clear;
+                        false
+                    })
+                }
+
+                /// Checks to see if the USART peripheral has detected an character match and
+                /// clears the flag
+                pub fn check_character_match(&mut self, clear: bool) -> bool {
+                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+
+                    if isr.cmf().bit_is_set() {
+                        if clear {
+                            icr.write(|w| w.cmcf().set_bit() );
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+
+            impl crate::dma::CharacterMatch for Rx<pac::$USARTX> {
+                /// Checks to see if the USART peripheral has detected an character match and
+                /// clears the flag
+                fn check_character_match(&mut self, clear: bool) -> bool {
+                    self.check_character_match(clear)
+                }
+            }
+
+            impl crate::dma::ReceiverTimeout for Rx<pac::$USARTX> {
+                fn check_receiver_timeout(&mut self, clear: bool) -> bool {
+                    self.is_receiver_timeout(clear)
+                }
+            }
+
+            impl crate::dma::OperationError<(), Error> for Rx<pac::$USARTX>{
+                fn check_operation_error(&mut self) -> Result<(), Error> {
+                    self.check_for_error()
+                }
             }
 
             impl Tx<pac::$USARTX> {
+                pub fn with_dma(self, channel: $dmatxch) -> $txdma {
+                    TxDma {
+                        payload: self,
+                        channel,
+                    }
+                }
+            }
+
+            impl $rxdma {
+                pub fn split(mut self) -> (Rx<pac::$USARTX>, $dmarxch) {
+                    self.stop();
+                    let RxDma {payload, channel} = self;
+                    (
+                        payload,
+                        channel
+                    )
+                }
+            }
+
+            impl $txdma {
+                pub fn split(mut self) -> (Tx<pac::$USARTX>, $dmatxch) {
+                    self.stop();
+                    let TxDma {payload, channel} = self;
+                    (
+                        payload,
+                        channel,
+                    )
+                }
+            }
+
+            impl<B> crate::dma::CircReadDma<B, u8> for $rxdma
+            where
+                &'static mut B: StaticWriteBuffer<Word = u8>,
+                B: 'static,
+                Self: core::marker::Sized,
+            {
+                fn circ_read(mut self, mut buffer: &'static mut B,
+                ) -> CircBuffer<B, Self>
+                {
+                    let (ptr, len) = unsafe { buffer.static_write_buffer() };
+                    self.channel.set_peripheral_address(
+                        unsafe { &(*pac::$USARTX::ptr()).rdr as *const _ as u32 },
+                        false,
+                    );
+                    self.channel.set_memory_address(ptr as u32, true);
+                    self.channel.set_transfer_length(len as u16);
+
+                    // Tell DMA to request from serial
+                    self.channel.set_request_line($dmarxsel).unwrap();
+
+                    self.channel.ccr().modify(|_, w| {
+                        w
+                            // memory to memory mode disabled
+                            .mem2mem()
+                            .clear_bit()
+                            // medium channel priority level
+                            .pl()
+                            .medium()
+                            // 8-bit memory size
+                            .msize()
+                            .bits8()
+                            // 8-bit peripheral size
+                            .psize()
+                            .bits8()
+                            // circular mode disabled
+                            .circ()
+                            .set_bit()
+                            // write to memory
+                            .dir()
+                            .clear_bit()
+                    });
+
+                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                    // the next statement, which starts the DMA transfer
+                    atomic::compiler_fence(Ordering::Release);
+
+                    self.start();
+
+                    CircBuffer::new(buffer, self)
+                }
+            }
+
+            impl $rxdma {
+                /// Create a frame reader that can either react on the Character match interrupt or
+                /// Transfer Complete from the DMA.
+                pub fn frame_reader<BUFFER, const N: usize>(
+                    mut self,
+                    buffer: BUFFER,
+                ) -> FrameReader<BUFFER, Self, N>
+                    where
+                        BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
+                {
+                    let usart = unsafe{ &(*pac::$USARTX::ptr()) };
+
+                    // Setup DMA transfer
+                    let buf = &*buffer;
+                    self.channel.set_peripheral_address(&usart.rdr as *const _ as u32, false);
+                    self.channel.set_memory_address(unsafe { buf.buffer_address_for_dma() } as u32, true);
+                    self.channel.set_transfer_length(buf.max_len() as u16);
+
+                    // Tell DMA to request from serial
+                    self.channel.set_request_line($dmarxsel).unwrap();
+
+                    self.channel.ccr().modify(|_, w| {
+                        w
+                            // memory to memory mode disabled
+                            .mem2mem()
+                            .clear_bit()
+                            // medium channel priority level
+                            .pl()
+                            .medium()
+                            // 8-bit memory size
+                            .msize()
+                            .bits8()
+                            // 8-bit peripheral size
+                            .psize()
+                            .bits8()
+                            // Peripheral -> Mem
+                            .dir()
+                            .clear_bit()
+                    });
+
+                    // NOTE(compiler_fence) operations on `buffer` should not be reordered after
+                    // the next statement, which starts the DMA transfer
+                    atomic::compiler_fence(Ordering::Release);
+
+                    self.channel.start();
+
+                    FrameReader::new(buffer, self, usart.cr2.read().add().bits())
+                }
+            }
+
+            impl $txdma {
                 /// Creates a new DMA frame sender
                 pub fn frame_sender<BUFFER, const N: usize>(
-                    &self,
-                    mut channel: $tx_chan,
-                ) -> FrameSender<BUFFER, $tx_chan, N>
+                    mut self,
+                ) -> FrameSender<BUFFER, Self, N>
                     where
                         BUFFER: Sized + StableDeref<Target = DMAFrame<N>> + DerefMut + 'static,
                 {
                     let usart = unsafe{ &(*pac::$USARTX::ptr()) };
 
                     // Setup DMA
-                    channel.set_peripheral_address(&usart.tdr as *const _ as u32, false);
+                    self.channel.set_peripheral_address(&usart.tdr as *const _ as u32, false);
 
                     // Tell DMA to request from serial
-                    channel.cselr().modify(|_, w| {
-                        w.$dmacst().bits($dmareq)
-                    });
+                    self.channel.set_request_line($dmatxsel).unwrap();
 
-                    channel.ccr().modify(|_, w| unsafe {
+                    self.channel.ccr().modify(|_, w| unsafe {
                         w.mem2mem()
                             .clear_bit()
                             // 00: Low, 01: Medium, 10: High, 11: Very high
@@ -738,7 +866,7 @@ macro_rules! hal {
                             .set_bit()
                     });
 
-                    FrameSender::new(channel)
+                    FrameSender::new(self)
                 }
             }
         )+
@@ -746,33 +874,59 @@ macro_rules! hal {
 }
 
 hal! {
-    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, 0b0010, dma1::C4), rx: (c5s, dma1::C5), true,),
-    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, 0b0010, dma1::C7), rx: (c6s, dma1::C6), true,),
+    USART1: (usart1, pclk2, tx: (TxDma1, dma1::C4, DmaInput::Usart1Tx), rx: (RxDma1, dma1::C5, DmaInput::Usart1Rx), true,),
+    USART2: (usart2, pclk1, tx: (TxDma2, dma1::C7, DmaInput::Usart2Tx), rx: (RxDma2, dma1::C6, DmaInput::Usart2Rx), true, ),
+}
+
+#[cfg(not(any(feature = "stm32l432", feature = "stm32l442")))]
+hal! {
+    USART3: (usart3, pclk1, tx: (TxDma3, dma1::C2, DmaInput::Usart3Tx), rx: (RxDma3, dma1::C3, DmaInput::Usart3Rx), true, ),
 }
 
 #[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
+    // feature = "stm32l451", // missing PAC support
+    feature = "stm32l452", // missing PAC support
+    feature = "stm32l462", // missing PAC support
+    // feature = "stm32l471", // missing PAC support
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
 ))]
 hal! {
-    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, 0b0010, dma1::C2), rx: (c3s, dma1::C3), true,),
+    UART4: (uart4, pclk1, tx: (TxDma4, dma2::C3, DmaInput::Uart4Tx), rx: (RxDma4, dma2::C5, DmaInput::Uart4Rx), true,),
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+#[cfg(any(
+    // feature = "stm32l471", // missing PAC support
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 hal! {
-    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (c3s, 0b0010, dma2::C3), rx: (c5s, dma2::C5), true,),
-}
-
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-hal! {
-    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (c1s, 0b0010, dma2::C1), rx: (c2s, dma2::C2), true,),
-}
-
-#[cfg(feature = "stm32l4x6")]
-hal! {
-    LPUART1: (lpuart1, APB1R2, lpuart1en, lpuart1rst, pclk1, tx: (c6s, 0b0100, dma2::C6), rx: (c7s, dma2::C7), false,),
+    UART5: (uart5, pclk1, tx: (TxDma5, dma2::C1, DmaInput::Uart5Tx), rx: (RxDma5, dma2::C2, DmaInput::Uart5Rx), true,),
+    LPUART1: (lpuart1, pclk1, tx: (TxDmaL1, dma2::C6, DmaInput::LpUart1Tx), rx: (RxDmaL1, dma2::C7, DmaInput::LpUart1Rx), false,),
 }
 
 impl<USART, PINS> fmt::Write for Serial<USART, PINS>
@@ -823,7 +977,7 @@ macro_rules! impl_pin_traits {
         $(
             $instance:ident: {
                 $(
-                    $af:ident: {
+                    $af:literal: {
                         TX: $($tx:ident),*;
                         RX: $($rx:ident),*;
                         RTS_DE: $($rts_de:ident),*;
@@ -837,37 +991,37 @@ macro_rules! impl_pin_traits {
             $(
                 $(
                     impl private::SealedTx for
-                        gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<PushPull, $af>> {}
                     impl TxPin<pac::$instance> for
-                        gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<PushPull, $af>> {}
                 )*
 
                 $(
                     impl private::SealedTxHalfDuplex for
-                        gpio::$tx<AlternateOD<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<OpenDrain, $af>> {}
                     impl TxHalfDuplexPin<pac::$instance> for
-                        gpio::$tx<AlternateOD<gpio::$af, Input<Floating>>> {}
+                        gpio::$tx<Alternate<OpenDrain, $af>> {}
                 )*
 
                 $(
                     impl private::SealedRx for
-                        gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rx<Alternate<PushPull, $af>> {}
                     impl RxPin<pac::$instance> for
-                        gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rx<Alternate<PushPull, $af>> {}
                 )*
 
                 $(
                     impl private::SealedRtsDe for
-                        gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rts_de<Alternate<PushPull, $af>> {}
                     impl RtsDePin<pac::$instance> for
-                        gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$rts_de<Alternate<PushPull, $af>> {}
                 )*
 
                 $(
                     impl private::SealedCts for
-                        gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$cts<Alternate<PushPull, $af>> {}
                     impl CtsPin<pac::$instance> for
-                        gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
+                        gpio::$cts<Alternate<PushPull, $af>> {}
                 )*
             )*
         )*
@@ -876,7 +1030,7 @@ macro_rules! impl_pin_traits {
 
 impl_pin_traits! {
     USART1: {
-        AF7: {
+        7: {
             TX: PA9, PB6;
             RX: PA10, PB7;
             RTS_DE: PA12, PB3;
@@ -884,30 +1038,21 @@ impl_pin_traits! {
         }
     }
     USART2: {
-        AF7: {
+        7: {
             TX: PA2, PD5;
             RX: PA3, PD6;
             RTS_DE: PA1, PD4;
             CTS: PA0, PD3;
         }
-        AF3: {
+        3: {
             TX: ;
             RX: PA15;
             RTS_DE: ;
             CTS: ;
         }
     }
-}
-
-#[cfg(any(
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6",
-))]
-impl_pin_traits! {
     USART3: {
-        AF7: {
+        7: {
             TX: PB10, PC4, PC10, PD8;
             RX: PB11, PC5, PC11, PD9;
             RTS_DE: PB1, PB14, PD2, PD12;
@@ -916,18 +1061,88 @@ impl_pin_traits! {
     }
 }
 
-#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+#[cfg(any(
+    // feature = "stm32l451",
+    feature = "stm32l452",
+    feature = "stm32l462",
+    // feature = "stm32l471",
+    // feature = "stm32l475",
+    // feature = "stm32l476",
+    // feature = "stm32l485",
+    // feature = "stm32l486",
+    // feature = "stm32l496",
+    // feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    // feature = "stm32l4r9",
+    // feature = "stm32l4s9",
+))]
+impl_pin_traits! {
+    USART3: {
+        7: {
+            TX: ;
+            RX: ;
+            RTS_DE: PA15;
+            CTS: ;
+        }
+    }
+}
+
+#[cfg(any(
+    // feature = "stm32l451",
+    feature = "stm32l452",
+    feature = "stm32l462",
+    // feature = "stm32l471",
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
 impl_pin_traits! {
     UART4: {
-        AF8: {
+        8: {
             TX: PA0, PC10;
             RX: PA1, PC11;
             RTS_DE: PA15;
             CTS: PB7;
         }
     }
+}
+
+#[cfg(any(
+    // feature = "stm32l471", ,, missing PAC support
+    feature = "stm32l475",
+    feature = "stm32l476",
+    feature = "stm32l485",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    feature = "stm32l4r9",
+    feature = "stm32l4s9",
+))]
+impl_pin_traits! {
     UART5: {
-        AF8: {
+        8: {
             TX: PC12;
             RX: PD2;
             RTS_DE: PB4;

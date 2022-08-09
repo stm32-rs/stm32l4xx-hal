@@ -1,39 +1,30 @@
 //! Quad Serial Peripheral Interface (QSPI) bus
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
+
 use crate::gpio::{
     gpioa::{PA6, PA7},
     gpiob::{PB0, PB1, PB10, PB11},
     gpioe::{PE10, PE11, PE12, PE13, PE14, PE15},
 };
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x6"
-))]
+#[cfg(not(any(feature = "stm32l475")))]
 use crate::gpio::{
     gpioa::{PA2, PA3},
     gpiod::{PD3, PD4, PD5, PD6, PD7},
 };
 
-#[cfg(feature = "stm32l4x2")]
-use crate::gpio::gpiob::PB2;
-
-#[cfg(feature = "stm32l4x6")]
+#[cfg(any(
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6"
+))]
 use crate::gpio::{
     gpioc::{PC1, PC2, PC4, PC5},
     gpiof::{PF6, PF7, PF8, PF9},
 };
 
-use crate::gpio::{Alternate, Floating, Input, Speed, AF10};
-use crate::rcc::AHB3;
+use crate::gpio::{Alternate, PushPull, Speed};
+use crate::rcc::{Enable, AHB3};
 use crate::stm32::QUADSPI;
 use core::ptr;
 
@@ -68,52 +59,52 @@ pub trait IO3Pin<QSPI>: private::Sealed {
 }
 
 macro_rules! pins {
-    ($qspi:ident, $af:ident, CLK: [$($clk:ident),*], nCS: [$($ncs:ident),*],
+    ($qspi:ident, $af:literal, CLK: [$($clk:ident),*], nCS: [$($ncs:ident),*],
         IO0: [$($io0:ident),*], IO1: [$($io1:ident),*], IO2: [$($io2:ident),*],
         IO3: [$($io3:ident),*]) => {
         $(
-            impl private::Sealed for $clk<Alternate<$af, Input<Floating>>> {}
-            impl ClkPin<$qspi> for $clk<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $clk<Alternate<PushPull, $af>> {}
+            impl ClkPin<$qspi> for $clk<Alternate<PushPull, $af>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $ncs<Alternate<$af, Input<Floating>>> {}
-            impl NCSPin<$qspi> for $ncs<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $ncs<Alternate<PushPull, $af>> {}
+            impl NCSPin<$qspi> for $ncs<Alternate<PushPull, $af>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $io0<Alternate<$af, Input<Floating>>> {}
-            impl IO0Pin<$qspi> for $io0<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $io0<Alternate<PushPull, $af>> {}
+            impl IO0Pin<$qspi> for $io0<Alternate<PushPull, $af>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $io1<Alternate<$af, Input<Floating>>> {}
-            impl IO1Pin<$qspi> for $io1<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $io1<Alternate<PushPull, $af>> {}
+            impl IO1Pin<$qspi> for $io1<Alternate<PushPull, $af>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $io2<Alternate<$af, Input<Floating>>> {}
-            impl IO2Pin<$qspi> for $io2<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $io2<Alternate<PushPull, $af>> {}
+            impl IO2Pin<$qspi> for $io2<Alternate<PushPull, $af>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
             }
         )*
         $(
-            impl private::Sealed for $io3<Alternate<$af, Input<Floating>>> {}
-            impl IO3Pin<$qspi> for $io3<Alternate<$af, Input<Floating>>> {
+            impl private::Sealed for $io3<Alternate<PushPull, $af>> {}
+            impl IO3Pin<$qspi> for $io3<Alternate<PushPull, $af>> {
                 fn set_speed(self, speed: Speed) -> Self{
                     self.set_speed(speed)
                 }
@@ -337,7 +328,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         IO3: IO3Pin<QUADSPI>,
     {
         // Enable quad SPI in the clocks.
-        ahb3.enr().modify(|_, w| w.qspien().bit(true));
+        QUADSPI::enable(ahb3);
 
         // Disable QUADSPI before configuring it.
         qspi.cr.modify(|_, w| w.en().clear_bit());
@@ -706,33 +697,21 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
     }
 }
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-))]
 pins!(
     QUADSPI,
-    AF10,
+    10,
     CLK: [PE10, PB10],
     nCS: [PE11, PB11],
-    IO0: [PE12, PB0],
-    IO1: [PE13, PB1],
+    IO0: [PE12, PB1],
+    IO1: [PE13, PB0],
     IO2: [PE14, PA7],
     IO3: [PE15, PA6]
 );
 
-#[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x6"
-))]
+#[cfg(not(any(feature = "stm32l475")))]
 pins!(
     QUADSPI,
-    AF10,
+    10,
     CLK: [PA3],
     nCS: [PA2, PD3],
     IO0: [PD4],
@@ -741,25 +720,15 @@ pins!(
     IO3: [PD7]
 );
 
-#[cfg(feature = "stm32l4x2")]
-impl IO0Pin<QUADSPI> for PB1<Alternate<AF10, Input<Floating>>> {
-    fn set_speed(self, speed: Speed) -> Self {
-        self.set_speed(speed)
-    }
-}
-#[cfg(feature = "stm32l4x2")]
-impl private::Sealed for PB2<Alternate<AF10, Input<Floating>>> {}
-#[cfg(feature = "stm32l4x2")]
-impl IO1Pin<QUADSPI> for PB2<Alternate<AF10, Input<Floating>>> {
-    fn set_speed(self, speed: Speed) -> Self {
-        self.set_speed(speed)
-    }
-}
-
-#[cfg(feature = "stm32l4x6")]
+#[cfg(any(
+    feature = "stm32l476",
+    feature = "stm32l486",
+    feature = "stm32l496",
+    feature = "stm32l4a6"
+))]
 pins!(
     QUADSPI,
-    AF10,
+    10,
     CLK: [],
     nCS: [],
     IO0: [PC1, PF8],

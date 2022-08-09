@@ -1,6 +1,4 @@
 //! Interfacing the on-board L3GD20 (gyroscope)
-#![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_main]
 #![no_std]
 
@@ -35,9 +33,9 @@ fn main() -> ! {
     // let clocks = rcc.cfgr.freeze(&mut flash.acr);
     let clocks = rcc
         .cfgr
-        .sysclk(80.mhz())
-        .pclk1(80.mhz())
-        .pclk2(80.mhz())
+        .sysclk(80.MHz())
+        .pclk1(80.MHz())
+        .pclk2(80.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
     let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
@@ -54,19 +52,25 @@ fn main() -> ! {
     // The `L3gd20` abstraction exposed by the `f3` crate requires a specific pin configuration to
     // be used and won't accept any configuration other than the one used here. Trying to use a
     // different pin configuration will result in a compiler error.
-    let sck = gpioa.pa5.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
-    let miso = gpioa.pa6.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
-    let mosi = gpioa.pa7.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
+    let sck = gpioa
+        .pa5
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    let miso = gpioa
+        .pa6
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+    let mosi = gpioa
+        .pa7
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
     // nss.set_high();
-    dc.set_low().ok();
+    dc.set_low();
 
     let mut spi = Spi::spi1(
         p.SPI1,
         (sck, miso, mosi),
         MODE,
-        // 1.mhz(),
-        100.khz(),
+        // 1.MHz(),
+        100.kHz(),
         clocks,
         &mut rcc.apb2,
     );
@@ -88,6 +92,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

@@ -27,24 +27,20 @@ fn main() -> ! {
     // TIM2
     let c1 = gpioa
         .pa0
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
-        .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let c2 = gpioa
         .pa1
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
-        .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let c3 = gpioa
         .pa2
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
-        .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
     let c4 = gpioa
         .pa3
-        .into_push_pull_output(&mut gpioa.moder, &mut gpioa.otyper)
-        .into_af1(&mut gpioa.moder, &mut gpioa.afrl);
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
     let mut pwm = p
         .TIM2
-        .pwm((c1, c2, c3, c4), 1.khz(), clocks, &mut rcc.apb1r1)
+        .pwm((c1, c2, c3, c4), 1.kHz(), clocks, &mut rcc.apb1r1)
         .3;
 
     let max = pwm.get_max_duty();

@@ -1,9 +1,43 @@
 //! RTC peripheral abstraction
 
+use core::convert::TryInto;
+
+/// refer to AN4759 to compare features of RTC2 and RTC3
+#[cfg(not(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+)))]
+pub mod rtc2;
+#[cfg(not(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+)))]
+pub use rtc2 as rtc_registers;
+
+/// refer to AN4759 to compare features of RTC2 and RTC3
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+))]
+pub mod rtc3;
+#[cfg(any(
+    feature = "stm32l412",
+    feature = "stm32l422",
+    feature = "stm32l4p5",
+    feature = "stm32l4q5"
+))]
+pub use rtc3 as rtc_registers;
+
+use time::{Date, PrimitiveDateTime, Time};
 use void::Void;
 
 use crate::{
-    datetime::*,
     hal::timer::{self, Cancel as _},
     pwr,
     rcc::{APB1R1, BDCR},
@@ -50,10 +84,29 @@ pub enum RtcClockSource {
     /// 11: HSE oscillator clock divided by 32 used as RTC clock
     HSE = 0b11,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
+pub enum RtcWakeupClockSource {
+    /// RTC/16 clock is selected
+    RtcClkDiv16 = 0b000,
+    /// RTC/8 clock is selected
+    RtcClkDiv8 = 0b001,
+    /// RTC/4 clock is selected
+    RtcClkDiv4 = 0b010,
+    /// RTC/2 clock is selected
+    RtcClkDiv2 = 0b011,
+    /// ck_spre (usually 1 Hz) clock is selected. Handling of the 2 ** 16 bit is done if values
+    /// larger than 2 ** 16 are passed to the timer start function.
+    CkSpre = 0b100,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RtcConfig {
     /// RTC clock source
     clock_config: RtcClockSource,
+    /// Wakeup clock source
+    wakeup_clock_config: RtcWakeupClockSource,
     /// Asynchronous prescaler factor
     /// This is the asynchronous division factor:
     /// ck_apre frequency = RTCCLK frequency/(PREDIV_A+1)
@@ -72,6 +125,7 @@ impl Default for RtcConfig {
     fn default() -> Self {
         RtcConfig {
             clock_config: RtcClockSource::LSI,
+            wakeup_clock_config: RtcWakeupClockSource::CkSpre,
             async_prescaler: 127,
             sync_prescaler: 255,
         }
@@ -96,6 +150,29 @@ impl RtcConfig {
         self.sync_prescaler = prescaler;
         self
     }
+
+    /// Set the Clock Source for the Wakeup Timer
+    pub fn wakeup_clock_config(mut self, cfg: RtcWakeupClockSource) -> Self {
+        self.wakeup_clock_config = cfg;
+        self
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[repr(u8)]
+pub enum RtcCalibrationCyclePeriod {
+    /// 8-second calibration period
+    Seconds8,
+    /// 16-second calibration period
+    Seconds16,
+    /// 32-second calibration period
+    Seconds32,
+}
+
+impl Default for RtcCalibrationCyclePeriod {
+    fn default() -> Self {
+        RtcCalibrationCyclePeriod::Seconds32
+    }
 }
 
 impl Rtc {
@@ -117,49 +194,51 @@ impl Rtc {
         rtc_struct
     }
 
-    /// Get date and time touple
-    pub fn get_date_time(&self) -> (Date, Time) {
-        let time;
-        let date;
-
-        let sync_p = self.rtc_config.sync_prescaler as u32;
-        let micros =
-            1_000_000u32 / (sync_p + 1) * (sync_p - self.rtc.ssr.read().ss().bits() as u32);
-        let timer = self.rtc.tr.read();
-        let cr = self.rtc.cr.read();
-
-        // Reading either RTC_SSR or RTC_TR locks the values in the higher-order
-        // calendar shadow registers until RTC_DR is read.
-        let dater = self.rtc.dr.read();
-
-        time = Time::new(
-            bcd2_to_byte((timer.ht().bits(), timer.hu().bits())).into(),
-            bcd2_to_byte((timer.mnt().bits(), timer.mnu().bits())).into(),
-            bcd2_to_byte((timer.st().bits(), timer.su().bits())).into(),
-            micros.into(),
-            cr.bkp().bit(),
-        );
-
-        date = Date::new(
-            dater.wdu().bits().into(),
-            bcd2_to_byte((dater.dt().bits(), dater.du().bits())).into(),
-            bcd2_to_byte((dater.mt().bit() as u8, dater.mu().bits())).into(),
-            (bcd2_to_byte((dater.yt().bits(), dater.yu().bits())) as u16 + 1970_u16).into(),
-        );
-
-        (date, time)
-    }
-
-    /// Set Date and Time
-    pub fn set_date_time(&mut self, date: Date, time: Time) {
+    /// Set date and time.
+    pub fn set_datetime(&mut self, datetime: &PrimitiveDateTime) {
         self.write(true, |rtc| {
-            set_time_raw(rtc, time);
-            set_date_raw(rtc, date);
+            set_time_raw(rtc, datetime.time());
+            set_date_raw(rtc, datetime.date());
         })
     }
 
+    /// Get date and time.
+    pub fn get_datetime(&self) -> PrimitiveDateTime {
+        let sync_p = self.rtc_config.sync_prescaler as u32;
+        let ssr = self.rtc.ssr.read();
+        let micro = 1_000_000u32 / (sync_p + 1) * (sync_p - ssr.ss().bits() as u32);
+        let tr = self.rtc.tr.read();
+        let second = bcd2_to_byte((tr.st().bits(), tr.su().bits()));
+        let minute = bcd2_to_byte((tr.mnt().bits(), tr.mnu().bits()));
+        let hour = bcd2_to_byte((tr.ht().bits(), tr.hu().bits()));
+        // Reading either RTC_SSR or RTC_TR locks the values in the higher-order
+        // calendar shadow registers until RTC_DR is read.
+        let dr = self.rtc.dr.read();
+
+        // let weekday = dr.wdu().bits();
+        let day = bcd2_to_byte((dr.dt().bits(), dr.du().bits()));
+        let month = bcd2_to_byte((dr.mt().bit() as u8, dr.mu().bits()));
+        let year = bcd2_to_byte((dr.yt().bits(), dr.yu().bits())) as u16 + 1970_u16;
+
+        let time = Time::from_hms_micro(hour, minute, second, micro).unwrap();
+        let date = Date::from_calendar_date(year.into(), month.try_into().unwrap(), day).unwrap();
+
+        date.with_time(time)
+    }
+
+    /// Check if daylight savings time is active.
+    pub fn get_daylight_savings(&self) -> bool {
+        let cr = self.rtc.cr.read();
+        cr.bkp().bit()
+    }
+
+    /// Enable/disable daylight savings time.
+    pub fn set_daylight_savings(&mut self, daylight_savings: bool) {
+        self.write(true, |rtc| set_daylight_savings_raw(rtc, daylight_savings))
+    }
+
     /// Set Time
-    /// Note: If setting both time and date, use set_date_time(...) to avoid errors.
+    /// Note: If setting both time and date, use set_datetime(...) to avoid errors.
     pub fn set_time(&mut self, time: Time) {
         self.write(true, |rtc| {
             set_time_raw(rtc, time);
@@ -167,7 +246,7 @@ impl Rtc {
     }
 
     /// Set Date
-    /// Note: If setting both time and date, use set_date_time(...) to avoid errors.
+    /// Note: If setting both time and date, use set_datetime(...) to avoid errors.
     pub fn set_date(&mut self, date: Date) {
         self.write(true, |rtc| {
             set_date_raw(rtc, date);
@@ -181,17 +260,16 @@ impl Rtc {
     /// Sets the time at which an alarm will be triggered
     /// This also clears the alarm flag if it is set
     pub fn set_alarm(&mut self, alarm: Alarm, date: Date, time: Time) {
-        let (dt, du) = byte_to_bcd2(date.date as u8);
-        let (ht, hu) = byte_to_bcd2(time.hours as u8);
-        let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
-        let (st, su) = byte_to_bcd2(time.seconds as u8);
+        let (dt, du) = byte_to_bcd2(date.day() as u8);
+        let (ht, hu) = byte_to_bcd2(time.hour() as u8);
+        let (mnt, mnu) = byte_to_bcd2(time.minute() as u8);
+        let (st, su) = byte_to_bcd2(time.second() as u8);
 
         self.write(false, |rtc| match alarm {
             Alarm::AlarmA => {
-                rtc.cr.modify(|_, w| w.alrae().clear_bit());
-
-                // Wait until we're allowed to update the alarm b configuration
-                while rtc.isr.read().alrawf().bit_is_clear() {}
+                rtc.cr.modify(|_, w| w.alrae().clear_bit()); // Disable Alarm A
+                rtc_registers::clear_alarm_a_flag(rtc);
+                while !rtc_registers::is_alarm_a_accessible(rtc) {}
 
                 rtc.alrmar.modify(|_, w| unsafe {
                     w.dt()
@@ -215,13 +293,19 @@ impl Rtc {
                         .wdsel()
                         .clear_bit()
                 });
+                // binary mode alarm not implemented (RTC3 only)
+                // subsecond alarm not implemented
+                // would need a conversion method between `time.micros` and RTC ticks
+                // write the SS value and mask to `rtc.alrmassr`
+
+                // enable alarm and reenable interrupt if it was enabled
                 rtc.cr.modify(|_, w| w.alrae().set_bit());
             }
             Alarm::AlarmB => {
                 rtc.cr.modify(|_, w| w.alrbe().clear_bit());
 
-                // Wait until we're allowed to update the alarm b configuration
-                while rtc.isr.read().alrbwf().bit_is_clear() {}
+                rtc_registers::clear_alarm_b_flag(rtc);
+                while !rtc_registers::is_alarm_b_accessible(rtc) {}
 
                 rtc.alrmbr.modify(|_, w| unsafe {
                     w.dt()
@@ -245,10 +329,15 @@ impl Rtc {
                         .wdsel()
                         .clear_bit()
                 });
+                // binary mode alarm not implemented (RTC3 only)
+                // subsecond alarm not implemented
+                // would need a conversion method between `time.micros` and RTC ticks
+                // write the SS value and mask to `rtc.alrmbssr`
+
+                // enable alarm and reenable interrupt if it was enabled
                 rtc.cr.modify(|_, w| w.alrbe().set_bit());
             }
         });
-        self.check_interrupt(alarm.into(), true);
     }
 
     /// Starts listening for an interrupt event
@@ -308,27 +397,27 @@ impl Rtc {
     /// Checks for an interrupt event
     pub fn check_interrupt(&mut self, event: Event, clear: bool) -> bool {
         let result = match event {
-            Event::WakeupTimer => self.rtc.isr.read().wutf().bit_is_set(),
-            Event::AlarmA => self.rtc.isr.read().alraf().bit_is_set(),
-            Event::AlarmB => self.rtc.isr.read().alrbf().bit_is_set(),
-            Event::Timestamp => self.rtc.isr.read().tsf().bit_is_set(),
+            Event::WakeupTimer => rtc_registers::is_wakeup_timer_flag_set(&self.rtc),
+            Event::AlarmA => rtc_registers::is_alarm_a_flag_set(&self.rtc),
+            Event::AlarmB => rtc_registers::is_alarm_b_flag_set(&self.rtc),
+            Event::Timestamp => rtc_registers::is_timestamp_flag_set(&self.rtc),
         };
         if clear {
             self.write(false, |rtc| match event {
                 Event::WakeupTimer => {
-                    rtc.isr.modify(|_, w| w.wutf().clear_bit());
+                    rtc_registers::clear_wakeup_timer_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 20)) };
                 }
                 Event::AlarmA => {
-                    rtc.isr.modify(|_, w| w.alraf().clear_bit());
+                    rtc_registers::clear_alarm_a_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::AlarmB => {
-                    rtc.isr.modify(|_, w| w.alrbf().clear_bit());
+                    rtc_registers::clear_alarm_b_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 18)) };
                 }
                 Event::Timestamp => {
-                    rtc.isr.modify(|_, w| w.tsf().clear_bit());
+                    rtc_registers::clear_timestamp_flag(rtc);
                     unsafe { (*EXTI::ptr()).pr1.write(|w| w.bits(1 << 19)) };
                 }
             })
@@ -401,11 +490,75 @@ impl Rtc {
             });
 
             // TODO configuration for output pins
-            rtc.or
-                .modify(|_, w| w.rtc_alarm_type().clear_bit().rtc_out_rmp().clear_bit());
+            rtc_registers::reset_gpio(rtc);
         });
 
         self.rtc_config = rtc_config;
+    }
+
+    const RTC_CALR_MIN_PPM: f32 = -487.1;
+    const RTC_CALR_MAX_PPM: f32 = 488.5;
+    const RTC_CALR_RESOLUTION_PPM: f32 = 0.9537;
+
+    /// Calibrate the clock drift.
+    ///
+    /// `clock_drift` can be adjusted from -487.1 ppm to 488.5 ppm and is clamped to this range.
+    ///
+    /// ### Note
+    ///
+    /// To perform a calibration when `async_prescaler` is less then 3, `sync_prescaler`
+    /// has to be reduced accordingly (see RM0351 Rev 9, sec 38.3.12).
+    pub fn calibrate(&mut self, mut clock_drift: f32, period: RtcCalibrationCyclePeriod) {
+        if clock_drift < Self::RTC_CALR_MIN_PPM {
+            clock_drift = Self::RTC_CALR_MIN_PPM;
+        } else if clock_drift > Self::RTC_CALR_MAX_PPM {
+            clock_drift = Self::RTC_CALR_MAX_PPM;
+        }
+
+        clock_drift = clock_drift / Self::RTC_CALR_RESOLUTION_PPM;
+
+        self.write(false, |rtc| {
+            rtc.calr.modify(|_, w| unsafe {
+                match period {
+                    RtcCalibrationCyclePeriod::Seconds8 => {
+                        w.calw8().set_bit().calw16().clear_bit();
+                    }
+                    RtcCalibrationCyclePeriod::Seconds16 => {
+                        w.calw8().clear_bit().calw16().set_bit();
+                    }
+                    RtcCalibrationCyclePeriod::Seconds32 => {
+                        w.calw8().clear_bit().calw16().clear_bit();
+                    }
+                }
+
+                // Extra pulses during calibration cycle period: CALP * 512 - CALM
+                //
+                // CALP sets whether pulses are added or omitted.
+                //
+                // CALM contains how many pulses (out of 512) are masked in a
+                // given calibration cycle period.
+                if clock_drift > 0.0 {
+                    // Maximum (about 512.2) rounds to 512.
+                    clock_drift += 0.5;
+
+                    // When the offset is positive (0 to 512), the opposite of
+                    // the offset (512 - offset) is masked, i.e. for the
+                    // maximum offset (512), 0 pulses are masked.
+                    w.calp().set_bit().calm().bits(512 - clock_drift as u16)
+                } else {
+                    // Minimum (about -510.7) rounds to -511.
+                    clock_drift -= 0.5;
+
+                    // When the offset is negative or zero (-511 to 0),
+                    // the absolute offset is masked, i.e. for the minimum
+                    // offset (-511), 511 pulses are masked.
+                    w.calp()
+                        .clear_bit()
+                        .calm()
+                        .bits((clock_drift * -1.0) as u16)
+                }
+            });
+        })
     }
 
     /// Access the wakeup timer
@@ -422,16 +575,16 @@ impl Rtc {
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0xca) });
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0x53) });
 
-        if init_mode && self.rtc.isr.read().initf().bit_is_clear() {
-            // are we already in init mode?
-            self.rtc.isr.modify(|_, w| w.init().set_bit());
-            while self.rtc.isr.read().initf().bit_is_clear() {} // wait to return to init state
+        if init_mode && !rtc_registers::is_init_mode(&self.rtc) {
+            rtc_registers::enter_init_mode(&self.rtc);
+            // wait till init state entered
+            // ~2 RTCCLK cycles
+            while !rtc_registers::is_init_mode(&self.rtc) {}
         }
 
         let result = f(&self.rtc);
-
         if init_mode {
-            self.rtc.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+            rtc_registers::exit_init_mode(&self.rtc);
         }
 
         // Re-enable write protection.
@@ -439,6 +592,24 @@ impl Rtc {
         self.rtc.wpr.write(|w| unsafe { w.key().bits(0xff) });
 
         result
+    }
+
+    pub const BACKUP_REGISTER_COUNT: usize = rtc_registers::BACKUP_REGISTER_COUNT;
+
+    /// Read content of the backup register.
+    ///
+    /// The registers retain their values during wakes from standby mode or system resets. They also
+    /// retain their value when Vdd is switched off as long as V_BAT is powered.
+    pub fn read_backup_register(&self, register: usize) -> Option<u32> {
+        rtc_registers::read_backup_register(&self.rtc, register)
+    }
+
+    /// Set content of the backup register.
+    ///
+    /// The registers retain their values during wakes from standby mode or system resets. They also
+    /// retain their value when Vdd is switched off as long as V_BAT is powered.
+    pub fn write_backup_register(&self, register: usize, value: u32) {
+        rtc_registers::write_backup_register(&self.rtc, register, value)
     }
 }
 
@@ -466,8 +637,10 @@ impl timer::CountDown for WakeupTimer<'_> {
 
     /// Starts the wakeup timer
     ///
-    /// The `delay` argument specifies the timer delay in seconds. Up to 17 bits
+    /// The `delay` argument specifies the timer delay. If the wakeup_clock_config is set to
+    /// CkSpre, the value is in seconds and up to 17 bits
     /// of delay are supported, giving us a range of over 36 hours.
+    /// Otherwise, the timeunit depends on the RTCCLK and the configured wakeup_clock_config value.
     ///
     /// # Panics
     ///
@@ -478,7 +651,24 @@ impl timer::CountDown for WakeupTimer<'_> {
         T: Into<Self::Time>,
     {
         let delay = delay.into();
-        assert!(1 <= delay && delay <= 1 << 17);
+        assert!(1 <= delay);
+
+        if self.rtc.rtc_config.wakeup_clock_config == RtcWakeupClockSource::CkSpre {
+            assert!(delay <= 1 << 17);
+        } else {
+            assert!(delay <= 1 << 16);
+        }
+
+        // Determine the value for the wucksel register
+        let wucksel = self.rtc.rtc_config.wakeup_clock_config as u8;
+        let wucksel = wucksel
+            | if self.rtc.rtc_config.wakeup_clock_config == RtcWakeupClockSource::CkSpre
+                && delay & 0x1_00_00 != 0
+            {
+                0b010
+            } else {
+                0b000
+            };
 
         let delay = delay - 1;
 
@@ -494,16 +684,10 @@ impl timer::CountDown for WakeupTimer<'_> {
                 unsafe { w.wut().bits(delay as u16) });
 
             rtc.cr.modify(|_, w| {
-                if delay & 0x1_00_00 != 0 {
-                    unsafe {
-                        w.wucksel().bits(0b110);
-                    }
-                } else {
-                    unsafe {
-                        w.wucksel().bits(0b100);
-                    }
+                // Write WUCKSEL depending on value determined previously.
+                unsafe {
+                    w.wucksel().bits(wucksel);
                 }
-
                 // Enable wakeup timer
                 w.wute().set_bit()
             });
@@ -511,7 +695,7 @@ impl timer::CountDown for WakeupTimer<'_> {
 
         // Let's wait for WUTWF to clear. Otherwise we might run into a race
         // condition, if the user calls this method again really quickly.
-        while self.rtc.rtc.isr.read().wutwf().bit_is_set() {}
+        while rtc_registers::is_wakeup_timer_write_flag_set(&self.rtc.rtc) {}
     }
 
     fn wait(&mut self) -> nb::Result<(), Void> {
@@ -530,12 +714,8 @@ impl timer::Cancel for WakeupTimer<'_> {
         self.rtc.write(false, |rtc| {
             // Disable the wakeup timer
             rtc.cr.modify(|_, w| w.wute().clear_bit());
-
-            // Wait until we're allowed to update the wakeup timer configuration
-            while rtc.isr.read().wutwf().bit_is_clear() {}
-
-            // Clear wakeup timer flag
-            rtc.isr.modify(|_, w| w.wutf().clear_bit());
+            while !rtc_registers::is_wakeup_timer_write_flag_set(rtc) {}
+            rtc_registers::clear_wakeup_timer_flag(rtc);
 
             // According to the reference manual, section 26.7.4, the WUTF flag
             // must be cleared at least 1.5 RTCCLK periods "before WUTF is set
@@ -557,9 +737,9 @@ impl timer::Cancel for WakeupTimer<'_> {
 /// Raw set time
 /// Expects init mode enabled and write protection disabled
 fn set_time_raw(rtc: &RTC, time: Time) {
-    let (ht, hu) = byte_to_bcd2(time.hours as u8);
-    let (mnt, mnu) = byte_to_bcd2(time.minutes as u8);
-    let (st, su) = byte_to_bcd2(time.seconds as u8);
+    let (ht, hu) = byte_to_bcd2(time.hour() as u8);
+    let (mnt, mnu) = byte_to_bcd2(time.minute() as u8);
+    let (st, su) = byte_to_bcd2(time.second() as u8);
 
     rtc.tr.write(|w| unsafe {
         w.ht()
@@ -577,16 +757,18 @@ fn set_time_raw(rtc: &RTC, time: Time) {
             .pm()
             .clear_bit()
     });
+}
 
-    rtc.cr.modify(|_, w| w.bkp().bit(time.daylight_savings));
+fn set_daylight_savings_raw(rtc: &RTC, daylight_savings: bool) {
+    rtc.cr.modify(|_, w| w.bkp().bit(daylight_savings));
 }
 
 /// Raw set date
 /// Expects init mode enabled and write protection disabled
 fn set_date_raw(rtc: &RTC, date: Date) {
-    let (dt, du) = byte_to_bcd2(date.date as u8);
-    let (mt, mu) = byte_to_bcd2(date.month as u8);
-    let yr = date.year as u16;
+    let (dt, du) = byte_to_bcd2(date.day() as u8);
+    let (mt, mu) = byte_to_bcd2(date.month() as u8);
+    let yr = date.year() as u16;
     let yr_offset = (yr - 1970_u16) as u8;
     let (yt, yu) = byte_to_bcd2(yr_offset);
 
@@ -604,7 +786,7 @@ fn set_date_raw(rtc: &RTC, date: Date) {
             .yu()
             .bits(yu)
             .wdu()
-            .bits(date.day as u8)
+            .bits(date.weekday().number_from_monday() as u8)
     });
 }
 

@@ -1,5 +1,5 @@
 //! Low power timers
-use crate::rcc::{Clocks, APB1R1, APB1R2, CCIPR};
+use crate::rcc::{Clocks, Enable, RccBus, Reset, CCIPR};
 
 use crate::stm32::{LPTIM1, LPTIM2, RCC};
 
@@ -112,7 +112,7 @@ pub struct LowPowerTimer<LPTIM> {
 }
 
 macro_rules! hal {
-    ($timer_type: ident, $lptimX: ident, $apb1rX: ident, $timXen: ident, $timXrst: ident, $timXsel: ident) => {
+    ($timer_type: ident, $lptimX: ident, $timXsel: ident) => {
         impl LowPowerTimer<$timer_type> {
             #[inline(always)]
             fn enable(&mut self) {
@@ -146,7 +146,7 @@ macro_rules! hal {
             pub fn $lptimX(
                 lptim: $timer_type,
                 config: LowPowerTimerConfig,
-                apb1rn: &mut $apb1rX,
+                apb1rn: &mut <$timer_type as RccBus>::Bus,
                 ccipr: &mut CCIPR,
                 clocks: Clocks,
             ) -> Self {
@@ -175,9 +175,8 @@ macro_rules! hal {
                     _ => {}
                 }
 
-                apb1rn.enr().modify(|_, w| w.$timXen().set_bit());
-                apb1rn.rstr().modify(|_, w| w.$timXrst().set_bit());
-                apb1rn.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                <$timer_type>::enable(apb1rn);
+                <$timer_type>::reset(apb1rn);
 
                 // This operation is sound as `ClockSource as u8` only produces valid values
                 ccipr
@@ -201,17 +200,9 @@ macro_rules! hal {
 
                 instance.enable();
 
-                // Write compare, arr, and continous mode start register _after_ enabling lptim
                 instance.start_continuous_mode();
-
-                // This operation is sound as arr_value is a u16, and there are 16 writeable bits
-                instance
-                    .lptim
-                    .arr
-                    .write(|w| unsafe { w.bits(arr_value as u32) });
-
+                instance.set_autoreload(arr_value);
                 instance.set_compare_match(compare_value);
-
                 instance
             }
 
@@ -264,9 +255,36 @@ macro_rules! hal {
             /// Set the compare match field for this LowPowerTimer
             #[inline]
             pub fn set_compare_match(&mut self, value: u16) {
+                // clear compare register update ok flag
+                self.lptim.icr.write(|w| w.cmpokcf().set_bit());
+
                 // This operation is sound as compare_value is a u16, and there are 16 writeable bits
                 // Additionally, the LPTIM peripheral will always be in the enabled state when this code is called
                 self.lptim.cmp.write(|w| unsafe { w.bits(value as u32) });
+
+                // wait for compare register update ok interrupt to be signalled
+                // (see RM0394 Rev 4, sec 30.4.10 for further explanation and
+                // sec. 30.7.1, Bit 4 for register field description)
+                while self.lptim.isr.read().cmpok().bit_is_clear() {}
+            }
+
+            /// Set auto reload register
+            /// has to be used _after_ enabling of lptim
+            #[inline(always)]
+            pub fn set_autoreload(&mut self, arr_value: u16) {
+                // clear autoreload register OK interrupt flag
+                self.lptim.icr.write(|w| w.arrokcf().set_bit());
+
+                // Write autoreload value
+                // This operation is sound as arr_value is a u16, and there are 16 writeable bits
+                self.lptim
+                    .arr
+                    .write(|w| unsafe { w.bits(arr_value as u32) });
+
+                // wait for autoreload write ok interrupt to be signalled
+                // (see RM0394 Rev 4, sec 30.4.10 for further explanation and
+                // sec. 30.7.1, Bit 4 for register field description)
+                while self.lptim.isr.read().arrok().bit_is_clear() {}
             }
 
             /// Get the current counter value for this LowPowerTimer
@@ -281,9 +299,18 @@ macro_rules! hal {
             pub fn get_arr(&self) -> u16 {
                 self.lptim.arr.read().bits() as u16
             }
+
+            pub fn pause(&mut self) {
+                self.disable();
+            }
+
+            pub fn resume(&mut self) {
+                self.enable();
+                self.start_continuous_mode();
+            }
         }
     };
 }
 
-hal!(LPTIM1, lptim1, APB1R1, lptim1en, lptim1rst, lptim1sel);
-hal!(LPTIM2, lptim2, APB1R2, lptim2en, lptim2rst, lptim2sel);
+hal!(LPTIM1, lptim1, lptim1sel);
+hal!(LPTIM2, lptim2, lptim2sel);

@@ -39,8 +39,12 @@ const APP: () = {
 
         let mut gpioa = p.GPIOA.split(&mut rcc.ahb2);
 
-        let tx_pin = gpioa.pa2.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
-        let rx_pin = gpioa.pa3.into_af7(&mut gpioa.moder, &mut gpioa.afrl);
+        let tx_pin = gpioa
+            .pa2
+            .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
+        let rx_pin = gpioa
+            .pa3
+            .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrl);
 
         let mut serial = Serial::usart2(
             p.USART2,

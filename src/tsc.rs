@@ -8,8 +8,8 @@
 //! electrode fitting a human finger tip size across a few millimeters dielectric panel.
 
 use crate::gpio::gpiob::{PB4, PB5, PB6, PB7};
-use crate::gpio::{Alternate, OpenDrain, Output, PushPull, AF9};
-use crate::rcc::AHB1;
+use crate::gpio::{Alternate, OpenDrain, PushPull};
+use crate::rcc::{Enable, Reset, AHB1};
 use crate::stm32::TSC;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -32,19 +32,19 @@ pub trait SamplePin<TSC> {
     const GROUP: u32;
     const OFFSET: u32;
 }
-impl SamplePin<TSC> for PB4<Alternate<AF9, Output<OpenDrain>>> {
+impl SamplePin<TSC> for PB4<Alternate<OpenDrain, 9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 0;
 }
-impl SamplePin<TSC> for PB5<Alternate<AF9, Output<OpenDrain>>> {
+impl SamplePin<TSC> for PB5<Alternate<OpenDrain, 9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 1;
 }
-impl SamplePin<TSC> for PB6<Alternate<AF9, Output<OpenDrain>>> {
+impl SamplePin<TSC> for PB6<Alternate<OpenDrain, 9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 2;
 }
-impl SamplePin<TSC> for PB7<Alternate<AF9, Output<OpenDrain>>> {
+impl SamplePin<TSC> for PB7<Alternate<OpenDrain, 9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 3;
 }
@@ -53,19 +53,19 @@ pub trait ChannelPin<TSC> {
     const GROUP: u32;
     const OFFSET: u32;
 }
-impl ChannelPin<TSC> for PB4<Alternate<AF9, Output<PushPull>>> {
+impl ChannelPin<TSC> for PB4<Alternate<PushPull, 9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 0;
 }
-impl ChannelPin<TSC> for PB5<Alternate<AF9, Output<PushPull>>> {
+impl ChannelPin<TSC> for PB5<Alternate<PushPull, 9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 1;
 }
-impl ChannelPin<TSC> for PB6<Alternate<AF9, Output<PushPull>>> {
+impl ChannelPin<TSC> for PB6<Alternate<PushPull, 9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 2;
 }
-impl ChannelPin<TSC> for PB7<Alternate<AF9, Output<PushPull>>> {
+impl ChannelPin<TSC> for PB7<Alternate<PushPull, 9>> {
     const GROUP: u32 = 2;
     const OFFSET: u32 = 3;
 }
@@ -142,9 +142,8 @@ impl<SPIN> Tsc<SPIN> {
         SPIN: SamplePin<TSC>,
     {
         /* Enable the peripheral clock */
-        ahb.enr().modify(|_, w| w.tscen().set_bit());
-        ahb.rstr().modify(|_, w| w.tscrst().set_bit());
-        ahb.rstr().modify(|_, w| w.tscrst().clear_bit());
+        TSC::enable(ahb);
+        TSC::reset(ahb);
 
         let config = cfg.unwrap_or(Config {
             clock_prescale: None,

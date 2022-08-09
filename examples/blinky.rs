@@ -1,7 +1,5 @@
 //! Blinks an LED
 
-#![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_std]
 #![no_main]
 
@@ -36,10 +34,10 @@ fn main() -> ! {
     let mut pwr = dp.PWR.constrain(&mut rcc.apb1r1);
 
     // Try a different clock configuration
-    let clocks = rcc.cfgr.hclk(8.mhz()).freeze(&mut flash.acr, &mut pwr);
+    let clocks = rcc.cfgr.hclk(8.MHz()).freeze(&mut flash.acr, &mut pwr);
     // let clocks = rcc.cfgr
-    //     .sysclk(64.mhz())
-    //     .pclk1(32.mhz())
+    //     .sysclk(64.MHz())
+    //     .pclk1(32.MHz())
     //     .freeze(&mut flash.acr);
 
     // let mut gpioc = dp.GPIOC.split(&mut rcc.ahb2);
@@ -54,14 +52,14 @@ fn main() -> ! {
     loop {
         // block!(timer.wait()).unwrap();
         timer.delay_ms(1000_u32);
-        led.set_high().ok();
+        led.set_high();
         // block!(timer.wait()).unwrap();
         timer.delay_ms(1000_u32);
-        led.set_low().ok();
+        led.set_low();
     }
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

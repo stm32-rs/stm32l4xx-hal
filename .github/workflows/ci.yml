@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
 
 name: Continuous integration
@@ -9,15 +9,26 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     strategy:
-      matrix:                   # All permutations of {rust, mcu}
+      matrix: # All permutations of {rust, mcu}
         rust:
           - stable
-        mcu:
-          - stm32l4x1
-          - stm32l4x2
-          - stm32l4x3
-          - stm32l4x5
-          - stm32l4x6
+        mcu: # Note leading comma is required if any additional fetures are specified
+          - { id: stm32l412, additional-features: ",stm32-usbd" }
+          - { id: stm32l422, additional-features: ",stm32-usbd" }
+          - { id: stm32l431, additional-features: "" }
+          - { id: stm32l432, additional-features: ",stm32-usbd" }
+          - { id: stm32l433, additional-features: ",stm32-usbd" }
+          - { id: stm32l442, additional-features: ",stm32-usbd" }
+          - { id: stm32l443, additional-features: ",stm32-usbd" }
+          - { id: stm32l451, additional-features: "" }
+          - { id: stm32l452, additional-features: ",stm32-usbd" }
+          - { id: stm32l462, additional-features: ",stm32-usbd" }
+          - { id: stm32l471, additional-features: "" }
+          - { id: stm32l475, additional-features: "" } # USB_OTG not supported by PAC
+          - { id: stm32l476, additional-features: ",otg_fs" }
+          - { id: stm32l486, additional-features: ",otg_fs" }
+          - { id: stm32l496, additional-features: ",otg_fs" }
+          - { id: stm32l4a6, additional-features: ",otg_fs" }
 
     steps:
       - uses: actions/checkout@v2
@@ -27,12 +38,45 @@ jobs:
           toolchain: ${{ matrix.rust }}
           target: thumbv7em-none-eabihf
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: build
+        uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
-          args: --verbose --release --examples --target thumbv7em-none-eabihf --features rt,unproven,${{ matrix.mcu }}
-      - uses: actions-rs/cargo@v1
+          args: --verbose --release --examples --target thumbv7em-none-eabihf --features rt,unproven,${{ matrix.mcu.id }}${{ matrix.mcu.additional-features }}
+      - name: test
+        uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --lib --target x86_64-unknown-linux-gnu --features rt,unproven,${{ matrix.mcu }}
+          args: --lib --target x86_64-unknown-linux-gnu --features rt,unproven,${{ matrix.mcu.id }}${{ matrix.mcu.additional-features }}
+
+  ci-r9:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+        mcu:
+          - { id: stm32l4r9, additional-features: "" }
+          - { id: stm32l4s9, additional-features: "" }
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          target: thumbv7em-none-eabihf
+          override: true
+      - name: build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --verbose --release --target thumbv7em-none-eabihf --features rt,unproven,${{ matrix.mcu.id }}${{ matrix.mcu.additional-features }}
+      # note that examples were not built
+      - name: test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --target x86_64-unknown-linux-gnu --features rt,unproven,${{ matrix.mcu.id }}${{ matrix.mcu.additional-features }}

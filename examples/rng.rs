@@ -40,14 +40,18 @@ fn main() -> ! {
     let clocks = rcc
         .cfgr
         .hsi48(true) // needed for RNG
-        .sysclk(64.mhz())
-        .pclk1(32.mhz())
+        .sysclk(64.MHz())
+        .pclk1(32.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
     // setup usart
     let mut gpioa = device.GPIOA.split(&mut rcc.ahb2);
-    let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
+    let tx = gpioa
+        .pa9
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+    let rx = gpioa
+        .pa10
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
 
     let baud_rate = 9_600; // 115_200;
     let serial = Serial::usart1(

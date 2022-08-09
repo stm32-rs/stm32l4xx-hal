@@ -6,6 +6,9 @@ use cast::u32;
 use crate::flash::ACR;
 use crate::pwr::Pwr;
 use crate::time::Hertz;
+use fugit::RateExtU32;
+
+mod enable;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MsiFreq {
@@ -37,7 +40,7 @@ pub enum MsiFreq {
 
 impl MsiFreq {
     fn to_hertz(self) -> Hertz {
-        Hertz(match self {
+        (match self {
             Self::RANGE100K => 100_000,
             Self::RANGE200K => 200_000,
             Self::RANGE400K => 400_000,
@@ -51,6 +54,7 @@ impl MsiFreq {
             Self::RANGE32M => 32_000_000,
             Self::RANGE48M => 48_000_000,
         })
+        .Hz()
     }
 }
 
@@ -63,12 +67,12 @@ pub trait RccExt {
 impl RccExt for RCC {
     fn constrain(self) -> Rcc {
         Rcc {
-            ahb1: AHB1 { _0: () },
-            ahb2: AHB2 { _0: () },
-            ahb3: AHB3 { _0: () },
-            apb1r1: APB1R1 { _0: () },
-            apb1r2: APB1R2 { _0: () },
-            apb2: APB2 { _0: () },
+            ahb1: AHB1::new(),
+            ahb2: AHB2::new(),
+            ahb3: AHB3::new(),
+            apb1r1: APB1R1::new(),
+            apb1r2: APB1R2::new(),
+            apb2: APB2::new(),
             bdcr: BDCR { _0: () },
             csr: CSR { _0: () },
             crrcr: CRRCR { _0: () },
@@ -181,129 +185,115 @@ impl BDCR {
     }
 }
 
-/// AMBA High-performance Bus 1 (AHB1) registers
-pub struct AHB1 {
-    _0: (),
+macro_rules! bus_struct {
+    ($($busX:ident => ($EN:ident, $en:ident, $SMEN:ident, $smen:ident, $RST:ident, $rst:ident, $doc:literal),)+) => {
+        $(
+            #[doc = $doc]
+            pub struct $busX {
+                _0: (),
+            }
+
+            impl $busX {
+                pub(crate) fn new() -> Self {
+                    Self { _0: () }
+                }
+
+                #[allow(unused)]
+                pub(crate) fn enr(&self) -> &rcc::$EN {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$en }
+                }
+
+                #[allow(unused)]
+                pub(crate) fn smenr(&self) -> &rcc::$SMEN {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$smen }
+                }
+
+                #[allow(unused)]
+                pub(crate) fn rstr(&self) -> &rcc::$RST {
+                    // NOTE(unsafe) this proxy grants exclusive access to this register
+                    unsafe { &(*RCC::ptr()).$rst }
+                }
+            }
+        )+
+    };
 }
 
-impl AHB1 {
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHB1ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1enr }
-    }
-
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB1RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb1rstr }
-    }
+bus_struct! {
+    AHB1 => (AHB1ENR, ahb1enr, AHB1SMENR, ahb1smenr, AHB1RSTR, ahb1rstr, "Advanced High-performance Bus 1 (AHB1) registers"),
+    AHB2 => (AHB2ENR, ahb2enr, AHB2SMENR, ahb2smenr, AHB2RSTR, ahb2rstr, "Advanced High-performance Bus 2 (AHB2) registers"),
+    AHB3 => (AHB3ENR, ahb3enr, AHB3SMENR, ahb3smenr, AHB3RSTR, ahb3rstr, "Advanced High-performance Bus 3 (AHB3) registers"),
+    APB1R1 => (APB1ENR1, apb1enr1, APB1SMENR1, apb1smenr1, APB1RSTR1, apb1rstr1, "Advanced Peripheral Bus 1 (APB1) registers"),
+    APB1R2 => (APB1ENR2, apb1enr2, APB1SMENR2, apb1smenr2, APB1RSTR2, apb1rstr2, "Advanced Peripheral Bus 1 (APB1) registers"),
+    APB2 => (APB2ENR, apb2enr, APB2SMENR, apb2smenr, APB2RSTR, apb2rstr, "Advanced Peripheral Bus 2 (APB2) registers"),
 }
 
-/// AMBA High-performance Bus 2 (AHB2) registers
-pub struct AHB2 {
-    _0: (),
+/// Bus associated to peripheral
+pub trait RccBus: crate::Sealed {
+    /// Bus type;
+    type Bus;
 }
 
-impl AHB2 {
-    pub(crate) fn enr(&mut self) -> &rcc::AHB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb2enr }
-    }
+/// Enable/disable peripheral
+pub trait Enable: RccBus {
+    /// Enables peripheral
+    fn enable(bus: &mut Self::Bus);
 
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb2rstr }
-    }
+    /// Disables peripheral
+    fn disable(bus: &mut Self::Bus);
+
+    /// Check if peripheral enabled
+    fn is_enabled() -> bool;
+
+    /// Check if peripheral disabled
+    fn is_disabled() -> bool;
+
+    /// # Safety
+    ///
+    /// Enables peripheral. Takes access to RCC internally
+    unsafe fn enable_unchecked();
+
+    /// # Safety
+    ///
+    /// Disables peripheral. Takes access to RCC internally
+    unsafe fn disable_unchecked();
 }
 
-/// AMBA High-performance Bus (AHB3) registers
-pub struct AHB3 {
-    _0: (),
+/// Enable/disable peripheral in sleep mode
+pub trait SMEnable: RccBus {
+    /// Enables peripheral
+    fn enable_in_sleep_mode(bus: &mut Self::Bus);
+
+    /// Disables peripheral
+    fn disable_in_sleep_mode(bus: &mut Self::Bus);
+
+    /// Check if peripheral enabled
+    fn is_enabled_in_sleep_mode() -> bool;
+
+    /// Check if peripheral disabled
+    fn is_disabled_in_sleep_mode() -> bool;
+
+    /// # Safety
+    ///
+    /// Enables peripheral. Takes access to RCC internally
+    unsafe fn enable_in_sleep_mode_unchecked();
+
+    /// # Safety
+    ///
+    /// Disables peripheral. Takes access to RCC internally
+    unsafe fn disable_in_sleep_mode_unchecked();
 }
 
-impl AHB3 {
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn enr(&mut self) -> &rcc::AHB3ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb3enr }
-    }
+/// Reset peripheral
+pub trait Reset: RccBus {
+    /// Resets peripheral
+    fn reset(bus: &mut Self::Bus);
 
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn rstr(&mut self) -> &rcc::AHB3RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).ahb3rstr }
-    }
-}
-
-/// Advanced Peripheral Bus 1 (APB1) register 1 registers
-pub struct APB1R1 {
-    _0: (),
-}
-
-impl APB1R1 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR1 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr1 }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR1 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr1 }
-    }
-
-    #[cfg(not(any(feature = "stm32l4x3", feature = "stm32l4x5")))]
-    pub(crate) fn enr2(&mut self) -> &rcc::APB1ENR2 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr2 }
-    }
-
-    #[cfg(not(any(feature = "stm32l4x3", feature = "stm32l4x5")))]
-    pub(crate) fn rstr2(&mut self) -> &rcc::APB1RSTR2 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr2 }
-    }
-}
-
-/// Advanced Peripheral Bus 1 (APB1) register 2 registers
-pub struct APB1R2 {
-    _0: (),
-}
-
-impl APB1R2 {
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn enr(&mut self) -> &rcc::APB1ENR2 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1enr2 }
-    }
-    // TODO remove `allow`
-    #[allow(dead_code)]
-    pub(crate) fn rstr(&mut self) -> &rcc::APB1RSTR2 {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb1rstr2 }
-    }
-}
-
-/// Advanced Peripheral Bus 2 (APB2) registers
-pub struct APB2 {
-    _0: (),
-}
-
-impl APB2 {
-    pub(crate) fn enr(&mut self) -> &rcc::APB2ENR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2enr }
-    }
-
-    pub(crate) fn rstr(&mut self) -> &rcc::APB2RSTR {
-        // NOTE(unsafe) this proxy grants exclusive access to this register
-        unsafe { &(*RCC::ptr()).apb2rstr }
-    }
+    /// # Safety
+    ///
+    /// Resets peripheral. Takes access to RCC internally
+    unsafe fn reset_unchecked();
 }
 
 #[derive(Debug, PartialEq)]
@@ -369,12 +359,9 @@ pub struct CFGR {
 
 impl CFGR {
     /// Add an HSE to the system
-    pub fn hse<F>(mut self, freq: F, bypass: CrystalBypass, css: ClockSecuritySystem) -> Self
-    where
-        F: Into<Hertz>,
-    {
+    pub fn hse(mut self, freq: Hertz, bypass: CrystalBypass, css: ClockSecuritySystem) -> Self {
         self.hse = Some(HseConfig {
-            speed: freq.into().0,
+            speed: freq.raw(),
             bypass,
             css,
         });
@@ -390,11 +377,8 @@ impl CFGR {
     }
 
     /// Sets a frequency for the AHB bus
-    pub fn hclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.hclk = Some(freq.into().0);
+    pub fn hclk(mut self, freq: Hertz) -> Self {
+        self.hclk = Some(freq.raw());
         self
     }
 
@@ -417,39 +401,27 @@ impl CFGR {
     }
 
     /// Sets a frequency for the APB1 bus
-    pub fn pclk1<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.pclk1 = Some(freq.into().0);
+    pub fn pclk1(mut self, freq: Hertz) -> Self {
+        self.pclk1 = Some(freq.raw());
         self
     }
 
     /// Sets a frequency for the APB2 bus
-    pub fn pclk2<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.pclk2 = Some(freq.into().0);
+    pub fn pclk2(mut self, freq: Hertz) -> Self {
+        self.pclk2 = Some(freq.raw());
         self
     }
 
     /// Sets the system (core) frequency
-    pub fn sysclk<F>(mut self, freq: F) -> Self
-    where
-        F: Into<Hertz>,
-    {
-        self.sysclk = Some(freq.into().0);
+    pub fn sysclk(mut self, freq: Hertz) -> Self {
+        self.sysclk = Some(freq.raw());
         self
     }
 
     /// Sets the system (core) frequency with some pll configuration
-    pub fn sysclk_with_pll<F>(mut self, freq: F, cfg: PllConfig) -> Self
-    where
-        F: Into<Hertz>,
-    {
+    pub fn sysclk_with_pll(mut self, freq: Hertz, cfg: PllConfig) -> Self {
         self.pll_config = Some(cfg);
-        self.sysclk = Some(freq.into().0);
+        self.sysclk = Some(freq.raw());
         self
     }
 
@@ -462,6 +434,26 @@ impl CFGR {
     /// Freezes the clock configuration, making it effective
     pub fn freeze(&self, acr: &mut ACR, pwr: &mut Pwr) -> Clocks {
         let rcc = unsafe { &*RCC::ptr() };
+
+        // Switch to MSI to prevent problems with PLL configuration.
+        if rcc.cr.read().msion().bit_is_clear() {
+            // Turn on MSI and configure it to 4MHz.
+            rcc.cr.modify(|_, w| {
+                w.msirgsel().set_bit(); // MSI Range is provided by MSIRANGE[3:0].
+                w.msirange().range4m();
+                w.msipllen().clear_bit();
+                w.msion().set_bit()
+            });
+
+            // Wait until MSI is running
+            while rcc.cr.read().msirdy().bit_is_clear() {}
+        }
+        if rcc.cfgr.read().sws().bits() != 0 {
+            // Set MSI as a clock source, reset prescalers.
+            rcc.cfgr.reset();
+            // Wait for clock switch status bits to change.
+            while rcc.cfgr.read().sws().bits() != 0 {}
+        }
 
         //
         // 1. Setup clocks
@@ -592,7 +584,7 @@ impl CFGR {
                 PllSource::HSI16 => (HSI, source),
                 PllSource::MSI => {
                     if let Some(msi) = self.msi {
-                        (msi.to_hertz().0, source)
+                        (msi.to_hertz().raw(), source)
                     } else {
                         panic!("MSI selected as PLL source, but not enabled");
                     }
@@ -607,7 +599,7 @@ impl CFGR {
             }
             // 2. MSI
             else if let Some(msi) = self.msi {
-                (msi.to_hertz().0, PllSource::MSI)
+                (msi.to_hertz().raw(), PllSource::MSI)
             }
             // 3. HSI as fallback
             else {
@@ -634,7 +626,11 @@ impl CFGR {
             self.pll_config
         };
 
-        let sysclk = self.sysclk.unwrap_or(HSI);
+        let sysclk = match (self.sysclk, self.msi) {
+            (Some(sysclk), _) => sysclk,
+            (None, Some(msi)) => msi.to_hertz().raw(),
+            (None, None) => MsiFreq::RANGE4M.to_hertz().raw(),
+        };
 
         assert!(sysclk <= 80_000_000);
 
@@ -672,7 +668,7 @@ impl CFGR {
             })
             .unwrap_or((0b000, 1));
 
-        let pclk1 = hclk / u32(ppre1);
+        let pclk1: u32 = hclk / u32(ppre1);
 
         assert!(pclk1 <= sysclk);
 
@@ -689,7 +685,17 @@ impl CFGR {
             })
             .unwrap_or((0b000, 1));
 
-        let pclk2 = hclk / u32(ppre2);
+        let pclk2: u32 = hclk / u32(ppre2);
+
+        // RM0394 Rev 4, page 188
+        // 6.2.14 Timer clock
+        //
+        // The timer clock frequencies are automatically defined by hardware. There are two cases:
+        // 1. If the APB prescaler equals 1, the timer clock frequencies are set to the same
+        // frequency as that of the APB domain.
+        // 2. Otherwise, they are set to twice (×2) the frequency of the APB domain.
+        let timclk1 = if ppre1 == 1 { pclk1 } else { 2 * pclk1 };
+        let timclk2 = if ppre2 == 1 { pclk2 } else { 2 * pclk2 };
 
         assert!(pclk2 <= sysclk);
 
@@ -711,6 +717,7 @@ impl CFGR {
         }
 
         let sysclk_src_bits;
+        let mut msi = self.msi;
         if let Some(pllconf) = pllconf {
             // Sanity-checks per RM0394, 6.4.4 PLL configuration register (RCC_PLLCFGR)
             let r = pllconf.r.to_division_factor();
@@ -763,13 +770,13 @@ impl CFGR {
                     .bits(sysclk_src_bits)
             });
         } else {
-            // use HSI as source
-            sysclk_src_bits = 0b01;
+            // use MSI as fallback source for sysclk
+            sysclk_src_bits = 0b00;
+            if msi.is_none() {
+                msi = Some(MsiFreq::RANGE4M);
+            }
 
-            rcc.cr.write(|w| w.hsion().set_bit());
-            while rcc.cr.read().hsirdy().bit_is_clear() {}
-
-            // SW: HSI selected as system clock
+            // SW: MSI selected as system clock
             rcc.cfgr.write(|w| unsafe {
                 w.ppre2()
                     .bits(ppre2_bits)
@@ -789,7 +796,7 @@ impl CFGR {
         //
 
         // MSI always starts on reset
-        if self.msi.is_none() {
+        if msi.is_none() {
             rcc.cr
                 .modify(|_, w| w.msion().clear_bit().msipllen().clear_bit())
         }
@@ -799,16 +806,18 @@ impl CFGR {
         //
 
         Clocks {
-            hclk: Hertz(hclk),
+            hclk: hclk.Hz(),
             lsi: lsi_used,
             lse: self.lse.is_some(),
-            msi: self.msi,
+            msi,
             hsi48: self.hsi48,
-            pclk1: Hertz(pclk1),
-            pclk2: Hertz(pclk2),
+            pclk1: pclk1.Hz(),
+            pclk2: pclk2.Hz(),
             ppre1,
             ppre2,
-            sysclk: Hertz(sysclk),
+            sysclk: sysclk.Hz(),
+            timclk1: timclk1.Hz(),
+            timclk2: timclk2.Hz(),
             pll_source: pllconf.map(|_| pll_source),
         }
     }
@@ -906,6 +915,8 @@ pub struct Clocks {
     ppre1: u8,
     ppre2: u8,
     sysclk: Hertz,
+    timclk1: Hertz,
+    timclk2: Hertz,
     pll_source: Option<PllSource>,
 }
 
@@ -964,5 +975,15 @@ impl Clocks {
     /// Returns the system (core) frequency
     pub fn sysclk(&self) -> Hertz {
         self.sysclk
+    }
+
+    /// Returns the frequency for timers on APB1
+    pub fn timclk1(&self) -> Hertz {
+        self.timclk1
+    }
+
+    /// Returns the frequency for timers on APB2
+    pub fn timclk2(&self) -> Hertz {
+        self.timclk2
     }
 }

@@ -1,7 +1,6 @@
 //! Test the serial interface
 //!
 //! This example requires you to short (connect) the TX and RX pins.
-#![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
 #![no_std]
@@ -37,18 +36,22 @@ fn main() -> ! {
     // TRY this alternate clock configuration (clocks run at nearly the maximum frequency)
     let clocks = rcc
         .cfgr
-        .sysclk(80.mhz())
-        .pclk1(80.mhz())
-        .pclk2(80.mhz())
+        .sysclk(80.MHz())
+        .pclk1(80.MHz())
+        .pclk2(80.MHz())
         .freeze(&mut flash.acr, &mut pwr);
 
     // The Serial API is highly generic
     // TRY the commented out, different pin configurations
-    let tx = gpioa.pa9.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    // let tx = gpiob.pb6.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let tx = gpioa
+        .pa9
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+    // let tx = gpiob.pb6.into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
-    let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
-    // let rx = gpiob.pb7.into_af7(&mut gpiob.moder, &mut gpiob.afrl);
+    let rx = gpioa
+        .pa10
+        .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
+    // let rx = gpiob.pb7.into_alternate(&mut gpiob.moder, &mut gpiob.otyper, &mut gpiob.afrl);
 
     // TRY using a different USART peripheral here
     let serial = Serial::usart1(
@@ -80,6 +83,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }

@@ -39,61 +39,11 @@ fn enable_usb_pwr() {
     pwr.cr2.modify(|_, w| w.usv().set_bit());
 }
 
-/// Reset peripherals to known state.
-unsafe fn reset_peripherals(dp: &Peripherals) {
-    dp.RCC.cr.modify(|_, w| w.msion().set_bit());
-    dp.RCC.cfgr.modify(|_, w| {
-        w.sw().bits(0);
-        w.hpre().bits(0);
-        w.ppre1().bits(0);
-        w.ppre2().bits(0);
-        w.mcosel().bits(0);
-        w
-    });
-    dp.RCC.cr.modify(|_, w| {
-        w.pllsai2on().clear_bit();
-        w.pllsai1on().clear_bit();
-        w.pllon().clear_bit();
-        w.hsion().clear_bit();
-        w.csson().clear_bit();
-        w.hseon().clear_bit();
-        w
-    });
-    dp.RCC.pllcfgr.modify(|_, w| {
-        w.pllpdiv().bits(0);
-        w.pllr().bits(0);
-        w.pllren().clear_bit();
-        w.pllq().bits(0);
-        w.pllqen().clear_bit();
-        w.pllp().clear_bit();
-        w.pllpen().clear_bit();
-        w.plln().bits(1 << 4);
-        w.pllm().bits(0);
-        w.pllsrc().bits(0);
-        w
-    });
-
-    dp.RCC.crrcr.modify(|_, w| w.hsi48on().clear_bit());
-    dp.RCC.cr.modify(|_, w| w.hsebyp().clear_bit());
-
-    dp.RCC.pllcfgr.modify(|_, w| {
-        w.pllsrc().bits(0);
-        w.pllpdiv().bits(0);
-        w
-    });
-
-    dp.RCC.cier.reset();
-
-    dp.FLASH.acr.modify(|_, w| w.bits(4));
-}
-
 static mut EP_MEMORY: [u32; 1024] = [0; 1024];
 
 #[entry]
 unsafe fn main() -> ! {
     let dp = Peripherals::take().unwrap();
-
-    //reset_peripherals(&dp);
 
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
@@ -111,9 +61,9 @@ unsafe fn main() -> ! {
             rcc.cfgr
                 .msi(MsiFreq::RANGE48M) // Set the MSI (multi-speed internal) clock to 48 MHz
                 .pll_source(PllSource::MSI)
-                .sysclk_with_pll(80.mhz(), pll_cfg)
-                .pclk1(24.mhz())
-                .pclk2(24.mhz())
+                .sysclk_with_pll(80.MHz(), pll_cfg)
+                .pclk1(24.MHz())
+                .pclk2(24.MHz())
                 .freeze(&mut flash.acr, &mut pwr)
         } else {
             // Note: If program needs low-speed clocks, adjust this.
@@ -121,12 +71,12 @@ unsafe fn main() -> ! {
             rcc.cfgr
                 .msi(MsiFreq::RANGE48M)
                 .hse(
-                    16.mhz(),
+                    16.MHz(),
                     CrystalBypass::Disable, // Bypass enabled when clock signals instead of crystals/resonators are used.
                     ClockSecuritySystem::Disable, // We have not set up interrupt routines handling clock drifts/errors.
                 )
                 .pll_source(PllSource::HSE)
-                .sysclk(80.mhz())
+                .sysclk(80.MHz())
                 .freeze(&mut flash.acr, &mut pwr)
         }
     };
@@ -145,11 +95,11 @@ unsafe fn main() -> ! {
         hclk: clocks.hclk(),
         pin_dm: gpioa
             .pa11
-            .into_af10(&mut gpioa.moder, &mut gpioa.afrh)
+            .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
             .set_speed(Speed::VeryHigh),
         pin_dp: gpioa
             .pa12
-            .into_af10(&mut gpioa.moder, &mut gpioa.afrh)
+            .into_alternate(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh)
             .set_speed(Speed::VeryHigh),
     };
 

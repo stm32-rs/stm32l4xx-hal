@@ -1,7 +1,5 @@
 //! Blinks an LED
 
-#![deny(unsafe_code)]
-// #![deny(warnings)]
 #![no_std]
 #![no_main]
 
@@ -14,6 +12,7 @@ extern crate stm32l4xx_hal as hal;
 
 use crate::hal::prelude::*;
 
+use crate::hal::i2c;
 use crate::hal::i2c::I2c;
 use crate::rt::entry;
 use crate::rt::ExceptionFrame;
@@ -38,19 +37,24 @@ fn main() -> ! {
 
     let mut gpioa = dp.GPIOA.split(&mut rcc.ahb2);
 
-    let mut scl = gpioa
-        .pa9
-        .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+    let mut scl =
+        gpioa
+            .pa9
+            .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
     scl.internal_pull_up(&mut gpioa.pupdr, true);
-    let scl = scl.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
 
-    let mut sda = gpioa
-        .pa10
-        .into_open_drain_output(&mut gpioa.moder, &mut gpioa.otyper);
+    let mut sda =
+        gpioa
+            .pa10
+            .into_alternate_open_drain(&mut gpioa.moder, &mut gpioa.otyper, &mut gpioa.afrh);
     sda.internal_pull_up(&mut gpioa.pupdr, true);
-    let sda = sda.into_af4(&mut gpioa.moder, &mut gpioa.afrh);
 
-    let mut i2c = I2c::i2c1(dp.I2C1, (scl, sda), 100.khz(), clocks, &mut rcc.apb1r1);
+    let mut i2c = I2c::i2c1(
+        dp.I2C1,
+        (scl, sda),
+        i2c::Config::new(100.kHz(), clocks),
+        &mut rcc.apb1r1,
+    );
 
     // i2c.write(0x3C, &[0xCC, 0xAA]).unwrap();
     let mut buffer = [0u8; 2];
@@ -78,6 +82,6 @@ fn main() -> ! {
 }
 
 #[exception]
-fn HardFault(ef: &ExceptionFrame) -> ! {
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
     panic!("{:#?}", ef);
 }
