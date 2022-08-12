@@ -24,7 +24,7 @@ use crate::pac::{i2c1, I2C1, I2C2, I2C3};
 
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
-use cast::{u16, u8};
+use cast::u8;
 use core::ops::Deref;
 
 /// I2C error
