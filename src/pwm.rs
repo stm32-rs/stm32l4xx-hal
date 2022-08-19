@@ -7,7 +7,7 @@ use crate::hal;
 use crate::stm32::{TIM1, TIM15, TIM2};
 
 use crate::gpio::gpioa::{PA0, PA1, PA10, PA11, PA15, PA2, PA3, PA8, PA9};
-use crate::gpio::gpiob::{PB10, PB11, PB14, PB3};
+use crate::gpio::gpiob::{PB10, PB11, PB14, PB15, PB3};
 use crate::gpio::Alternate;
 use crate::rcc::{Clocks, Enable, Reset, APB1R1, APB2};
 use crate::time::Hertz;
@@ -92,15 +92,14 @@ pins_to_channels_mapping! {
     TIM2: (PB10), (C3), (1);
     TIM2: (PB11), (C4), (1);
 
-    // TIM15 - TODO: The uncommented lines are awaiting PAC updates to be valid.
     TIM15: (PB14), (C1), (14);
-    // TIM15: (PB15), (C2), (14);
+    TIM15: (PB15), (C2), (14);
     TIM15: (PA2), (C1), (14);
-    // TIM15: (PA3), (C2), (14);
-    // TIM15: (PB14, PB15), (C1, C2), (14, 14);
-    // TIM15: (PB14, PA3), (C1, C2), (14, 14);
-    // TIM15: (PA2, PB15), (C1, C2), (14, 14);
-    // TIM15: (PA2, PA3), (C1, C2), (14, 14);
+    TIM15: (PA3), (C2), (14);
+    TIM15: (PB14, PB15), (C1, C2), (14, 14);
+    TIM15: (PB14, PA3), (C1, C2), (14, 14);
+    TIM15: (PA2, PB15), (C1, C2), (14, 14);
+    TIM15: (PA2, PA3), (C1, C2), (14, 14);
 }
 
 pub trait PwmExt1: Sized {
@@ -316,10 +315,9 @@ macro_rules! small_timer {
                     tim.ccmr1_output().modify(|_, w| w.oc1pe().set_bit().oc1m().bits(6));
                 }
 
-                // TODO: The uncommented lines are awaiting PAC updates to be valid.
-                // if PINS::C2 {
-                //     tim.ccmr1_output().modify(|_, w| w.oc2pe().set_bit().oc2m().bits(6));
-                // }
+                if PINS::C2 {
+                    tim.ccmr1_output().modify(|_, w| w.oc2pe().set_bit().oc2m().bits(6));
+                }
 
                 let clk = clocks.pclk1();
                 let ticks = clk / freq;
@@ -344,8 +342,7 @@ macro_rules! small_timer {
 
             pwm_channels! {
                 $TIMX:  (C1, $arr_width, cc1e, ccr1, ccr),
-                // TODO: The uncommented line is awaiting PAC updates to be valid.
-                //        (C2, $arr_width, cc2e, ccr2, ccr2),
+                        (C2, $arr_width, cc2e, ccr2, ccr2),
             }
 
         )+
