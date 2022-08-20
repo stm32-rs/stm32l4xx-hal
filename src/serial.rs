@@ -220,6 +220,13 @@ pub struct Tx<USART> {
     _usart: PhantomData<USART>,
 }
 
+macro_rules! potentially_uncompilable {
+    (true, $expr:expr) => { $expr };
+    (false, $expr:expr) => {};
+    (true, $expr_true:expr, $expr_false:expr) => { $expr_true };
+    (false, $expr_true:expr, $expr_false:expr) => { $expr_false };
+}
+
 macro_rules! hal {
     ($(
         $(#[$meta:meta])*
@@ -227,7 +234,8 @@ macro_rules! hal {
             $usartX:ident,
             $pclkX:ident,
             tx: ($txdma:ident, $dmatxch:path, $dmatxsel:path),
-            rx: ($rxdma:ident, $dmarxch:path, $dmarxsel:path)
+            rx: ($rxdma:ident, $dmarxch:path, $dmarxsel:path),
+            $is_full_uart:ident,
         ),
     )+) => {
         $(
@@ -268,29 +276,46 @@ macro_rules! hal {
                     usart.cr2.reset();
                     usart.cr3.reset();
 
-                    // Configure baud rate
-                    match config.oversampling {
-                        Oversampling::Over8 => {
-                            let uartdiv = 2 * clocks.$pclkX().raw() / config.baudrate.0;
-                            assert!(uartdiv >= 16, "impossible baud rate");
+                    potentially_uncompilable!($is_full_uart, {
+                        // Configure baud rate
+                        match config.oversampling {
+                            Oversampling::Over8 => {
+                                let uartdiv = 2 * clocks.$pclkX().raw() / config.baudrate.0;
+                                assert!(uartdiv >= 16, "impossible baud rate");
 
-                            let lower = (uartdiv & 0xf) >> 1;
-                            let brr = (uartdiv & !0xf) | lower;
+                                let lower = (uartdiv & 0xf) >> 1;
+                                let brr = (uartdiv & !0xf) | lower;
 
-                            usart.cr1.modify(|_, w| w.over8().set_bit());
-                            usart.brr.write(|w| unsafe { w.bits(brr) });
+                                usart.cr1.modify(|_, w| w.over8().set_bit());
+                                usart.brr.write(|w| unsafe { w.bits(brr) });
+                            }
+                            Oversampling::Over16 => {
+                                let brr = clocks.$pclkX().raw() / config.baudrate.0;
+                                assert!(brr >= 16, "impossible baud rate");
+
+                                usart.brr.write(|w| unsafe { w.bits(brr) });
+                            }
                         }
-                        Oversampling::Over16 => {
-                            let brr = clocks.$pclkX().raw() / config.baudrate.0;
-                            assert!(brr >= 16, "impossible baud rate");
+                    },
+                    {
+                        use crate::rcc::LpUart1ClockSource;
+                        let fck = match clocks.lpuart1_src() {
+                            LpUart1ClockSource::Pclk => clocks.$pclkX().raw(),
+                            LpUart1ClockSource::Sysclk => clocks.sysclk().raw(),
+                            LpUart1ClockSource::Hsi16 => 16_000_000,
+                            LpUart1ClockSource::Lsi => 32_768,
+                        };
+                        assert!((fck >= 3 * config.baudrate.0) && (fck <= 4096 * config.baudrate.0), "impossible baud rate");
+                        let brr = 256u64 * (fck as u64) / config.baudrate.0 as u64;
+                        let brr = brr as u32;
+                        usart.brr.write(|w| unsafe { w.bits(brr) });
+                    });
 
-                            usart.brr.write(|w| unsafe { w.bits(brr) });
+                    potentially_uncompilable!($is_full_uart, {
+                        if let Some(val) = config.receiver_timeout {
+                            usart.rtor.modify(|_, w| w.rto().bits(val));
                         }
-                    }
-
-                    if let Some(val) = config.receiver_timeout {
-                        usart.rtor.modify(|_, w| w.rto().bits(val));
-                    }
+                    });
 
                     // enable DMA transfers
                     usart.cr3.modify(|_, w| w.dmat().set_bit().dmar().set_bit());
@@ -309,9 +334,11 @@ macro_rules! hal {
 
                     // Enable One bit sampling method
                     usart.cr3.modify(|_, w| {
-                        if config.onebit_sampling {
-                            w.onebit().set_bit();
-                        }
+                        potentially_uncompilable!($is_full_uart, {
+                            if config.onebit_sampling {
+                                w.onebit().set_bit();
+                            }
+                        });
 
                         if config.disable_overrun {
                             w.ovrdis().set_bit();
@@ -357,9 +384,11 @@ macro_rules! hal {
                             w.add().bits(c);
                         }
 
-                        if config.receiver_timeout.is_some() {
-                            w.rtoen().set_bit();
-                        }
+                        potentially_uncompilable!($is_full_uart, {
+                            if config.receiver_timeout.is_some() {
+                                w.rtoen().set_bit();
+                            }
+                        });
 
                         w
                     });
@@ -391,7 +420,7 @@ macro_rules! hal {
                             self.usart.cr1.modify(|_, w| w.cmie().set_bit())
                         },
                         Event::ReceiverTimeout => {
-                            self.usart.cr1.modify(|_, w| w.rtoie().set_bit())
+                            potentially_uncompilable!($is_full_uart, { self.usart.cr1.modify(|_, w| w.rtoie().set_bit()) });
                         },
                     }
                 }
@@ -422,7 +451,7 @@ macro_rules! hal {
                             self.usart.cr1.modify(|_, w| w.cmie().clear_bit())
                         },
                         Event::ReceiverTimeout => {
-                            self.usart.cr1.modify(|_, w| w.rtoie().clear_bit())
+                            potentially_uncompilable!($is_full_uart, { self.usart.cr1.modify(|_, w| w.rtoie().clear_bit()) });
                         },
                     }
                 }
@@ -619,21 +648,25 @@ macro_rules! hal {
                     }
                 }
 
-
                 /// Checks to see if the USART peripheral has detected an receiver timeout and
                 /// clears the flag
                 pub fn is_receiver_timeout(&mut self, clear: bool) -> bool {
-                    let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
-                    let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
+                    potentially_uncompilable!($is_full_uart, {
+                        let isr = unsafe { &(*pac::$USARTX::ptr()).isr.read() };
+                        let icr = unsafe { &(*pac::$USARTX::ptr()).icr };
 
-                    if isr.rtof().bit_is_set() {
-                        if clear {
-                            icr.write(|w| w.rtocf().set_bit() );
+                        if isr.rtof().bit_is_set() {
+                            if clear {
+                                icr.write(|w| w.rtocf().set_bit() );
+                            }
+                            true
+                        } else {
+                            false
                         }
-                        true
-                    } else {
+                    }, {
+                        let _ = clear;
                         false
-                    }
+                    })
                 }
 
                 /// Checks to see if the USART peripheral has detected an character match and
@@ -847,13 +880,13 @@ macro_rules! hal {
 }
 
 hal! {
-    USART1: (usart1, pclk2, tx: (TxDma1, dma1::C4, DmaInput::Usart1Tx), rx: (RxDma1, dma1::C5, DmaInput::Usart1Rx)),
-    USART2: (usart2, pclk1, tx: (TxDma2, dma1::C7, DmaInput::Usart2Tx), rx: (RxDma2, dma1::C6, DmaInput::Usart2Rx)),
+    USART1: (usart1, pclk2, tx: (TxDma1, dma1::C4, DmaInput::Usart1Tx), rx: (RxDma1, dma1::C5, DmaInput::Usart1Rx), true,),
+    USART2: (usart2, pclk1, tx: (TxDma2, dma1::C7, DmaInput::Usart2Tx), rx: (RxDma2, dma1::C6, DmaInput::Usart2Rx), true, ),
 }
 
 #[cfg(not(any(feature = "stm32l432", feature = "stm32l442")))]
 hal! {
-    USART3: (usart3, pclk1, tx: (TxDma3, dma1::C2, DmaInput::Usart3Tx), rx: (RxDma3, dma1::C3, DmaInput::Usart3Rx)),
+    USART3: (usart3, pclk1, tx: (TxDma3, dma1::C2, DmaInput::Usart3Tx), rx: (RxDma3, dma1::C3, DmaInput::Usart3Rx), true, ),
 }
 
 #[cfg(any(
@@ -877,7 +910,7 @@ hal! {
     feature = "stm32l4s9",
 ))]
 hal! {
-    UART4: (uart4, pclk1, tx: (TxDma4, dma2::C3, DmaInput::Uart4Tx), rx: (RxDma4, dma2::C5, DmaInput::Uart4Rx)),
+    UART4: (uart4, pclk1, tx: (TxDma4, dma2::C3, DmaInput::Uart4Tx), rx: (RxDma4, dma2::C5, DmaInput::Uart4Rx), true,),
 }
 
 #[cfg(any(
@@ -898,7 +931,8 @@ hal! {
     feature = "stm32l4s9",
 ))]
 hal! {
-    UART5: (uart5, pclk1, tx: (TxDma5, dma2::C1, DmaInput::Uart5Tx), rx: (RxDma5, dma2::C2, DmaInput::Uart5Rx)),
+    UART5: (uart5, pclk1, tx: (TxDma5, dma2::C1, DmaInput::Uart5Tx), rx: (RxDma5, dma2::C2, DmaInput::Uart5Rx), true,),
+    LPUART1: (lpuart1, pclk1, tx: (TxDmaL1, dma2::C6, DmaInput::LpUart1Tx), rx: (RxDmaL1, dma2::C7, DmaInput::LpUart1Rx), false,),
 }
 
 impl<USART, PINS> fmt::Write for Serial<USART, PINS>
@@ -1119,6 +1153,34 @@ impl_pin_traits! {
             RX: PD2;
             RTS_DE: PB4;
             CTS: PB5;
+        }
+    }
+}
+
+#[cfg(any(
+    // feature = "stm32l471", ,, missing PAC support
+    // feature = "stm32l475",
+    feature = "stm32l476",
+    // feature = "stm32l485",
+    // feature = "stm32l486",
+    // feature = "stm32l496",
+    // feature = "stm32l4a6",
+    // feature = "stm32l4p5",
+    // feature = "stm32l4q5",
+    // feature = "stm32l4r5",
+    // feature = "stm32l4s5",
+    // feature = "stm32l4r7",
+    // feature = "stm32l4s7",
+    // feature = "stm32l4r9",
+    // feature = "stm32l4s9",
+))]
+impl_pin_traits! {
+    LPUART1: {
+        8: {
+            TX: PB11, PC1;
+            RX: PB10, PC0;
+            RTS_DE: ;
+            CTS: ;
         }
     }
 }

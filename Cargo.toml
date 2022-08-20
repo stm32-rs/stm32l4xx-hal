@@ -203,3 +203,7 @@ required-features = ["rt"]
 [[example]]
 name = "adc_dma"
 required-features = ["rt"]
+
+[[example]]
+name = "serial_lpuart1_rtic"
+required-features = ["rt", "stm32l476"]

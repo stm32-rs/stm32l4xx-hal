@@ -89,6 +89,7 @@ impl RccExt for RCC {
                 sysclk: None,
                 pll_source: None,
                 pll_config: None,
+                lpuart1_src: LpUart1ClockSource::Pclk,
             },
         }
     }
@@ -156,6 +157,14 @@ impl CRRCR {
     pub fn is_hsi48_ready(&mut self) -> bool {
         self.crrcr().read().hsi48rdy().bit()
     }
+}
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum LpUart1ClockSource {
+    Pclk = 0b00,
+    Sysclk = 0b01,
+    Hsi16 = 0b10,
+    Lsi = 0b11
 }
 
 /// Peripherals independent clock configuration register
@@ -355,6 +364,7 @@ pub struct CFGR {
     sysclk: Option<u32>,
     pll_source: Option<PllSource>,
     pll_config: Option<PllConfig>,
+    lpuart1_src: LpUart1ClockSource,
 }
 
 impl CFGR {
@@ -428,6 +438,12 @@ impl CFGR {
     /// Sets the PLL source
     pub fn pll_source(mut self, source: PllSource) -> Self {
         self.pll_source = Some(source);
+        self
+    }
+
+    /// Sets LPUART1 clock source
+    pub fn lpuart1_clk_src(mut self, source: LpUart1ClockSource) -> Self {
+        self.lpuart1_src = source;
         self
     }
 
@@ -608,8 +624,18 @@ impl CFGR {
         };
 
         // Check if HSI should be started
-        if pll_source == PllSource::HSI16 || (self.msi.is_none() && self.hse.is_none()) {
-            rcc.cr.write(|w| w.hsion().set_bit());
+        let lpuart1_clk_from_hsi = match self.lpuart1_src {
+            LpUart1ClockSource::Hsi16 => {
+                rcc.ccipr.modify(|_, w| unsafe { w.lpuart1sel().bits(self.lpuart1_src as u8) });
+                true
+            }
+            LpUart1ClockSource::Lsi => {
+                todo!()
+            }
+            _ => false,
+        };
+        if pll_source == PllSource::HSI16 || (self.msi.is_none() && self.hse.is_none()) || lpuart1_clk_from_hsi {
+            rcc.cr.modify(|_, w| w.hsion().set_bit());
             while rcc.cr.read().hsirdy().bit_is_clear() {}
         }
 
@@ -819,6 +845,7 @@ impl CFGR {
             timclk1: timclk1.Hz(),
             timclk2: timclk2.Hz(),
             pll_source: pllconf.map(|_| pll_source),
+            lpuart1_src: self.lpuart1_src
         }
     }
 }
@@ -918,6 +945,7 @@ pub struct Clocks {
     timclk1: Hertz,
     timclk2: Hertz,
     pll_source: Option<PllSource>,
+    lpuart1_src: LpUart1ClockSource,
 }
 
 impl Clocks {
@@ -985,5 +1013,9 @@ impl Clocks {
     /// Returns the frequency for timers on APB2
     pub fn timclk2(&self) -> Hertz {
         self.timclk2
+    }
+
+    pub fn lpuart1_src(&self) -> LpUart1ClockSource {
+        self.lpuart1_src
     }
 }
