@@ -298,7 +298,13 @@ macro_rules! hal {
                         }
                     },
                     {
-                        let fck = clocks.$pclkX().raw();
+                        use crate::rcc::LpUart1ClockSource;
+                        let fck = match clocks.lpuart1_src() {
+                            LpUart1ClockSource::Pclk => clocks.$pclkX().raw(),
+                            LpUart1ClockSource::Sysclk => clocks.sysclk().raw(),
+                            LpUart1ClockSource::Hsi16 => 16_000_000,
+                            LpUart1ClockSource::Lsi => 32_768,
+                        };
                         assert!((fck >= 3 * config.baudrate.0) && (fck <= 4096 * config.baudrate.0), "impossible baud rate");
                         let brr = 256u64 * (fck as u64) / config.baudrate.0 as u64;
                         let brr = brr as u32;
