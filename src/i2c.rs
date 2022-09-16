@@ -24,7 +24,7 @@ use crate::pac::{i2c1, I2C1, I2C2, I2C3};
 
 use crate::rcc::{Clocks, Enable, RccBus, Reset};
 use crate::time::Hertz;
-use cast::{u16, u8};
+use cast::u8;
 use core::ops::Deref;
 
 /// I2C error
@@ -301,6 +301,64 @@ where
 {
     type Error = Error;
 
+    // Write function that supports transmission of more than 255 bytes.
+    // This function is not tested, so it has been deactivated
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.i2c.cr2.read().start().bit_is_set() {}
+
+        let bytes_length = bytes.len();
+
+        // Set START and prepare to send `bytes`. The
+        // START bit can be set even if the bus is BUSY or
+        // I2C is in slave mode.
+        self.i2c.cr2.write(|w| {
+            w.sadd()
+                .bits((addr << 1 | 0) as u16)
+                .rd_wrn()
+                .write()
+                .start()
+                .set_bit()
+                .autoend()
+                .software()
+                .reload()
+                .bit(bytes_length > 255)
+                .nbytes()
+                .bits(core::cmp::min(bytes_length, 255) as u8)
+        });
+
+        for (index, byte) in bytes.iter().enumerate() {
+            // Wait until last transmission is done
+            busy_wait!(self.i2c, txis, is_empty);
+            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+
+            let bytes_sent = index + 1;
+            let bytes_remaining = bytes_length - bytes_sent;
+
+            if bytes_sent % 255 == 0 && bytes_remaining > 255 {
+                busy_wait!(self.i2c, tcr, is_complete);
+                self.i2c.cr2.write(|w| {
+                    w.reload()
+                        .bit(bytes_remaining > 255)
+                        .nbytes()
+                        .bits(core::cmp::min(bytes_remaining, 255) as u8)
+                })
+            }
+        }
+
+        // Wait until the write finishes
+        busy_wait!(self.i2c, tc, is_complete);
+
+        // Stop
+        self.i2c.cr2.write(|w| w.stop().set_bit());
+
+        Ok(())
+        // Tx::new(&self.i2c)?.write(addr, bytes)
+    }
+
+    /*
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
         assert!(bytes.len() < 256);
@@ -347,6 +405,7 @@ where
         Ok(())
         // Tx::new(&self.i2c)?.write(addr, bytes)
     }
+    */
 }
 
 impl<PINS, I2C> Read for I2c<I2C, PINS>
@@ -356,13 +415,11 @@ where
     type Error = Error;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
-        // TODO support transfers of more than 255 bytes
-        assert!(buffer.len() < 256 && buffer.len() > 0);
-
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
         while self.i2c.cr2.read().start().bit_is_set() {}
+        let buffer_length = buffer.len();
 
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
@@ -372,22 +429,36 @@ where
                 .bits((addr << 1 | 0) as u16)
                 .rd_wrn()
                 .read()
-                .nbytes()
-                .bits(buffer.len() as u8)
                 .start()
                 .set_bit()
                 .autoend()
-                .automatic()
+                .software()
+                .reload()
+                .bit(buffer_length > 255)
+                .nbytes()
+                .bits(core::cmp::min(buffer_length, 255) as u8)
         });
 
-        for byte in buffer {
+        for (index, byte) in buffer.iter_mut().enumerate() {
             // Wait until we have received something
             busy_wait!(self.i2c, rxne, is_not_empty);
-
             *byte = self.i2c.rxdr.read().rxdata().bits();
+
+            let bytes_received = index + 1;
+            let bytes_remaining = buffer_length - bytes_received;
+
+            if bytes_received % 255 == 0 && bytes_remaining > 0 {
+                self.i2c.cr2.write(|w| {
+                    w.reload()
+                        .bit(bytes_remaining > 255)
+                        .nbytes()
+                        .bits(core::cmp::min(bytes_remaining, 255) as u8)
+                })
+            }
         }
 
-        // automatic STOP
+        // Stop
+        self.i2c.cr2.write(|w| w.stop().set_bit());
 
         Ok(())
         // Rx::new(&self.i2c)?.read(addr, buffer)
@@ -402,8 +473,8 @@ where
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(bytes.len() < 256 && bytes.len() > 0);
-        assert!(buffer.len() < 256 && buffer.len() > 0);
+        //assert!(bytes.len() < 256 && bytes.len() > 0);
+        //assert!(buffer.len() < 256 && buffer.len() > 0);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -413,55 +484,9 @@ where
         // Set START and prepare to send `bytes`. The
         // START bit can be set even if the bus is BUSY or
         // I2C is in slave mode.
-        self.i2c.cr2.write(|w| {
-            w.start()
-                .set_bit()
-                .sadd()
-                .bits(u16(addr << 1 | 0))
-                .add10()
-                .clear_bit()
-                .rd_wrn()
-                .write()
-                .nbytes()
-                .bits(bytes.len() as u8)
-                .autoend()
-                .software()
-        });
+        self.write(addr, bytes)?;
 
-        for byte in bytes {
-            // Wait until we are allowed to send data
-            // (START has been ACKed or last byte went through)
-            busy_wait!(self.i2c, txis, is_empty);
-
-            // Put byte on the wire
-            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
-        }
-
-        // Wait until the write finishes before beginning to read.
-        busy_wait!(self.i2c, tc, is_complete);
-
-        // reSTART and prepare to receive bytes into `buffer`
-        self.i2c.cr2.write(|w| {
-            w.sadd()
-                .bits(u16(addr << 1 | 1))
-                .add10()
-                .clear_bit()
-                .rd_wrn()
-                .read()
-                .nbytes()
-                .bits(buffer.len() as u8)
-                .start()
-                .set_bit()
-                .autoend()
-                .automatic()
-        });
-
-        for byte in buffer {
-            // Wait until we have received something
-            busy_wait!(self.i2c, rxne, is_not_empty);
-
-            *byte = self.i2c.rxdr.read().rxdata().bits();
-        }
+        self.read(addr, buffer)?;
 
         Ok(())
     }
