@@ -1,5 +1,8 @@
 //! Comparator
-use crate::{pac, rcc::{APB2, Enable, Reset}};
+use crate::{
+    pac,
+    rcc::{Enable, Reset, APB2},
+};
 
 // Config enums
 /// Comparator power mode
