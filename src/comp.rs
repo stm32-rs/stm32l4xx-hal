@@ -12,11 +12,24 @@ pub enum PowerMode {
     LowSpeed = 0x0000000c,
 }
 
-// TODO Io pins based on MCU
 /// Comparator input plus (Non-inverting Input)
 pub enum NonInvertingInput {
-    Io1 = 0x00000000,
-    Io2 = 0x00000080,
+    PC5 = 0x00000000,
+    PB2 = 0x00000080,
+    // PA1 for STM32L41xxx/42xxx/43xxx/44xxx/45xxx/46xxx
+    #[cfg(any(
+        feature = "stm32l431",
+        feature = "stm32l451",
+        feature = "stm32l412",
+        feature = "stm32l422",
+        feature = "stm32l432",
+        feature = "stm32l442",
+        feature = "stm32l452",
+        feature = "stm32l462",
+        feature = "stm32l433",
+        feature = "stm32l443",
+    ))]
+    PA1 = 0x00000100,
 }
 
 // TODO Values are based on SCALEN (0x800000) and BRGEN (0x400000) check for other MCU.
