@@ -1,4 +1,12 @@
 //! Comparator
+//!
+//! TODO:
+//! - Window Mode Configuration (COMP1 and COMP2 have different configs)
+//! - Blanking Source Configuration (COMP1 and COMP2 have different configs)
+//! - More Inputs For Inverting Input (STM32L41xxx/42xxx/43xxx/44xxx/45xxx/46xxx)
+//! - Moving Peripheral into Struct (pac needs to change)
+//! - Add Configuration Defaults
+//! - Interrupts?
 use crate::{
     pac,
     rcc::{Enable, Reset, APB2},
@@ -7,16 +15,25 @@ use crate::{
 // Config enums
 /// Comparator power mode
 pub enum PowerMode {
+    /// High speed/full power (Lowest propagation delay).
     HighSpeed = 0x00000000,
+    /// Medium speed/medium power (Medium propagation delay).
     MediumSpeed = 0x00000004,
+    /// Low speed/ultra-low power (Highest propagation delay).
     LowSpeed = 0x0000000c,
 }
 
 /// Comparator input plus (Non-inverting Input)
 pub enum NonInvertingInput {
-    PC5 = 0x00000000,
-    PB2 = 0x00000080,
-    // PA1 for STM32L41xxx/42xxx/43xxx/44xxx/45xxx/46xxx
+    /// From the first GPIO pin connected to the comparator.
+    ///
+    /// The GPIO pin used depends on the MCU and comparator used.
+    Io1 = 0x00000000,
+    /// From the second GPIO pin connected to the comparator.
+    ///
+    /// The GPIO pin used depends on the MCU and comparator used.
+    Io2 = 0x00000080,
+    // PA1/PA3 for STM32L41xxx/42xxx/43xxx/44xxx/45xxx/46xxx
     #[cfg(any(
         feature = "stm32l431",
         feature = "stm32l451",
@@ -29,7 +46,10 @@ pub enum NonInvertingInput {
         feature = "stm32l433",
         feature = "stm32l443",
     ))]
-    PA1 = 0x00000100,
+    /// From the third GPIO pin connected to the comparator.
+    ///
+    /// The GPIO pin used depends on the MCU and comparator used.
+    Io3 = 0x00000100,
 }
 
 // TODO Values are based on SCALEN (0x800000) and BRGEN (0x400000) check for other MCU.
@@ -59,9 +79,13 @@ pub enum InvertingInput {
 
 /// Comparator hysterisis
 pub enum Hysterisis {
+    /// No Hysterisis.
     NoHysterisis = 0x00000000,
+    /// Low Hysterisis.
     LowHysteresis = 0x00010000,
+    /// Medium Hysterisis.
     MediumHysteresis = 0x00020000,
+    /// High Hysterisis.
     HighHysteresis = 0x00030000,
 }
 
@@ -85,8 +109,10 @@ pub enum OutputPolarity {
 
 /// Comparator blanking source
 pub enum BlankingSource {
+    /// No Blanking.
     None = 0x00000000,
-    Timloc5,
+    /// TIM1 OC5 as the blanking source.
+    Timloc5 = 0x400000,
 }
 
 /// Comparator devices avaiable.
@@ -163,7 +189,9 @@ macro_rules! modify_bit {
 
 /// Represents an Analog Comparator peripheral.
 pub struct Comp {
+    /// The comparator device.
     device: CompDevice,
+    /// The lock status of the comparator.
     is_locked: bool,
 }
 
@@ -265,8 +293,8 @@ impl Comp {
     ///
     /// This locks the comparator registers making it only read-only.
     ///
-    /// *Note:* The lock also applies to the lock bit itself. Therefore,
-    /// the comparator register/configuration *cannot* be changed until
+    /// **Note:** The lock also applies to the lock bit itself. Therefore,
+    /// the comparator register/configuration **cannot** be changed until
     /// a hardware reset.
     ///
     /// This function will return an Error when the comparator is locked.
