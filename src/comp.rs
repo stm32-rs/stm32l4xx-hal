@@ -111,8 +111,8 @@ pub struct CompConfig {
     pub hyst: Hysterisis,
     /// Comparator output polarity.
     pub polarity: OutputPolarity,
-    /// Comparator blanking source.
-    pub blanking: BlankingSource,
+    // Comparator blanking source.
+    // pub blanking: BlankingSource,
 }
 
 /// Macro to write bits to the register
@@ -176,8 +176,7 @@ impl Comp {
             is_locked: false,
         };
 
-        let config = cfg.blanking as u32
-            | cfg.hyst as u32
+        let config = cfg.hyst as u32
             | cfg.inmsel as u32
             | cfg.inpsel as u32
             | cfg.polarity as u32
