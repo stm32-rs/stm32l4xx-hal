@@ -42,8 +42,6 @@ fn main() -> ! {
     // Setting Up Comparator
     // Comparator Configuration
     let cfg = CompConfig {
-        // No blanking
-        blanking: comp::BlankingSource::None,
         // No Hysterysis
         hyst: comp::Hysterisis::NoHysterisis,
         // Using internal Vref as negative input
@@ -62,7 +60,7 @@ fn main() -> ! {
     // Creating Comparator device using COMP1
     let mut comparator = Comp::new(CompDevice::One, cfg, &mut rcc.apb2);
     // Starting Comparator
-    comparator.start();
+    comparator.start().unwrap();
 
     loop {
         // Reading and Printing Output
