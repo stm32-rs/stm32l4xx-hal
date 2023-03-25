@@ -137,6 +137,8 @@ bus! {
     TIM15 => (APB2, tim15en, tim15smen, tim15rst), // 16
     TIM16 => (APB2, tim16en, tim16smen, tim16rst), // 17
     SAI1 => (APB2, sai1en, sai1smen, sai1rst), // 21
+
+    COMP => (APB2, syscfgen, syscfgsmen, syscfgrst),
 }
 
 // L4x1, L4x2, L4x3, L4x5 or L4x6

@@ -203,3 +203,7 @@ required-features = ["rt"]
 [[example]]
 name = "adc_dma"
 required-features = ["rt"]
+
+[[example]]
+name = "comparator"
+required-features = ["rt"]
