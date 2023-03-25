@@ -162,7 +162,7 @@ macro_rules! clear_bit {
             let regs = &(*pac::COMP::ptr()).$comp;
             let current_bits = regs.read().bits();
             let output_bits = current_bits & !$value;
-            regs.write(|w| w.bits(output_bits))
+            regs.modify(|_, w| w.bits(output_bits))
         }
     };
 }
