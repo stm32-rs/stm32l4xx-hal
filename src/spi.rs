@@ -377,6 +377,12 @@ pins!(SPI2, 5,
     MISO: [PB14, PC2, PD3],
     MOSI: [PB15, PC3, PD4]);
 
+#[cfg(any(feature = "stm32l496",))]
+pins!(SPI2, 3,
+    SCK: [PD3],
+    MISO: [],
+    MOSI: [PC1]);
+
 pub struct SpiPayload<SPI, PINS> {
     spi: Spi<SPI, PINS>,
 }
