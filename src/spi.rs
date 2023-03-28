@@ -379,7 +379,7 @@ pins!(SPI2, 5,
 
 #[cfg(any(feature = "stm32l496",))]
 pins!(SPI2, 3,
-    SCK: [PD3],
+    SCK: [PA9, PD3],
     MISO: [],
     MOSI: [PC1]);
 
