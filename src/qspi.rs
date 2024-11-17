@@ -675,9 +675,7 @@ impl<CLK, NCS, IO0, IO1, IO2, IO3> Qspi<(CLK, NCS, IO0, IO1, IO2, IO3)> {
         if let Some((data, _)) = command.data {
             for byte in data {
                 while self.qspi.sr.read().ftf().bit_is_clear() {}
-                unsafe {
-                    ptr::write_volatile(&self.qspi.dr as *const _ as *mut u8, *byte);
-                }
+                self.qspi.dr.write(|w| unsafe { w.bits(u32::from(*byte)) });
             }
         }
 

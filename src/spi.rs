@@ -268,7 +268,7 @@ macro_rules! hal {
                         nb::Error::Other(Error::Crc)
                     } else if sr.txe().bit_is_set() {
                         // NOTE(write_volatile) see note above
-                        unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, byte) }
+                        self.spi.dr.write(|w| unsafe{ w.bits(u32::from(byte) ) });
                         return Ok(());
                     } else {
                         nb::Error::WouldBlock
