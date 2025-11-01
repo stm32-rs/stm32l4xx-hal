@@ -5,6 +5,7 @@
 //! don't have it (L432xx and L442xx don't, L452xx does). Users of this MCU variant that
 //! don't have it shouldn't attempt to use it. Relevant info is on user-manual level.
 
+use core::cell::UnsafeCell;
 use core::ptr;
 use core::sync::atomic;
 use core::sync::atomic::Ordering;
@@ -250,7 +251,7 @@ macro_rules! hal {
                         // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
                         // reading a half-word)
                         return Ok(unsafe {
-                            ptr::read_volatile(&self.spi.dr as *const _ as *const u8)
+                            ptr::read_volatile(UnsafeCell::raw_get(&self.spi.dr as *const _ as *const _))
                         });
                     } else {
                         nb::Error::WouldBlock
@@ -268,7 +269,7 @@ macro_rules! hal {
                         nb::Error::Other(Error::Crc)
                     } else if sr.txe().bit_is_set() {
                         // NOTE(write_volatile) see note above
-                        unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, byte) }
+                        unsafe { ptr::write_volatile(UnsafeCell::raw_get(&self.spi.dr as *const _ as *mut _), byte) }
                         return Ok(());
                     } else {
                         nb::Error::WouldBlock

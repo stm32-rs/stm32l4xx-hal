@@ -2,6 +2,7 @@
 //!
 //! This module support both polling and interrupt based accesses to the serial peripherals.
 
+use core::cell::UnsafeCell;
 use core::fmt;
 use core::marker::PhantomData;
 use core::ops::DerefMut;
@@ -468,7 +469,7 @@ macro_rules! hal {
                     if isr.rxne().bit_is_set() {
                         // NOTE(read_volatile) see `write_volatile` below
                         return Ok(unsafe {
-                            ptr::read_volatile(&(*pac::$USARTX::ptr()).rdr as *const _ as *const _)
+                            ptr::read_volatile(UnsafeCell::raw_get(&(*pac::$USARTX::ptr()).rdr as *const _ as *const _))
                         });
                     }
 
@@ -520,7 +521,7 @@ macro_rules! hal {
                         // NOTE(unsafe) atomic write to stateless register
                         // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
                         unsafe {
-                            ptr::write_volatile(&(*pac::$USARTX::ptr()).tdr as *const _ as *mut _, byte)
+                            ptr::write_volatile(UnsafeCell::raw_get(&(*pac::$USARTX::ptr()).tdr as *const _ as *mut _), byte)
                         }
                         Ok(())
                     } else {

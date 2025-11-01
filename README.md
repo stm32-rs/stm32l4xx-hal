@@ -14,7 +14,7 @@ _formerly [MabezDev/stm32l4xx-hal](https://github.com/mabezdev/stm32l4xx-hal)_
 
 ## About
 
-    - Minimum rustc version 1.51
+    - Minimum rustc version 1.73
 
 ## License
 
