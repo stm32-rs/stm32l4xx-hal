@@ -267,7 +267,7 @@ impl<SPIN> Tsc<SPIN> {
     /// Reads the tsc group 2 count register
     /// WARNING, just returns the contents of the register! No validation of the correct pin
     pub fn read_unchecked(&self) -> u16 {
-        self.tsc.iog2cr.read().cnt().bits()
+        self.tsc.iog2cr().read().cnt().bits()
     }
 
     /// Is the tsc performing an aquisition

@@ -694,8 +694,8 @@ macro_rules! dma {
                         #[cfg(not(any(
                             // feature = "stm32l4p5",
                             // feature = "stm32l4q5",
-                            // feature = "stm32l4r5",
-                            // feature = "stm32l4s5",
+                            feature = "stm32l4r5",
+                            feature = "stm32l4s5",
                             // feature = "stm32l4r7",
                             // feature = "stm32l4s7",
                             feature = "stm32l4r9",
@@ -1126,8 +1126,8 @@ macro_rules! dma {
                         #[cfg(any(
                             // feature = "stm32l4p5",
                             // feature = "stm32l4q5",
-                            // feature = "stm32l4r5",
-                            // feature = "stm32l4s5",
+                            feature = "stm32l4r5",
+                            feature = "stm32l4s5",
                             // feature = "stm32l4r7",
                             // feature = "stm32l4s7",
                             feature = "stm32l4r9",
